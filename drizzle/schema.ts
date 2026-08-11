@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { index, int, json, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -25,4 +25,64 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+export const extractionRuns = mysqlTable("extraction_runs", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  status: mysqlEnum("status", ["running", "approved", "blocked", "failed"]).notNull(),
+  masterCount: int("master_count").notNull(),
+  processedCount: int("processed_count").notNull().default(0),
+  parserVersion: varchar("parser_version", { length: 32 }).notNull(),
+  validationJson: json("validation_json").notNull(),
+  createdByUserId: int("created_by_user_id"),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, table => [index("extraction_runs_status_idx").on(table.status), index("extraction_runs_created_idx").on(table.createdAt)]);
+
+export const schoolConsultations = mysqlTable("school_consultations", {
+  id: int("id").autoincrement().primaryKey(),
+  runId: varchar("run_id", { length: 64 }).notNull(),
+  inep: varchar("inep", { length: 8 }).notNull(),
+  sme: varchar("sme", { length: 16 }).notNull(),
+  sourceUrl: text("source_url").notNull(),
+  consultedAt: timestamp("consulted_at").notNull(),
+  status: mysqlEnum("status", ["success", "failed"]).notNull(),
+  attempts: int("attempts").notNull(),
+  httpStatus: int("http_status"),
+  parserVersion: varchar("parser_version", { length: 32 }).notNull(),
+  sourceHashSha256: varchar("source_hash_sha256", { length: 64 }),
+  rawHtmlKey: text("raw_html_key"),
+  normalizedJsonKey: text("normalized_json_key"),
+  programsJson: json("programs_json").notNull(),
+  unknownDestinationsJson: json("unknown_destinations_json").notNull(),
+  validationIssuesJson: json("validation_issues_json").notNull(),
+  exception: text("exception"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, table => [index("school_consultations_run_idx").on(table.runId), index("school_consultations_inep_idx").on(table.inep), index("school_consultations_run_inep_idx").on(table.runId, table.inep)]);
+
+export const runArtifacts = mysqlTable("run_artifacts", {
+  id: int("id").autoincrement().primaryKey(),
+  runId: varchar("run_id", { length: 64 }).notNull(),
+  kind: mysqlEnum("kind", ["workbook", "manifest", "raw_html", "normalized_json"]).notNull(),
+  storageKey: text("storage_key").notNull(),
+  storageUrl: text("storage_url").notNull(),
+  contentType: varchar("content_type", { length: 128 }).notNull(),
+  sha256: varchar("sha256", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, table => [index("run_artifacts_run_idx").on(table.runId), index("run_artifacts_kind_idx").on(table.kind)]);
+
+export const runFindings = mysqlTable("run_findings", {
+  id: int("id").autoincrement().primaryKey(),
+  runId: varchar("run_id", { length: 64 }).notNull(),
+  inep: varchar("inep", { length: 8 }),
+  severity: mysqlEnum("severity", ["info", "warning", "critical"]).notNull(),
+  code: varchar("code", { length: 80 }).notNull(),
+  message: text("message").notNull(),
+  previousValue: text("previous_value"),
+  currentValue: text("current_value"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, table => [index("run_findings_run_idx").on(table.runId), index("run_findings_severity_idx").on(table.severity)]);
+
+export type ExtractionRun = typeof extractionRuns.$inferSelect;
+export type SchoolConsultation = typeof schoolConsultations.$inferSelect;
+export type RunArtifact = typeof runArtifacts.$inferSelect;
+export type RunFinding = typeof runFindings.$inferSelect;

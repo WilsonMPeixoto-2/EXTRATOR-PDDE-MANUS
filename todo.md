@@ -14,3 +14,24 @@
 - [x] Explicitar que a trilha de auditoria por unidade integra a aba obrigatória "Validação V2", sem criar uma terceira aba.
 - [x] Disponibilizar botões distintos para download direto do Excel da sessão e abertura da cópia persistente aprovada.
 - [x] Cobrir em teste automatizado a liberação do download apenas quando a validação for aprovada.
+- [ ] Renomear a semântica financeira para diferenciar pagamento registrado no PDDEInfo de crédito bancário confirmado.
+- [ ] Criar catálogo explícito de destinações e programas, bloqueando a exportação diante de rótulo desconhecido ou ambíguo.
+- [ ] Validar registros extraídos com esquema, identificadores, formatos de conta, datas e invariantes aritméticas.
+- [ ] Preservar por execução o HTML bruto, JSON normalizado, URL, horário, status HTTP, versão do parser e hash SHA-256.
+- [ ] Persistir histórico imutável de execuções, consultas por escola, validações, artefatos e autor da operação.
+- [ ] Comparar cada execução com a última linha de base aprovada e sinalizar perdas de pagamento ou alterações relevantes.
+- [ ] Criar navegação de auditoria para consultar execução, escola, evidência, anomalia e alteração histórica.
+- [ ] Proteger a operação com autenticação, limites de requisição e registro de operador.
+- [ ] Adicionar fixtures reais anonimizadas, dataset dourado e testes de schema, aritmética, alertas e histórico.
+- [ ] Validar tecnicamente as consultas públicas SIGEF de Liberação de Recursos, Conta Corrente e Movimentação Bancária, sem assumir disponibilidade ou chaves de ligação.
+- [ ] Modelar proveniência por campo e status de conciliação entre PDDEInfo, SIGEF e confirmação bancária.
+- [ ] Manter dados de fontes distintas separados, sem preenchimento silencioso de conta, pagamento ou crédito.
+- [ ] Integrar somente as rotas SIGEF comprovadamente acessíveis, com evidência, limites de consulta e tratamento de divergências.
+- [ ] Criar contrato de proveniência por campo, incluindo fonte, URL, evidência bruta, regra de parsing, transformação, hash, validações e nível de confirmação.
+- [ ] Modelar eventos de auditoria imutáveis para coleta, parsing, normalização, validação, conciliação, exportação e intervenção humana.
+- [ ] Implementar interface de auditoria com busca por execução, escola, programa e campo; painel de evidência; linha do tempo; comparador histórico e fila de exceções.
+- [ ] Substituir estados genéricos por uma taxonomia que diferencie OB corroborada, crédito localizado no SIGEF, crédito confirmado em extrato BB, divergência, estorno e consulta inconclusiva.
+- [ ] Proibir o uso de “Não pago” como conclusão absoluta e registrar data/hora e fontes consultadas nas ausências de evidência.
+- [ ] Associar conta SIGEF somente mediante correspondência documentada de CNPJ, exercício, programa, ação/parcela, valor, data, OB e conta destinatária, conforme disponibilidade.
+- [ ] Suportar conciliação de um pagamento contra múltiplas ordens bancárias, créditos, aplicações automáticas, estornos e devoluções.
+- [ ] Validar Dados Abertos do FNDE como controle secundário por arquivo, com data de atualização, exercício, cobertura e completude registrados.
