@@ -28,9 +28,14 @@
 - [ ] Manter dados de fontes distintas separados, sem preenchimento silencioso de conta, pagamento ou crédito.
 - [ ] Integrar somente as rotas SIGEF comprovadamente acessíveis, com evidência, limites de consulta e tratamento de divergências.
 - [ ] Criar contrato de proveniência por campo, incluindo fonte, URL, evidência bruta, regra de parsing, transformação, hash, validações e nível de confirmação.
-- [ ] Modelar eventos de auditoria imutáveis para coleta, parsing, normalização, validação, conciliação, exportação e intervenção humana.
+- [x] Modelar eventos de auditoria imutáveis para coleta, parsing, normalização, validação, conciliação, exportação e intervenção humana.
 - [ ] Implementar interface de auditoria com busca por execução, escola, programa e campo; painel de evidência; linha do tempo; comparador histórico e fila de exceções.
 - [ ] Substituir estados genéricos por uma taxonomia que diferencie OB corroborada, crédito localizado no SIGEF, crédito confirmado em extrato BB, divergência, estorno e consulta inconclusiva.
+- [ ] Referenciar, em cada observação de campo, o artefato bruto HTML/JSON persistido e o trecho de evidência navegável.
+- [ ] Popular resultados de validação e estado de evidência no pipeline de extração, refletindo-os na auditoria, interface e Excel.
+- [ ] Cobrir em testes o preenchimento real de proveniência, validações e estados, além da existência dos tipos.
+- [x] Produzir matriz de viabilidade técnica por fonte, distinguindo capacidade já comprovada, integração possível mediante piloto e dependências institucionais de acesso/autorização.
+- [ ] Executar piloto controlado de navegação, consulta, extração, armazenamento e recuperação de evidências antes de habilitar cada fonte em produção.
 - [ ] Proibir o uso de “Não pago” como conclusão absoluta e registrar data/hora e fontes consultadas nas ausências de evidência.
 - [ ] Associar conta SIGEF somente mediante correspondência documentada de CNPJ, exercício, programa, ação/parcela, valor, data, OB e conta destinatária, conforme disponibilidade.
 - [ ] Suportar conciliação de um pagamento contra múltiplas ordens bancárias, créditos, aplicações automáticas, estornos e devoluções.

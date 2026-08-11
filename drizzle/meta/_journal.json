@@ -15,6 +15,20 @@
       "when": 1786486120791,
       "tag": "0001_omniscient_leper_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1786491755379,
+      "tag": "0002_fresh_landau",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1786491928878,
+      "tag": "0003_burly_thunderbolt",
+      "breakpoints": true
     }
   ]
 }

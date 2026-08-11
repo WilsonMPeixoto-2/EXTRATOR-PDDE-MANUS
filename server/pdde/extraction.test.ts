@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MASTER_SCHOOLS } from "./masterList";
 import { accountForExactProgram, parseSchoolPage } from "./parser";
+import { attachEvidenceArtifacts } from "./provenance";
 import { canReleaseDownload, validateExtraction } from "./workbook";
 import type { SchoolExtraction } from "./types";
 
@@ -23,6 +24,49 @@ describe("vinculação bancária por programa", () => {
     expect(accountForExactProgram(record, "PDDE")).toBeUndefined();
     expect(accountForExactProgram(record, "PDDE QUALIDADE")?.account).toBe("0000546402");
     expect(accountForExactProgram(record, "PDDE EQUIDADE")?.account).toBe("0000999999");
+  });
+
+  it("mantém proveniência individual para valores, datas e dados bancários", () => {
+    const hash = "a".repeat(64);
+    const record = parseSchoolPage(fixture, "33069247", "0410001", "https://fonte.test/33069247", "2026-08-11T12:00:00.000Z", hash);
+    const paid = record.payments[0]?.provenance.paid;
+    const account = record.bankAccounts[0]?.provenance.account;
+
+    expect(paid).toMatchObject({
+      fieldId: "33069247:PDDEINFO:payment:PDDE / PDDE BASICO - 1A PARCELA:paid",
+      source: "PDDEINFO",
+      sourceUrl: "https://fonte.test/33069247",
+      sourceHashSha256: hash,
+      rawValue: "100,00",
+      normalizedValue: 100,
+      extractionRule: "brl-currency",
+      state: "PAGAMENTO_INFORMADO_PDDEINFO",
+    });
+    expect(paid?.validationResults).toEqual(expect.arrayContaining(["source-hash-present", "selector-present", "normalization-complete"]));
+    expect(account).toMatchObject({
+      fieldId: "33069247:PDDEINFO:bank-account:PDDE QUALIDADE:account",
+      rawValue: "0000546402",
+      normalizedValue: "0000546402",
+      parserVersion: expect.any(String),
+    });
+    expect(record.fieldProvenance).toContainEqual(paid);
+    expect(record.fieldProvenance).toContainEqual(account);
+  });
+
+  it("liga cada campo ao HTML bruto e JSON normalizado persistidos", () => {
+    const record = parseSchoolPage(fixture, "33069247", "0410001", "https://fonte.test/33069247", "2026-08-11T12:00:00.000Z", "b".repeat(64));
+    attachEvidenceArtifacts(record, {
+      rawHtmlKey: "evidence/run/33069247/source.html",
+      rawHtmlUrl: "/manus-storage/evidence/run/33069247/source.html",
+      normalizedJsonKey: "evidence/run/33069247/normalized.json",
+      normalizedJsonUrl: "/manus-storage/evidence/run/33069247/normalized.json",
+    });
+
+    expect(record.payments[0]?.provenance.paid.artifact).toMatchObject({
+      rawHtmlKey: "evidence/run/33069247/source.html",
+      normalizedJsonKey: "evidence/run/33069247/normalized.json",
+    });
+    expect(record.fieldProvenance.every(field => field.artifact !== null)).toBe(true);
   });
 });
 

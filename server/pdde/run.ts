@@ -1,7 +1,10 @@
+import { createHash } from "node:crypto";
+import { appendAuditTrail, completeAuditRun, createAuditRun } from "../db";
 import { storagePut } from "../storage";
 import { MASTER_SCHOOLS } from "./masterList";
-import { parseSchoolPage } from "./parser";
-import type { AuditRecord, SchoolExtraction, ValidationSummary } from "./types";
+import { PDDEINFO_PARSER_VERSION, parseSchoolPage } from "./parser";
+import { attachEvidenceArtifacts } from "./provenance";
+import type { AuditEvent, AuditEventType, AuditRecord, SchoolExtraction, ValidationSummary } from "./types";
 import { canReleaseDownload, createV2Workbook, validateExtraction } from "./workbook";
 
 const FNDE_URL = (inep: string) =>
@@ -21,6 +24,7 @@ export type ExtractionRun = {
   completedAt?: string;
   records: SchoolExtraction[];
   audits: AuditRecord[];
+  auditEvents: AuditEvent[];
   validation?: ValidationSummary;
   downloadUrl?: string;
 };
@@ -28,28 +32,95 @@ export type ExtractionRun = {
 const activeRuns = new Map<string, ExtractionRun>();
 export const getRun = (runId: string) => activeRuns.get(runId);
 
-async function fetchSchool(inep: string, sme: string): Promise<{ record?: SchoolExtraction; audit: AuditRecord }> {
+function event(
+  runId: string,
+  type: AuditEventType,
+  severity: AuditEvent["severity"],
+  inep: string | null,
+  fieldId: string | null,
+  message: string,
+  payload: Record<string, unknown>,
+): AuditEvent {
+  return { eventId: crypto.randomUUID(), runId, occurredAt: new Date().toISOString(), type, severity, inep, fieldId, message, payload };
+}
+
+async function fetchSchool(inep: string, sme: string, runId: string): Promise<{ record?: SchoolExtraction; audit: AuditRecord; events: AuditEvent[] }> {
   const sourceUrl = FNDE_URL(inep);
-  const audit: AuditRecord = { inep, sme, sourceUrl, consultedAt: null, status: "PENDING", attempts: 0, programsFound: [], exception: null };
+  const audit: AuditRecord = {
+    inep,
+    sme,
+    sourceUrl,
+    consultedAt: null,
+    status: "PENDING",
+    attempts: 0,
+    httpStatus: null,
+    sourceHashSha256: null,
+    programsFound: [],
+    exception: null,
+  };
+  const events: AuditEvent[] = [];
   let lastError = "";
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     audit.attempts = attempt;
     try {
       const response = await fetch(sourceUrl, {
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; 4CRE-PDDEInfo-Extractor/1.0)", Accept: "text/html,application/xhtml+xml" },
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; 4CRE-PDDEInfo-Extractor/2.3)", Accept: "text/html,application/xhtml+xml" },
         signal: AbortSignal.timeout(25_000),
       });
+      audit.httpStatus = response.status;
       if (!response.ok) throw new Error(`FNDE retornou HTTP ${response.status}`);
       // O PDDEInfo entrega páginas em ISO-8859-1. Decodificar o buffer como latin1
       // preserva "Programa/Ação" e "Destinação", essenciais ao parsing estrito.
       const html = Buffer.from(await response.arrayBuffer()).toString("latin1");
       const consultedAt = new Date().toISOString();
-      const record = parseSchoolPage(html, inep, sme, sourceUrl, consultedAt);
+      const sourceHashSha256 = createHash("sha256").update(html, "latin1").digest("hex");
+      const record = parseSchoolPage(html, inep, sme, sourceUrl, consultedAt, sourceHashSha256);
       if (!record.schoolName || !record.uex) throw new Error("Página recebida sem identificação completa da unidade ou UEx.");
+      const rawArtifact = await storagePut(
+        `evidence/pdde-4cre/${runId}/${inep}/source.html`,
+        html,
+        "text/html; charset=iso-8859-1",
+      );
+      const normalizedArtifact = await storagePut(
+        `evidence/pdde-4cre/${runId}/${inep}/normalized.json`,
+        JSON.stringify(record, null, 2),
+        "application/json",
+      );
+      attachEvidenceArtifacts(record, {
+        rawHtmlKey: rawArtifact.key,
+        rawHtmlUrl: rawArtifact.url,
+        normalizedJsonKey: normalizedArtifact.key,
+        normalizedJsonUrl: normalizedArtifact.url,
+      });
       audit.status = "SUCCESS";
       audit.consultedAt = consultedAt;
+      audit.sourceHashSha256 = sourceHashSha256;
       audit.programsFound = record.rawPrograms;
-      return { record, audit };
+      events.push(event(runId, "SOURCE_FETCHED", "info", inep, null, "Resposta PDDEInfo coletada, persistida e identificada por hash.", {
+        sourceUrl,
+        httpStatus: response.status,
+        attempts: attempt,
+        sourceHashSha256,
+        rawHtmlKey: rawArtifact.key,
+        normalizedJsonKey: normalizedArtifact.key,
+      }));
+      record.fieldProvenance.forEach(provenance => {
+        events.push(event(runId, "FIELD_PARSED", "info", inep, provenance.fieldId, `Campo ${provenance.fieldPath} extraído do PDDEInfo.`, {
+          sourceUrl,
+          sourceHashSha256,
+          selector: provenance.selector,
+          extractionRule: provenance.extractionRule,
+          normalizedValue: provenance.normalizedValue,
+          rawHtmlKey: provenance.artifact?.rawHtmlKey,
+          normalizedJsonKey: provenance.artifact?.normalizedJsonKey,
+        }));
+        events.push(event(runId, "FIELD_VALIDATED", provenance.validationResults.includes("normalization-complete") ? "info" : "warning", inep, provenance.fieldId, `Validações registradas para ${provenance.fieldPath}.`, {
+          validationResults: provenance.validationResults,
+          state: provenance.state,
+          artifact: provenance.artifact,
+        }));
+      });
+      return { record, audit, events };
     } catch (error) {
       lastError = error instanceof Error ? error.message : "Falha desconhecida na consulta";
       if (attempt < 3) await delay(900 * attempt);
@@ -58,7 +129,13 @@ async function fetchSchool(inep: string, sme: string): Promise<{ record?: School
   audit.status = "FAILED";
   audit.consultedAt = new Date().toISOString();
   audit.exception = lastError;
-  return { audit };
+  events.push(event(runId, "SOURCE_FETCHED", "critical", inep, null, "Consulta PDDEInfo não concluída após as retentativas configuradas.", {
+    sourceUrl,
+    attempts: audit.attempts,
+    httpStatus: audit.httpStatus,
+    exception: lastError,
+  }));
+  return { audit, events };
 }
 
 export function masterListSummary() {
@@ -70,18 +147,29 @@ export async function runExtraction(onEvent: (event: ExtractionEvent) => void): 
   const master = masterListSummary();
   if (!master.valid) throw new Error("A lista-mestre não passou na validação de cobertura e unicidade.");
   const runId = crypto.randomUUID();
-  const run: ExtractionRun = { id: runId, status: "RUNNING", startedAt: new Date().toISOString(), records: [], audits: [] };
+  const run: ExtractionRun = { id: runId, status: "RUNNING", startedAt: new Date().toISOString(), records: [], audits: [], auditEvents: [] };
+  run.auditEvents.push(event(runId, "RUN_STARTED", "info", null, null, "Execução iniciada com lista-mestre validada.", {
+    masterCount: master.count,
+    masterListUnique: master.unique,
+    parserVersion: PDDEINFO_PARSER_VERSION,
+  }));
+  await createAuditRun(runId, master.count, PDDEINFO_PARSER_VERSION);
+  await appendAuditTrail(runId, "00000000", [], run.auditEvents);
   activeRuns.set(runId, run);
   onEvent({ type: "ready", runId, total: MASTER_SCHOOLS.length });
 
   const batchSize = 10;
   for (let start = 0; start < MASTER_SCHOOLS.length; start += batchSize) {
     const batch = MASTER_SCHOOLS.slice(start, start + batchSize);
-    const results = await Promise.all(batch.map(school => fetchSchool(school.inep, school.sme)));
-    results.forEach((result, index) => {
+    const results = await Promise.all(batch.map(school => fetchSchool(school.inep, school.sme, runId)));
+    for (let index = 0; index < results.length; index += 1) {
+      const result = results[index];
       const school = batch[index];
+      if (!result || !school) continue;
       run.audits.push(result.audit);
+      run.auditEvents.push(...result.events);
       if (result.record) run.records.push(result.record);
+      await appendAuditTrail(runId, result.audit.inep, result.record?.fieldProvenance ?? [], result.events);
       const completed = start + index + 1;
       onEvent({
         type: "progress",
@@ -91,14 +179,19 @@ export async function runExtraction(onEvent: (event: ExtractionEvent) => void): 
         message: result.record ? `${school.inep} consultado com sucesso.` : `${school.inep} falhou após ${result.audit.attempts} tentativa(s).`,
         audit: result.audit,
       });
-    });
+    }
     if (start + batchSize < MASTER_SCHOOLS.length) await delay(1_100);
   }
 
   run.validation = validateExtraction(run.records, run.audits);
+  run.auditEvents.push(event(runId, "FIELD_VALIDATED", run.validation.passed ? "info" : "critical", null, null, "Validações bloqueantes da execução concluídas.", {
+    passed: run.validation.passed,
+    errors: run.validation.errors,
+  }));
   run.completedAt = new Date().toISOString();
   if (!canReleaseDownload(run.validation)) {
     run.status = "BLOCKED";
+    await completeAuditRun(runId, "blocked", run.records.length, run.validation);
     onEvent({ type: "complete", validation: run.validation, downloadUrl: null, completed: run.records.length, errors: run.audits.filter(audit => audit.status === "FAILED").length });
     return run;
   }
@@ -106,6 +199,12 @@ export async function runExtraction(onEvent: (event: ExtractionEvent) => void): 
   const stored = await storagePut(`exports/pdde-4cre/${runId}/PDDEInfo_4a_CRE_2026_Visao_Financeira_V2.xlsx`, workbook, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   run.downloadUrl = stored.url;
   run.status = "COMPLETE";
+  run.auditEvents.push(event(runId, "WORKBOOK_RELEASED", "info", null, null, "Excel liberado após aprovação dos controles bloqueantes.", {
+    storageKey: stored.key,
+    downloadUrl: stored.url,
+  }));
+  await appendAuditTrail(runId, "00000000", [], run.auditEvents.slice(-1));
+  await completeAuditRun(runId, "approved", run.records.length, run.validation);
   onEvent({ type: "complete", validation: run.validation, downloadUrl: stored.url, completed: run.records.length, errors: 0 });
   return run;
 }
