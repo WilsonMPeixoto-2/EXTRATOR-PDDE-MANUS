@@ -47,8 +47,8 @@ const SOURCE_AUTOMATION_CATALOG: SourceAutomationDefinition[] = [
     accessState: "PILOT_PENDING",
     autonomous: false,
     collectionMethod: "browser-script",
-    detail: "Necessita de piloto para confirmar parâmetros, resposta, cobertura e estabilidade.",
-    baseUrl: "https://www.fnde.gov.br/sigefweb/pesquisa-conta",
+    detail: "Formulário público revalidado: exige mês/ano, CNPJ, banco e programa. Necessita de piloto para confirmar retorno, cobertura e estabilidade; não vincula conta sem chave documentada.",
+    baseUrl: "https://www.fnde.gov.br/sigefweb/default/conta-corrente/extrato-conta-corrente",
   },
   {
     source: "SIGEF_EXTRATO",
@@ -56,7 +56,7 @@ const SOURCE_AUTOMATION_CATALOG: SourceAutomationDefinition[] = [
     accessState: "PILOT_PENDING",
     autonomous: false,
     collectionMethod: "browser-script",
-    detail: "Necessita de piloto para comprovar vínculo da conta, período, paginação e estornos.",
+    detail: "Formulário público revalidado: exige exercício, programa e período, sem chave escolar/CNPJ visível no formulário inicial. Necessita de piloto para comprovar vínculo de conta, paginação e estornos.",
     baseUrl: "https://www.fnde.gov.br/sigefweb/index.php/extratos",
   },
   {

@@ -30,4 +30,13 @@ describe("catálogo de automação por fonte", () => {
       expect.objectContaining({ source: "SIGEF_CONTA_CORRENTE", accessState: "PILOT_PENDING" }),
     ]));
   });
+
+  it("mantém as consultas SIGEF em piloto nas URLs públicas revalidadas", () => {
+    const contaCorrente = sourceDefinition("SIGEF_CONTA_CORRENTE");
+    const extrato = sourceDefinition("SIGEF_EXTRATO");
+    expect(contaCorrente).toMatchObject({ accessState: "PILOT_PENDING", autonomous: false });
+    expect(contaCorrente.baseUrl).toContain("extrato-conta-corrente");
+    expect(extrato).toMatchObject({ accessState: "PILOT_PENDING", autonomous: false });
+    expect(extrato.detail).toContain("sem chave escolar/CNPJ visível");
+  });
 });
