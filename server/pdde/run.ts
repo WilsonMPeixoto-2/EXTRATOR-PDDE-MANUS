@@ -6,6 +6,7 @@ import { PDDEINFO_PARSER_VERSION, parseSchoolPage } from "./parser";
 import { attachEvidenceArtifacts } from "./provenance";
 import { comparePaymentSnapshots, paymentSnapshotsFromRecords } from "./history";
 import { pddeInfoSchoolUrl, sourceAutomationCatalog } from "./sources";
+import { assertSourceCollectionPermitted } from "./collectionRunners";
 import type { AuditEvent, AuditEventType, AuditRecord, SchoolExtraction, ValidationSummary } from "./types";
 import { canReleaseDownload, createV2Workbook, validateExtraction } from "./workbook";
 import { persistOpenDataControl, type OpenDataControlInput, type OpenDataControlPersistence } from "./openDataControl";
@@ -66,6 +67,7 @@ function event(
 }
 
 async function fetchSchool(inep: string, sme: string, runId: string): Promise<{ record?: SchoolExtraction; audit: AuditRecord; events: AuditEvent[] }> {
+  const collectionPlan = assertSourceCollectionPermitted("PDDEINFO");
   const sourceUrl = pddeInfoSchoolUrl(inep);
   const audit: AuditRecord = {
     inep,
@@ -85,7 +87,7 @@ async function fetchSchool(inep: string, sme: string, runId: string): Promise<{ 
   };
   const events: AuditEvent[] = [];
   let lastError = "";
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
+  for (let attempt = 1; attempt <= collectionPlan.maxAttempts; attempt += 1) {
     audit.attempts = attempt;
     try {
       const response = await fetch(sourceUrl, {
@@ -129,6 +131,7 @@ async function fetchSchool(inep: string, sme: string, runId: string): Promise<{ 
       audit.programsFound = record.rawPrograms;
       events.push(event(runId, "SOURCE_FETCHED", "info", inep, null, "Resposta PDDEInfo coletada, persistida e identificada por hash.", {
         sourceUrl,
+        collectionPlanVersion: collectionPlan.version,
         httpStatus: response.status,
         attempts: attempt,
         sourceHashSha256,
@@ -156,7 +159,7 @@ async function fetchSchool(inep: string, sme: string, runId: string): Promise<{ 
       return { record, audit, events };
     } catch (error) {
       lastError = error instanceof Error ? error.message : "Falha desconhecida na consulta";
-      if (attempt < 3) await delay(900 * attempt);
+      if (attempt < collectionPlan.maxAttempts) await delay(collectionPlan.retryBackoffMs * attempt);
     }
   }
   audit.status = "FAILED";

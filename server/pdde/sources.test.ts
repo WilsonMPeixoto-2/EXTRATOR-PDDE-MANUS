@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { pddeInfoSchoolUrl, sourceAutomationCatalog, sourceDefinition } from "./sources";
+import { assertSourceCollectionPermitted, sourceCollectionPlan } from "./collectionRunners";
 
 describe("catálogo de automação por fonte", () => {
   it("mantém a coleta do PDDEInfo plenamente autônoma e parametrizada por INEP", () => {
@@ -38,5 +39,11 @@ describe("catálogo de automação por fonte", () => {
     expect(contaCorrente.baseUrl).toContain("extrato-conta-corrente");
     expect(extrato).toMatchObject({ accessState: "PILOT_PENDING", autonomous: false });
     expect(extrato.detail).toContain("sem chave escolar/CNPJ visível");
+  });
+
+  it("versiona o roteiro autônomo do PDDEInfo com retentativas e bloqueia fontes não autorizadas", () => {
+    expect(sourceCollectionPlan("PDDEINFO")).toMatchObject({ allowed: true, version: "PDDEINFO_HTTP_RUNNER_V1", maxAttempts: 3, retryBackoffMs: 900 });
+    expect(() => assertSourceCollectionPermitted("SIGEF_LIBERACAO")).toThrow("CAPTCHA_REQUIRED");
+    expect(sourceCollectionPlan("SIGEF_CONTA_CORRENTE")).toMatchObject({ allowed: false, maxAttempts: 0, version: "SOURCE_RUNNER_BLOCKED_V1" });
   });
 });

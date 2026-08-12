@@ -36,7 +36,7 @@
 - [x] Cobrir em testes o preenchimento real de proveniência, validações e estados, além da existência dos tipos.
 - [x] Produzir matriz de viabilidade técnica por fonte, distinguindo capacidade já comprovada, integração possível mediante piloto e dependências institucionais de acesso/autorização.
 - [ ] Executar piloto controlado de navegação, consulta, extração, armazenamento e recuperação de evidências antes de habilitar cada fonte em produção.
-- [ ] Implementar uma camada autônoma de coleta por fonte, com roteiros determinísticos, parâmetros versionados, retentativas, limites e registro de cada navegação permitida.
+- [x] Implementar uma camada autônoma de coleta por fonte, com roteiros determinísticos, parâmetros versionados, retentativas, limites e registro de cada navegação permitida.
 - [x] Exibir no sistema bloqueios externos de acesso, como CAPTCHA, como estado operacional pendente de canal autorizado — nunca como falha silenciosa ou ausência de informação.
 - [x] Comparar ferramentas de coleta e automação por aderência ao PDDEInfo/SIGEF, licenças, custo operacional, determinismo, evidência preservada e respeito a CAPTCHA.
 - [x] Manter como núcleo as requisições e parsers próprios; admitir ferramentas externas apenas como camada opcional de leitura/navegação permitida, nunca como mecanismo de contorno de acesso.
