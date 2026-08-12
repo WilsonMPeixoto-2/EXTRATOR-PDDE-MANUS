@@ -294,7 +294,7 @@ export async function getRunArtifact(runId: string, artifactId: number) {
 
 export async function completeAuditRun(
   runId: string,
-  status: "approved" | "blocked" | "failed",
+  status: "approved" | "partial" | "blocked" | "failed",
   processedCount: number,
   validation: ValidationSummary,
 ) {

@@ -27,7 +27,7 @@ export type InsertUser = typeof users.$inferInsert;
 
 export const extractionRuns = mysqlTable("extraction_runs", {
   id: varchar("id", { length: 64 }).primaryKey(),
-  status: mysqlEnum("status", ["running", "approved", "blocked", "failed"]).notNull(),
+  status: mysqlEnum("status", ["running", "approved", "partial", "blocked", "failed"]).notNull(),
   masterCount: int("master_count").notNull(),
   processedCount: int("processed_count").notNull().default(0),
   parserVersion: varchar("parser_version", { length: 32 }).notNull(),

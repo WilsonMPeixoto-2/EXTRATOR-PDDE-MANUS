@@ -159,4 +159,24 @@ describe("rotas operacionais protegidas do PDDE", () => {
     expect(overviewResponse.status).toBe(200);
     expect(await overviewResponse.json()).toMatchObject({ artifacts: [expect.objectContaining({ kind: "open_data_file" })], events: [expect.objectContaining({ payloadJson: { source: "DADOS_ABERTOS" } })] });
   });
+
+  it("recupera na auditoria o artefato e as limitações de uma execução SIGEF parcial", async () => {
+    authenticateRequest.mockResolvedValue(user);
+    mockedGetPersistedRunAuditOverview.mockResolvedValue({
+      run: {
+        id: "pilot-sigef-parcial", status: "partial",
+        validationJson: { passed: true, sourceLimitations: ["Programa/ação não disponível no relatório", "Conta destinatária não disponível no relatório"] },
+      },
+      artifacts: [{ id: 31, kind: "sigef_movement_pdf", storageKey: "evidence/run/sigef/movimentacao.pdf", sha256: "b".repeat(64) }],
+      events: [{ id: "event-sigef-1", type: "SOURCE_FETCHED", payloadJson: { source: "SIGEF_EXTRATO", reconciliationReadiness: "EVIDENCIA_PARCIAL_SEM_PROGRAMA_PARCELA_E_CONTA_DESTINATARIA" } }],
+    } as any);
+
+    const response = await request(appForTest(), "/api/pdde/audit/run/pilot-sigef-parcial");
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      run: { id: "pilot-sigef-parcial", status: "partial", validationJson: { sourceLimitations: expect.arrayContaining(["Programa/ação não disponível no relatório"]) } },
+      artifacts: [expect.objectContaining({ kind: "sigef_movement_pdf", sha256: "b".repeat(64) })],
+      events: [{ id: "event-sigef-1", type: "SOURCE_FETCHED", payloadJson: { source: "SIGEF_EXTRATO", reconciliationReadiness: "EVIDENCIA_PARCIAL_SEM_PROGRAMA_PARCELA_E_CONTA_DESTINATARIA" } }],
+    });
+  });
 });

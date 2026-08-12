@@ -104,7 +104,7 @@ describe("vinculação bancária por programa", () => {
     expect(record.fieldProvenance).toContainEqual(account);
     expect(paymentEvidenceSummary(record)).toContain("1ª parcela: Pagamento registrado no PDDEInfo");
     expect(paymentEvidenceSummary(record)).toContain("2ª parcela: ausência de pagamento registrado no PDDEInfo em 2026-08-11T12:00:00.000Z");
-    expect(financialHeaders).toEqual(expect.arrayContaining(["Fonte da conta", "Estado de evidência"]));
+    expect(financialHeaders).toEqual(expect.arrayContaining(["Fonte da conta", "Estado de evidência", "Completude das fontes"]));
   });
 
   it("registra ausência limitada ao PDDEInfo sem concluir que o pagamento não ocorreu", () => {
@@ -116,7 +116,8 @@ describe("vinculação bancária por programa", () => {
     expect(paid?.validationResults).toEqual(expect.arrayContaining([
       expect.objectContaining({ code: "payment-absence-pddeinfo", level: "warning", message: expect.stringContaining("ausência não equivale a “não pago”") }),
     ]));
-    expect(paymentEvidenceSummary(record)).toContain("SIGEF e extrato bancário não concluídos nesta execução");
+    expect(paymentEvidenceSummary(record)).toContain("SIGEF e extrato bancário sem evidência vinculada nesta execução");
+    expect(paymentEvidenceSummary(record)).toContain("Campo não disponível na fonte não equivale a “não pago”");
   });
 
   it("registra falha por identificador ou data fora do formato esperado", () => {
@@ -145,7 +146,7 @@ describe("vinculação bancária por programa", () => {
     expect(record.fieldProvenance.every(field => field.artifact !== null)).toBe(true);
   });
 
-  it("escreve fonte da conta e estado de evidência no Excel V2", async () => {
+  it("escreve fonte da conta, estado de evidência e completude de fonte no Excel V2", async () => {
     const record = parseSchoolPage(fixture, "33069247", "0410001", "https://fonte.test/33069247", "2026-08-11T12:00:00.000Z", "d".repeat(64));
     const buffer = await createV2Workbook([record], [], { passed: true, uniqueIneps: 163, firstInstallmentPaid: 111, secondInstallmentExpected: 163, missingBasicAccounts: 47, errors: [] });
     const workbook = new ExcelJS.Workbook();
@@ -154,8 +155,12 @@ describe("vinculação bancária por programa", () => {
 
     expect(sheet?.getCell("H4").value).toBe("Fonte da conta");
     expect(sheet?.getCell("K4").value).toBe("Estado de evidência");
+    expect(sheet?.getCell("L4").value).toBe("Completude das fontes");
     expect(sheet?.getCell("H5").value).toBe("PDDEInfo · tabela bancária sem linha com rótulo exato PDDE");
     expect(String(sheet?.getCell("K5").value)).toContain("Pagamento registrado no PDDEInfo");
+    expect(String(sheet?.getCell("L5").value)).toContain("PDDEInfo: EXTRAÍDO");
+    expect(String(sheet?.getCell("L5").value)).toContain("SIGEF/extrato: NÃO DISPONÍVEL NESTA EXECUÇÃO PDDEInfo");
+    expect(String(sheet?.getCell("L5").value)).toContain("Associação externa: NÃO COMPROVADA");
     expect(sheet?.getCell("G5").numFmt).toBe("@");
   });
 });

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { buildObservationComparisons, filterAuditObservations, filterAuditRuns, filterAuditSchools } from "./auditFilters";
 
-type AuditRun = { id: string; status: "running" | "approved" | "blocked" | "failed"; masterCount: number; processedCount: number; parserVersion: string; startedAt: string; completedAt: string | null; validationJson: { passed?: boolean; errors?: string[] } };
+type AuditRun = { id: string; status: "running" | "approved" | "partial" | "blocked" | "failed"; masterCount: number; processedCount: number; parserVersion: string; startedAt: string; completedAt: string | null; validationJson: { passed?: boolean; errors?: string[]; sourceLimitations?: string[] } };
 type School = { inep: string; sme: string; status: "success" | "failed"; consultedAt: string; programsJson: string[]; exception: string | null };
 type Finding = { id: number; severity: "info" | "warning" | "critical"; code: string; message: string; inep: string | null; previousValue: string | null; currentValue: string | null };
 type Observation = { id: number; fieldPath: string; logicalKey: string; source: string; sourceUrl: string; consultedAt: string; rawValue: string | null; normalizedValueJson: { value?: string | number | null } | null; parserVersion: string; extractionRule: string; selector: string; evidenceSnippet: string | null; state: string | null; sourceHashSha256: string | null; rawHtmlKey: string | null; normalizedJsonKey: string | null; validationResultsJson: Array<{ code: string; level: string; message: string }> };
@@ -18,7 +18,7 @@ function displayDate(value: string | null | undefined) {
 
 function badgeClass(status: string) {
   if (["approved", "success", "info", "unchanged"].includes(status)) return "audit-badge audit-badge-ok";
-  if (["blocked", "warning", "changed"].includes(status)) return "audit-badge audit-badge-warn";
+  if (["partial", "blocked", "warning", "changed"].includes(status)) return "audit-badge audit-badge-warn";
   return "audit-badge audit-badge-error";
 }
 
@@ -164,6 +164,8 @@ export default function Audit() {
   const changedComparisonCount = observationComparisons.filter(item => item.status !== "unchanged").length;
   const openDataArtifacts = runArtifacts.filter(artifact => artifact.kind === "open_data_file");
   const openDataEvents = runEvents.filter(event => event.payloadJson?.source === "DADOS_ABERTOS");
+  const sigefArtifacts = runArtifacts.filter(artifact => artifact.kind === "sigef_movement_pdf");
+  const sigefEvents = runEvents.filter(event => event.payloadJson?.source === "SIGEF_EXTRATO");
 
   return (
     <div className="audit-page">
@@ -182,6 +184,8 @@ export default function Audit() {
       </section>
 
       <section className="audit-panel audit-open-data"><div className="audit-panel-heading"><ShieldCheck size={17} /><h2>Controle secundário · Dados Abertos FNDE</h2><span>{openDataArtifacts.length ? `${openDataArtifacts.length} arquivo(s)` : "não registrado"}</span></div>{openDataArtifacts.length ? <div className="audit-finding-list">{openDataArtifacts.map(artifact => <article key={artifact.id} className="audit-finding"><span className={badgeClass("info")}>secundário</span><strong>{artifact.storageKey.split("/").at(-1)}</strong><p>Arquivo versionado; não substitui PDDEInfo, SIGEF ou extrato bancário.</p><small>Hash: <code>{artifact.sha256.slice(0, 18)}</code> · {artifact.contentType}</small><button className="audit-evidence-button" onClick={() => void openArtifact(selectedRunId!, artifact.id)}>Abrir arquivo registrado</button></article>)}</div> : <p className="audit-empty">Nenhum arquivo secundário foi registrado nesta execução.</p>}{openDataEvents.map(event => <p key={event.id} className="audit-comparison-caption">{displayDate(event.occurredAt)} · {event.message}{event.payloadJson?.warnings?.length ? ` Advertências: ${event.payloadJson.warnings.join(" ")}` : ""}</p>)}</section>
+
+      <section className="audit-panel audit-open-data"><div className="audit-panel-heading"><ShieldCheck size={17} /><h2>SIGEF · Evidência parcial de movimentação</h2><span>{sigefArtifacts.length ? `${sigefArtifacts.length} arquivo(s)` : "não registrado"}</span></div>{sigefArtifacts.length ? <div className="audit-finding-list">{sigefArtifacts.map(artifact => <article key={artifact.id} className="audit-finding"><span className={badgeClass("partial")}>parcial</span><strong>{artifact.storageKey.split("/").at(-1)}</strong><p>Arquivo processado e preservado. Campos ausentes na fonte são registrados como limitação, sem impedir a coleta nem confirmar associação financeira.</p><small>Hash: <code>{artifact.sha256.slice(0, 18)}</code> · {artifact.contentType}</small><button className="audit-evidence-button" onClick={() => void openArtifact(selectedRunId!, artifact.id)}>Abrir arquivo registrado</button></article>)}</div> : <p className="audit-empty">Nenhuma evidência SIGEF foi registrada nesta execução.</p>}{sigefEvents.map(event => <p key={event.id} className="audit-comparison-caption">{displayDate(event.occurredAt)} · {event.message}</p>)}{selectedRun?.validationJson.sourceLimitations?.length ? <p className="audit-comparison-caption"><strong>Campos não disponíveis na fonte:</strong> {selectedRun.validationJson.sourceLimitations.join(" · ")}</p> : null}</section>
 
       <section className="audit-workspace">
         <aside className="audit-panel audit-runs"><div className="audit-panel-heading"><History size={17} /><h2>Execuções</h2><span>{runs.length ? `${filteredRuns.length}/${runs.length}` : ""}</span></div>{runs.length ? <><input className="audit-filter" value={runFilter} onChange={event => setRunFilter(event.target.value)} placeholder="Buscar ID, data ou estado" aria-label="Buscar execução por identificador, data ou estado" /><div className="audit-run-list">{filteredRuns.map(run => <button key={run.id} onClick={() => setSelectedRunId(run.id)} className={`audit-run ${run.id === selectedRunId ? "audit-run-active" : ""}`}><span className={badgeClass(run.status)}>{run.status}</span><strong>{displayDate(run.completedAt ?? run.startedAt)}</strong><small>{run.processedCount}/{run.masterCount} · parser {run.parserVersion}</small><code>{run.id.slice(0, 12)}</code></button>)}</div></> : <p className="audit-empty">Nenhuma execução persistida ainda.</p>}</aside>

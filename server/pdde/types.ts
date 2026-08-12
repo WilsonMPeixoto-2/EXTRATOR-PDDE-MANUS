@@ -177,5 +177,6 @@ export type ValidationSummary = {
   fieldValidationErrors?: string[];
   schemaIssues?: string[];
   historicalFindings?: Array<{ severity: "info" | "warning" | "critical"; code: string; inep: string; logicalKey: string; previousValue: number | null; currentValue: number | null; message: string }>;
+  sourceLimitations?: string[];
   errors: string[];
 };

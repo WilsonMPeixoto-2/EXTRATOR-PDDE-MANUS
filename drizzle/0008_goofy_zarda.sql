@@ -1,0 +1,1 @@
+ALTER TABLE `extraction_runs` MODIFY COLUMN `status` enum('running','approved','partial','blocked','failed') NOT NULL;

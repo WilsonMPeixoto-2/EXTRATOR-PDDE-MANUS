@@ -56,6 +56,11 @@
 - [x] Verificar o histórico do repositório existente antes de sincronizar, preservando quaisquer conteúdos já presentes.
 - [x] Confirmar o site pddeinfo4cre-zn9f2kak.manus.space como ambiente oficial já publicado e alinhá-lo ao repositório correto.
 - [x] Executar piloto controlado com o PDF de movimentação PDDE fornecido, preservando evidência e aplicando conciliação estrita.
+- [x] Processar automaticamente evidências SIGEF parciais, registrando campos indisponíveis na fonte sem bloquear a coleta nem exigir ação adicional do operador.
+- [x] Exibir na auditoria e no Excel o nível de completude de cada fonte, distinguindo dado extraído, dado não disponível na fonte e associação não comprovada.
+- [x] Adicionar testes de execução SIGEF parcial, cobrindo persistência de limitações de fonte e status não bloqueante.
+- [x] Adicionar cobertura da auditoria para artefatos e limitações SIGEF parciais recuperados pela API.
+- [x] Estruturar no Excel a completude de fonte por estado e validar as colunas no XLSX gerado.
 - [x] Aplicar a semântica “pagamento registrado no PDDEInfo” em toda a interface, auditoria e Excel visível ao usuário, revisando textos remanescentes.
 - [x] Implementar schema formal de validação do registro extraído e cobrir casos de estrutura inválida além das validações por campo.
 - [x] Aplicar autenticação e limite de requisição às rotas de status, lista-mestre, fontes e demais endpoints operacionais do módulo PDDE.

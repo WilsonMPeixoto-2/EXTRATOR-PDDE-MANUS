@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fndeOrderEvidenceFromMovement, parseSigefMovementText } from "./sigefMovement";
+import { fndeOrderEvidenceFromMovement, parseSigefMovementText, registerSigefMovementPilot } from "./sigefMovement";
 import { reconcilePaymentEvidence } from "./reconciliationEngine";
 
 const anonymizedReport = `SIGEF - SISTEMA INTEGRADO DE GESTÃO FINANCEIRA
@@ -30,5 +30,32 @@ describe("parser de movimentação SIGEF", () => {
     expect(result.state).toBe("PAGAMENTO_INFORMADO_PDDEINFO");
     expect(result.aggregation.status).toBe("NO_COMPONENT");
     expect(result.matchedEvidence).toEqual([]);
+  });
+
+  it("processa relatório parcial como execução concluída, preservando limitações sem bloquear o operador", async () => {
+    const calls: Array<{ name: string; value: unknown }> = [];
+    const identifiers = ["run-unit", "event-unit"];
+    const result = await registerSigefMovementPilot({
+      pdfBytes: Buffer.from("pdf autorizado"), fileName: "movimentacao.pdf", sourceUrl: "arquivo-autorizado", extractedText: anonymizedReport,
+    }, {
+      store: async key => {
+        calls.push({ name: "store", value: key });
+        return { key: "evidence/pilot/movimentacao.pdf", url: "https://storage.test/movimentacao.pdf" };
+      },
+      createRun: async (...value) => { calls.push({ name: "createRun", value }); },
+      persistArtifact: async value => { calls.push({ name: "persistArtifact", value }); },
+      appendTrail: async (...value) => { calls.push({ name: "appendTrail", value }); },
+      completeRun: async (...value) => { calls.push({ name: "completeRun", value }); },
+      createId: () => identifiers.shift()!,
+      now: () => new Date("2026-08-12T12:00:00.000Z"),
+    });
+
+    expect(result).toMatchObject({ runId: "pilot-sigef-run-unit", artifactKey: "evidence/pilot/movimentacao.pdf", transactionCount: 2, fndeOrderCount: 1, totalFndeOrders: 4915 });
+    expect(calls.find(call => call.name === "persistArtifact")?.value).toMatchObject({ kind: "sigef_movement_pdf", sha256: expect.stringMatching(/^[a-f0-9]{64}$/) });
+    const event = (calls.find(call => call.name === "appendTrail")?.value as unknown[])?.[3]?.[0] as { payload: { sourceLimitations: string[]; reconciliationReadiness: string } };
+    expect(event.payload).toMatchObject({ reconciliationReadiness: "EVIDENCIA_PARCIAL_SEM_PROGRAMA_PARCELA_E_CONTA_DESTINATARIA", sourceLimitations: expect.arrayContaining(["Programa/ação não disponível no relatório"]) });
+    const completion = calls.find(call => call.name === "completeRun")?.value as unknown[];
+    expect(completion[1]).toBe("partial");
+    expect(completion[3]).toMatchObject({ passed: true, errors: [], sourceLimitations: expect.arrayContaining([expect.stringContaining("não contém programa")]) });
   });
 });

@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { appendAuditTrail, completeAuditRun, createAuditRun, persistRunArtifact } from "../db";
 import { storagePut } from "../storage";
 import type { ExternalFinancialEvidence } from "./reconciliationEngine";
+import type { AuditEvent, FieldProvenance, ValidationSummary } from "./types";
 
 export type SigefMovementTransaction = {
   date: string;
@@ -112,9 +113,29 @@ export type SigefMovementPilotResult = {
   totalFndeOrders: number;
 };
 
+export type SigefMovementPilotDependencies = {
+  store: (key: string, data: Buffer, contentType: string) => Promise<{ key: string; url: string }>;
+  createRun: (runId: string, masterCount: number, parserVersion: string, createdByUserId: number | null) => Promise<void>;
+  persistArtifact: (input: { runId: string; kind: "sigef_movement_pdf"; storageKey: string; storageUrl: string; contentType: string; sha256: string }) => Promise<void>;
+  appendTrail: (runId: string, inep: string, provenance: FieldProvenance[], events: AuditEvent[]) => Promise<void>;
+  completeRun: (runId: string, status: "partial", processedCount: number, validation: ValidationSummary) => Promise<void>;
+  createId: () => string;
+  now: () => Date;
+};
+
+const productionDependencies: SigefMovementPilotDependencies = {
+  store: storagePut,
+  createRun: createAuditRun,
+  persistArtifact: persistRunArtifact,
+  appendTrail: appendAuditTrail,
+  completeRun: completeAuditRun,
+  createId: randomUUID,
+  now: () => new Date(),
+};
+
 /**
- * Registra um PDF autorizado como piloto isolado. O piloto é encerrado bloqueado
- * porque o relatório não fornece programa, parcela e conta destinatária da unidade.
+ * Registra um PDF autorizado como piloto isolado. A falta de programa, parcela e
+ * conta é uma limitação da fonte, não uma falha de processamento nem uma demanda ao operador.
  */
 export async function registerSigefMovementPilot(input: {
   pdfBytes: Buffer;
@@ -122,16 +143,16 @@ export async function registerSigefMovementPilot(input: {
   sourceUrl: string;
   extractedText: string;
   createdByUserId?: number | null;
-}): Promise<SigefMovementPilotResult> {
-  const runId = `pilot-sigef-${randomUUID()}`;
+}, dependencies: SigefMovementPilotDependencies = productionDependencies): Promise<SigefMovementPilotResult> {
+  const runId = `pilot-sigef-${dependencies.createId()}`;
   const extraction = parseSigefMovementText(input.extractedText);
   const evidence = fndeOrderEvidenceFromMovement(extraction, "pending", input.sourceUrl);
   const sha256 = createHash("sha256").update(input.pdfBytes).digest("hex");
-  const stored = await storagePut(`pdde/pilots/${runId}/${input.fileName}`, input.pdfBytes, "application/pdf");
+  const stored = await dependencies.store(`pdde/pilots/${runId}/${input.fileName}`, input.pdfBytes, "application/pdf");
   const totalFndeOrders = evidence.reduce((sum, item) => sum + (item.amount ?? 0), 0);
 
-  await createAuditRun(runId, 1, "SIGEF_MOVEMENT_PARSER_V1", input.createdByUserId ?? null);
-  await persistRunArtifact({
+  await dependencies.createRun(runId, 1, "SIGEF_MOVEMENT_PARSER_V1", input.createdByUserId ?? null);
+  await dependencies.persistArtifact({
     runId,
     kind: "sigef_movement_pdf",
     storageKey: stored.key,
@@ -139,15 +160,15 @@ export async function registerSigefMovementPilot(input: {
     contentType: "application/pdf",
     sha256,
   });
-  await appendAuditTrail(runId, "PILOT", [], [{
-    eventId: `pilot-source-${randomUUID()}`,
+  await dependencies.appendTrail(runId, "PILOT", [], [{
+    eventId: `pilot-source-${dependencies.createId()}`,
     runId,
-    occurredAt: new Date().toISOString(),
+    occurredAt: dependencies.now().toISOString(),
     type: "SOURCE_FETCHED",
     severity: "info",
     inep: null,
     fieldId: null,
-    message: "PDF SIGEF de movimentação registrado como evidência autorizada de piloto; associação financeira permanece bloqueada sem chave completa.",
+    message: "PDF SIGEF de movimentação processado como evidência parcial autorizada; os campos indisponíveis na fonte foram registrados sem inferência financeira.",
     payload: {
       source: "SIGEF_EXTRATO",
       sourceUrl: input.sourceUrl,
@@ -157,16 +178,18 @@ export async function registerSigefMovementPilot(input: {
       ignoredLines: extraction.ignoredLines,
       fndeOrderCount: evidence.length,
       totalFndeOrders,
-      reconciliationReadiness: "INCONCLUSIVA_SEM_PROGRAMA_PARCELA_E_CONTA_DESTINATARIA",
+      reconciliationReadiness: "EVIDENCIA_PARCIAL_SEM_PROGRAMA_PARCELA_E_CONTA_DESTINATARIA",
+      sourceLimitations: ["Programa/ação não disponível no relatório", "Parcela não disponível no relatório", "Conta destinatária não disponível em cada lançamento"],
     },
   }]);
-  await completeAuditRun(runId, "blocked", 1, {
-    passed: false,
+  await dependencies.completeRun(runId, "partial", 1, {
+    passed: true,
     uniqueIneps: 0,
     firstInstallmentPaid: 0,
     secondInstallmentExpected: 0,
     missingBasicAccounts: 0,
-    errors: ["Piloto SIGEF registrado, mas o relatório não contém programa, parcela e conta destinatária suficientes para conciliação estrita."],
+    sourceLimitations: ["O relatório SIGEF não contém programa, parcela e conta destinatária suficientes para associação estrita."],
+    errors: [],
   });
   return { runId, artifactKey: stored.key, sha256, transactionCount: extraction.transactions.length, fndeOrderCount: evidence.length, totalFndeOrders };
 }
