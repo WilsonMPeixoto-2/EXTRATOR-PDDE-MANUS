@@ -1,8 +1,8 @@
 import { useAuth } from "@/_core/hooks/useAuth";
-import { AlertTriangle, ArrowLeft, FileSearch, History, RefreshCw, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowLeft, FileSearch, RefreshCw, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { buildFinancialSchoolDossier, buildObservationComparisons, filterAuditObservations, filterAuditRuns, filterAuditSchools, operationalConsultationStatus, operationalRunStatus } from "./auditFilters";
+import { buildFinancialSchoolDossier, filterAuditObservations, filterAuditSchools, operationalConsultationStatus, operationalRunStatus } from "./auditFilters";
 
 type AuditRun = { id: string; status: "running" | "approved" | "partial" | "blocked" | "failed"; masterCount: number; processedCount: number; parserVersion: string; startedAt: string; completedAt: string | null; validationJson: { passed?: boolean; errors?: string[]; sourceLimitations?: string[] } };
 type School = { inep: string; sme: string; schoolName: string | null; status: "success" | "failed"; consultedAt: string; programsJson: string[]; exception: string | null };
@@ -80,7 +80,6 @@ export default function Audit() {
   const { isAuthenticated, loading: authLoading } = useAuth({ redirectOnUnauthenticated: true });
   const [runs, setRuns] = useState<AuditRun[]>([]);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
-  const [runFilter, setRunFilter] = useState("");
   const [schools, setSchools] = useState<School[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [runArtifacts, setRunArtifacts] = useState<Artifact[]>([]);
@@ -90,10 +89,7 @@ export default function Audit() {
   const [programFilter, setProgramFilter] = useState("");
   const [schoolFilter, setSchoolFilter] = useState("");
   const [fieldFilter, setFieldFilter] = useState("");
-  const [comparisonRunId, setComparisonRunId] = useState<string | null>(null);
-  const [comparisonDossier, setComparisonDossier] = useState<Dossier | null>(null);
   const [loading, setLoading] = useState(false);
-  const [comparisonLoading, setComparisonLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadRuns = async () => {
@@ -114,7 +110,7 @@ export default function Audit() {
   useEffect(() => {
     if (!selectedRunId || !isAuthenticated) { setSchools([]); setFindings([]); setRunArtifacts([]); setRunEvents([]); setDossier(null); return; }
     const loadRunDetails = async () => {
-      setLoading(true); setError(null); setSelectedInep(null); setDossier(null); setComparisonDossier(null);
+      setLoading(true); setError(null); setSelectedInep(null); setDossier(null);
       try {
         const [schoolResponse, findingResponse, overviewResponse] = await Promise.all([
           operationalFetch(`/api/pdde/audit/run/${selectedRunId}/schools`),
@@ -133,19 +129,9 @@ export default function Audit() {
     void loadRunDetails();
   }, [isAuthenticated, selectedRunId]);
 
-  const comparisonCandidates = useMemo(() => {
-    const selectedIndex = runs.findIndex(run => run.id === selectedRunId);
-    return selectedIndex < 0 ? [] : runs.slice(selectedIndex + 1).filter(run => run.completedAt && run.status !== "running");
-  }, [runs, selectedRunId]);
-
-  useEffect(() => {
-    setComparisonRunId(comparisonCandidates[0]?.id ?? null);
-    setComparisonDossier(null);
-  }, [selectedRunId, comparisonCandidates]);
-
   const openDossier = async (inep: string) => {
     if (!selectedRunId) return;
-    setSelectedInep(inep); setLoading(true); setError(null); setComparisonDossier(null);
+    setSelectedInep(inep); setLoading(true); setError(null);
     try {
       const response = await operationalFetch(`/api/pdde/audit/run/${selectedRunId}/school/${inep}`);
       if (!response.ok) throw new Error("Não foi possível abrir o dossiê da unidade.");
@@ -165,25 +151,10 @@ export default function Audit() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao abrir evidência."); }
   };
 
-  const loadHistoricalComparison = async () => {
-    if (!comparisonRunId || !selectedInep) return;
-    setComparisonLoading(true); setError(null);
-    try {
-      const response = await operationalFetch(`/api/pdde/audit/run/${comparisonRunId}/school/${selectedInep}`);
-      if (!response.ok) throw new Error("Não foi possível carregar a execução de referência.");
-      setComparisonDossier(await response.json() as Dossier);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao carregar comparação histórica."); }
-    finally { setComparisonLoading(false); }
-  };
-
   const selectedRun = runs.find(run => run.id === selectedRunId) ?? null;
-  const comparisonRun = runs.find(run => run.id === comparisonRunId) ?? null;
-  const filteredRuns = useMemo(() => filterAuditRuns(runs, runFilter), [runs, runFilter]);
   const filteredSchools = useMemo(() => filterAuditSchools(schools, programFilter, schoolFilter), [schools, programFilter, schoolFilter]);
   const filteredObservations = useMemo(() => dossier ? filterAuditObservations(dossier.observations, fieldFilter) : [], [dossier, fieldFilter]);
   const financialDossier = useMemo(() => dossier ? buildFinancialSchoolDossier(dossier.observations) : null, [dossier]);
-  const observationComparisons = useMemo(() => dossier && comparisonDossier ? buildObservationComparisons(dossier.observations, comparisonDossier.observations) : [], [dossier, comparisonDossier]);
-  const changedComparisonCount = observationComparisons.filter(item => item.status !== "unchanged").length;
   const openDataArtifacts = runArtifacts.filter(artifact => artifact.kind === "open_data_file");
   const openDataEvents = runEvents.filter(event => event.payloadJson?.source === "DADOS_ABERTOS");
   const sigefArtifacts = runArtifacts.filter(artifact => artifact.kind === "sigef_movement_pdf");
@@ -199,15 +170,13 @@ export default function Audit() {
       {error && <div className="audit-error"><AlertTriangle size={17} /> {error}</div>}
 
       <section className="audit-summary-grid">
-        <div className="audit-summary"><span>EXECUÇÕES</span><strong>{runs.length}</strong><small>consultas preservadas no histórico</small></div>
-        <div className="audit-summary"><span>UNIDADES CONSULTADAS</span><strong>{selectedRun?.processedCount ?? "—"}</strong><small>na execução selecionada</small></div>
+        <div className="audit-summary"><span>COBERTURA DA CONSULTA</span><strong>{selectedRun ? `${selectedRun.processedCount}/${selectedRun.masterCount}` : "—"}</strong><small>unidades processadas na referência atual</small></div>
+        <div className="audit-summary"><span>UNIDADES CONSULTADAS</span><strong>{selectedRun?.processedCount ?? "—"}</strong><small>dados disponíveis para conferência</small></div>
         <div className="audit-summary"><span>EXCEÇÕES</span><strong>{findings.length}</strong><small>pontos que merecem atenção</small></div>
         <div className="audit-summary"><span>SITUAÇÃO DA EXECUÇÃO</span><strong>{selectedRun ? operationalRunStatus(selectedRun.status) : "—"}</strong><small>pagamento registrado não confirma crédito bancário</small></div>
       </section>
 
       <section className="audit-workspace">
-        <aside className="audit-panel audit-runs"><div className="audit-panel-heading"><History size={17} /><h2>Execuções</h2><span>{runs.length ? `${filteredRuns.length}/${runs.length}` : ""}</span></div>{runs.length ? <><input className="audit-filter" value={runFilter} onChange={event => setRunFilter(event.target.value)} placeholder="Buscar por data ou situação" aria-label="Buscar execução por data ou situação" /><div className="audit-run-list">{filteredRuns.map(run => <button key={run.id} onClick={() => setSelectedRunId(run.id)} className={`audit-run ${run.id === selectedRunId ? "audit-run-active" : ""}`}><span className={badgeClass(run.status)}>{operationalRunStatus(run.status)}</span><strong>{displayDate(run.completedAt ?? run.startedAt)}</strong><small>{run.processedCount}/{run.masterCount} unidades consultadas</small></button>)}</div></> : <p className="audit-empty">Nenhuma execução registrada ainda.</p>}</aside>
-
         <main className="audit-panel audit-schools"><div className="audit-panel-heading"><FileSearch size={17} /><h2>Unidades da execução</h2><span>{selectedRunId ? `${filteredSchools.length}/${schools.length} unidades` : "selecione uma execução"}</span></div>{schools.length ? <><p className="audit-panel-instruction">Selecione uma unidade para abrir imediatamente o resumo financeiro abaixo.</p><div className="audit-filter-grid"><input className="audit-filter" value={schoolFilter} onChange={event => setSchoolFilter(event.target.value)} placeholder="Buscar nome, INEP ou SME" aria-label="Buscar escola por nome, INEP ou SME" /><input className="audit-filter" value={programFilter} onChange={event => setProgramFilter(event.target.value)} placeholder="Filtrar por programa" aria-label="Filtrar escolas por programa" /></div><div className="audit-table-scroll"><table className="audit-data-table audit-school-table"><thead><tr><th>Unidade escolar</th><th>INEP / SME</th><th>Situação da consulta</th><th>Programas identificados</th></tr></thead><tbody>{filteredSchools.map(school => <tr key={`${school.inep}-${school.sme}`} className={selectedInep === school.inep ? "audit-row-selected" : ""} onClick={() => void openDossier(school.inep)}><td><button className="audit-school-button"><strong>{school.schoolName ?? "Nome da unidade não registrado"}</strong><span>Selecionar resumo financeiro</span></button></td><td><strong>{school.inep}</strong><small>SME {school.sme}</small></td><td><span className={badgeClass(school.status)}>{operationalConsultationStatus(school.status)}</span><small>{displayDate(school.consultedAt)}</small></td><td>{school.programsJson?.join(" · ") || "Nenhum programa identificado"}</td></tr>)}</tbody></table></div></> : <p className="audit-empty">Selecione uma execução com consultas persistidas.</p>}</main>
 
         <aside className="audit-panel audit-findings"><div className="audit-panel-heading"><ShieldCheck size={17} /><h2>Pontos de atenção</h2></div>{findings.length ? <div className="audit-finding-list">{findings.map(finding => <article key={finding.id} className="audit-finding"><span className={badgeClass(finding.severity)}>{finding.severity === "critical" ? "prioritário" : finding.severity === "warning" ? "atenção" : "informativo"}</span><p>{finding.message}</p>{(finding.previousValue !== null || finding.currentValue !== null) && <small>Anterior: {finding.previousValue ?? "—"} · Atual: {finding.currentValue ?? "—"}</small>}<small>{finding.inep ? `INEP ${finding.inep}` : "Execução geral"}</small></article>)}</div> : <p className="audit-empty">Nenhum ponto de atenção foi identificado nesta execução.</p>}</aside>
@@ -262,7 +231,6 @@ export default function Audit() {
         </details>
       </section>
 
-      {dossier && selectedInep && selectedRunId && <section className="audit-panel audit-comparison"><div className="audit-panel-heading"><History size={17} /><h2>Comparador histórico por campo</h2><span>{comparisonDossier ? `${changedComparisonCount} diferença(s)` : "selecione a referência"}</span></div>{comparisonCandidates.length ? <><div className="audit-comparison-controls"><label>Execução de referência<select value={comparisonRunId ?? ""} onChange={event => { setComparisonRunId(event.target.value || null); setComparisonDossier(null); }} aria-label="Selecionar execução de referência">{comparisonCandidates.map(run => <option key={run.id} value={run.id}>{displayDate(run.completedAt ?? run.startedAt)} · {run.id.slice(0, 12)}</option>)}</select></label><button className="audit-button" disabled={!comparisonRunId || comparisonLoading} onClick={() => void loadHistoricalComparison()}>{comparisonLoading ? "Carregando..." : "Comparar campos"}</button></div>{comparisonDossier && comparisonRun && <><p className="audit-comparison-caption"><strong>Atual:</strong> {displayDate(selectedRun?.completedAt ?? selectedRun?.startedAt)} · <strong>Referência:</strong> {displayDate(comparisonRun.completedAt ?? comparisonRun.startedAt)}. Valores e evidências permanecem separados por execução.</p><div className="audit-comparison-list">{observationComparisons.map(item => <article key={item.logicalKey} className="audit-comparison-item"><header><strong>{item.fieldPath}</strong><span className={badgeClass(item.status)}>{item.status}</span></header><div className="audit-comparison-columns"><section><h4>Execução atual</h4><EvidenceActions dossier={dossier} observation={item.current} runId={selectedRunId} onOpenArtifact={(runId, artifactId) => void openArtifact(runId, artifactId)} /></section><section><h4>Execução de referência</h4><EvidenceActions dossier={comparisonDossier} observation={item.previous} runId={comparisonRun.id} onOpenArtifact={(runId, artifactId) => void openArtifact(runId, artifactId)} /></section></div></article>)}</div></>}</> : <p className="audit-empty">Não há execução anterior concluída disponível para esta comparação.</p>}</section>}
     </div>
   );
 }

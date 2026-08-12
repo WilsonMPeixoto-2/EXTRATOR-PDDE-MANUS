@@ -106,3 +106,6 @@
 - [x] Tornar o dossiê financeiro da unidade selecionada imediatamente visível e identificável, com navegação clara entre lista, detalhe e rastreabilidade técnica.
 - [x] Relegar metadados de parsing, hashes, URLs, nomes internos de campo e eventos técnicos a uma área secundária expansível, preservando a auditoria sem poluir a operação.
 - [x] Revisar tipografia, cores, contraste, espaçamento e rótulos da auditoria para melhorar hierarquia, semântica e encontrabilidade.
+- [x] Remover o painel visível de histórico de execuções da auditoria e redistribuir o espaço para a lista de unidades e o resumo financeiro, mantendo a rastreabilidade apenas na camada secundária.
+- [x] Remover o comparador histórico por campo da leitura principal da auditoria, preservando somente os dados financeiros e a rastreabilidade sob demanda.
+- [x] Revalidar visualmente a auditoria sem qualquer bloco histórico exposto, confirmando o aproveitamento do espaço pela lista de unidades e pelo resumo financeiro.
