@@ -115,7 +115,9 @@ describe("vinculação bancária por programa", () => {
     expect(record.fieldProvenance).toContainEqual(account);
     expect(paymentEvidenceSummary(record)).toContain("1ª parcela: Pagamento registrado no PDDEInfo");
     expect(paymentEvidenceSummary(record)).toContain("2ª parcela: ausência de pagamento registrado no PDDEInfo em 2026-08-11T12:00:00.000Z");
-    expect(financialHeaders).toEqual(expect.arrayContaining(["Fonte da conta", "Estado de evidência", "Completude das fontes"]));
+    expect(financialHeaders).toEqual(expect.arrayContaining([
+      "PDDE Básico — Agência", "PDDE Básico — Conta", "PDDE Básico — 1ª parcela prevista", "PDDE Básico — 2ª parcela prevista",
+    ]));
   });
 
   it("registra ausência limitada ao PDDEInfo sem concluir que o pagamento não ocorreu", () => {
@@ -157,21 +159,33 @@ describe("vinculação bancária por programa", () => {
     expect(record.fieldProvenance.every(field => field.artifact !== null)).toBe(true);
   });
 
-  it("escreve fonte da conta, estado de evidência e completude de fonte no Excel V2", async () => {
+  it("prioriza o PDDE Básico na aba financeira e transfere metadados para a validação", async () => {
     const record = parseSchoolPage(fixture, "33069247", "0410001", "https://fonte.test/33069247", "2026-08-11T12:00:00.000Z", "d".repeat(64));
-    const buffer = await createV2Workbook([record], [], { passed: true, uniqueIneps: 163, firstInstallmentPaid: 111, secondInstallmentExpected: 163, missingBasicAccounts: 47, errors: [] });
+    const auditRecord: AuditRecord = {
+      inep: "33069247", sme: "0410001", sourceUrl: "https://fonte.test/33069247", consultedAt: "2026-08-11T12:00:00.000Z",
+      status: "SUCCESS", attempts: 1, httpStatus: 200, sourceHashSha256: "d".repeat(64), normalizedHashSha256: "e".repeat(64),
+      rawHtmlKey: "evidence/test.html", normalizedJsonKey: "evidence/test.json", responseBytes: 123, programsFound: ["PDDE QUALIDADE", "PDDE EQUIDADE"], exception: null,
+    };
+    const buffer = await createV2Workbook([record], [auditRecord], { passed: true, uniqueIneps: 163, firstInstallmentPaid: 111, secondInstallmentExpected: 163, missingBasicAccounts: 47, errors: [] });
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]);
     const sheet = workbook.getWorksheet("Financeiro 4ª CRE V2");
+    const audit = workbook.getWorksheet("Validação V2");
 
-    expect(sheet?.getCell("H4").value).toBe("Fonte da conta");
-    expect(sheet?.getCell("K4").value).toBe("Estado de evidência");
-    expect(sheet?.getCell("L4").value).toBe("Completude das fontes");
-    expect(sheet?.getCell("H5").value).toBe("PDDEInfo · tabela bancária sem linha com rótulo exato PDDE");
-    expect(String(sheet?.getCell("K5").value)).toContain("Pagamento registrado no PDDEInfo");
-    expect(String(sheet?.getCell("L5").value)).toContain("PDDEInfo: EXTRAÍDO");
-    expect(String(sheet?.getCell("L5").value)).toContain("SIGEF/extrato: NÃO DISPONÍVEL NESTA EXECUÇÃO PDDEInfo");
-    expect(String(sheet?.getCell("L5").value)).toContain("Associação externa: NÃO COMPROVADA");
+    expect(sheet?.getCell("F4").value).toBe("PDDE Básico — Agência");
+    expect(sheet?.getCell("G4").value).toBe("PDDE Básico — Conta");
+    expect(sheet?.getCell("H4").value).toBe("PDDE Básico — Status da conta");
+    expect(sheet?.getCell("I4").value).toBe("PDDE Básico — 1ª parcela prevista");
+    expect(sheet?.getCell("L4").value).toBe("PDDE Básico — 2ª parcela prevista");
+    expect(financialHeaders.slice(0, 14).every(header => !header.includes("Fonte da conta") && !header.includes("Completude das fontes"))).toBe(true);
+    expect(audit?.getCell("I13").value).toBe("Conta PDDE Básico — fonte/status");
+    expect(audit?.getCell("J13").value).toBe("PDDE Básico — evidência das parcelas");
+    expect(audit?.getCell("K13").value).toBe("Completude das fontes");
+    expect(String(audit?.getCell("I14").value)).toContain("rótulo exato PDDE");
+    expect(String(audit?.getCell("J14").value)).toContain("Pagamento registrado no PDDEInfo");
+    expect(String(audit?.getCell("K14").value)).toContain("PDDEInfo: EXTRAÍDO");
+    expect(String(audit?.getCell("K14").value)).toContain("SIGEF/extrato: NÃO DISPONÍVEL NESTA EXECUÇÃO PDDEInfo");
+    expect(String(audit?.getCell("K14").value)).toContain("Associação externa: NÃO COMPROVADA");
     expect(sheet?.getCell("G5").numFmt).toBe("@");
   });
 });

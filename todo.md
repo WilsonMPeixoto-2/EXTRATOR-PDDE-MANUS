@@ -90,3 +90,7 @@
 - [x] Exibir de forma permanente na tela principal a última execução aprovada e um botão inequívoco para baixar o Excel correspondente.
 - [x] Distinguir uma execução persistida que foi interrompida por reinício do servidor de uma coleta ainda ativa, sem ocultar as consultas já registradas.
 - [x] Reclassificar o SIGEF Conta Corrente como bloqueado por reCAPTCHA após verificação controlada do formulário público.
+- [x] Levantar, priorizar e implementar os próximos refinamentos funcionais solicitados para a experiência de consulta e uso dos resultados do PDDEInfo.
+- [x] Reorganizar a aba principal do Excel por sequência analítica de unidade, programa, parcela, valores previstos, pagamentos registrados e dados bancários, deslocando metadados detalhados para apoio.
+- [x] Confirmar, testar e tornar explícita a classificação do rótulo exato “PDDE” como PDDE Básico, sem misturá-lo com PDDE Qualidade ou PDDE Equidade.
+- [x] Regenerar o Excel de uma execução aprovada a partir dos JSONs normalizados persistidos, sem nova coleta das 163 escolas.

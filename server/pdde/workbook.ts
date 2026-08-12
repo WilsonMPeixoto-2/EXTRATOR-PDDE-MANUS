@@ -8,18 +8,27 @@ const title = "4ª CRE • VISÃO FINANCEIRA POR UNIDADE ESCOLAR • PDDEINFO 20
 const missingAccountNote =
   "Auditoria direta por INEP: o PDDEInfo não apresentou agência/conta para o programa PDDE. Campos de agência e conta mantidos vazios, sem uso de dados antigos ou inferências.";
 
+/**
+ * A aba principal é uma base de análise. Metadados, origem e explicações
+ * detalhadas ficam concentrados na aba obrigatória "Validação V2".
+ */
 export const financialHeaders = [
-  "Código INEP", "Código SME", "Unidade Escolar", "UEx", "CNPJ UEx", "Agência PDDE", "Conta PDDE", "Fonte da conta", "Status conta PDDE", "Observação da validação", "Estado de evidência", "Completude das fontes",
-  "Previsto 1ª Parcela", "Pagamento registrado no PDDEInfo — 1ª Parcela", "Data da ordem registrada — 1ª Parcela", "Previsto 2ª Parcela", "Pagamento registrado no PDDEInfo — 2ª Parcela", "Data da ordem registrada — 2ª Parcela",
-  "Previsto Primeira Infância P1", "Pagamento registrado no PDDEInfo — Primeira Infância P1", "Data da ordem registrada — Primeira Infância P1", "Agência PDDE Qualidade", "Conta PDDE Qualidade",
-  "Previsto Educação Conectada 2026", "Pagamento registrado no PDDEInfo — Educação Conectada 2026", "Data da ordem registrada — Educação Conectada 2026", "Previsto Escola e Comunidade 2026", "Pagamento registrado no PDDEInfo — Escola e Comunidade 2026", "Data da ordem registrada — Escola e Comunidade 2026",
-  "Previsto Escola das Adolescências 2026", "Pagamento registrado no PDDEInfo — Escola das Adolescências 2026", "Data da ordem registrada — Escola das Adolescências 2026", "Previsto Cantinho da Leitura 2026", "Pagamento registrado no PDDEInfo — Cantinho da Leitura 2026", "Data da ordem registrada — Cantinho da Leitura 2026",
-  "Agência PDDE Equidade", "Conta PDDE Equidade", "Previsto PDDE SRM 2026", "Pagamento registrado no PDDEInfo — PDDE SRM 2026", "Data da ordem registrada — PDDE SRM 2026", "Agência Educação Integral", "Conta Educação Integral",
+  "Código INEP", "Código SME", "Unidade Escolar", "UEx", "CNPJ UEx",
+  "PDDE Básico — Agência", "PDDE Básico — Conta", "PDDE Básico — Status da conta",
+  "PDDE Básico — 1ª parcela prevista", "PDDE Básico — 1ª parcela: pagamento registrado", "PDDE Básico — 1ª parcela: data da ordem",
+  "PDDE Básico — 2ª parcela prevista", "PDDE Básico — 2ª parcela: pagamento registrado", "PDDE Básico — 2ª parcela: data da ordem",
+  "PDDE Qualidade — Agência", "PDDE Qualidade — Conta", "PDDE Equidade — Agência", "PDDE Equidade — Conta", "Educação Integral — Agência", "Educação Integral — Conta",
+  "Primeira Infância P1 — Previsto", "Primeira Infância P1 — Pagamento registrado", "Primeira Infância P1 — Data da ordem",
+  "Educação Conectada 2026 — Previsto", "Educação Conectada 2026 — Pagamento registrado", "Educação Conectada 2026 — Data da ordem",
+  "Escola e Comunidade 2026 — Previsto", "Escola e Comunidade 2026 — Pagamento registrado", "Escola e Comunidade 2026 — Data da ordem",
+  "Escola das Adolescências 2026 — Previsto", "Escola das Adolescências 2026 — Pagamento registrado", "Escola das Adolescências 2026 — Data da ordem",
+  "Cantinho da Leitura 2026 — Previsto", "Cantinho da Leitura 2026 — Pagamento registrado", "Cantinho da Leitura 2026 — Data da ordem",
+  "PDDE SRM 2026 — Previsto", "PDDE SRM 2026 — Pagamento registrado", "PDDE SRM 2026 — Data da ordem",
 ];
 
-const currencyColumns = [13, 14, 16, 17, 19, 20, 24, 25, 27, 28, 30, 31, 33, 34, 38, 39];
-const dateColumns = [15, 18, 21, 26, 29, 32, 35, 40];
-const textAccountColumns = [1, 2, 5, 6, 7, 8, 22, 23, 36, 37, 41, 42];
+const currencyColumns = [9, 10, 12, 13, 21, 22, 24, 25, 27, 28, 30, 31, 33, 34, 36, 37];
+const dateColumns = [11, 14, 23, 26, 29, 32, 35, 38];
+const textAccountColumns = [1, 2, 5, 6, 7, 15, 16, 17, 18, 19, 20];
 
 const evidenceStateLabels: Record<FieldState, string> = {
   PAGAMENTO_INFORMADO_PDDEINFO: "Pagamento registrado no PDDEInfo",
@@ -97,10 +106,10 @@ function buildRow(record: SchoolExtraction) {
 
   return [
     record.inep, record.sme, record.schoolName, record.uex, record.cnpj,
-    basic?.agency ?? "", basic?.account ?? "", basicAccountSource(record), missingBasic ? "NÃO INFORMADA PELO PDDEINFO" : "Informada pelo PDDEInfo", missingBasic ? missingAccountNote : "", paymentEvidenceSummary(record), sourceCompletenessSummary(record),
-    ...first, ...second, ...firstChildhood,
-    quality?.agency ?? "", quality?.account ?? "", ...connected, ...community, ...adolescence, ...reading,
-    equity?.agency ?? "", equity?.account ?? "", ...srm, integral?.agency ?? "", integral?.account ?? "",
+    basic?.agency ?? "", basic?.account ?? "", missingBasic ? "Não informada pelo PDDEInfo" : "Informada pelo PDDEInfo",
+    ...first, ...second,
+    quality?.agency ?? "", quality?.account ?? "", equity?.agency ?? "", equity?.account ?? "", integral?.agency ?? "", integral?.account ?? "",
+    ...firstChildhood, ...connected, ...community, ...adolescence, ...reading, ...srm,
   ];
 }
 
@@ -150,23 +159,25 @@ export async function createV2Workbook(records: SchoolExtraction[], audits: Audi
   workbook.created = new Date();
   workbook.properties.date1904 = false;
 
-  const sheet = workbook.addWorksheet("Financeiro 4ª CRE V2", { views: [{ state: "frozen", xSplit: 10, ySplit: 4 }] });
-  sheet.mergeCells(1, 1, 1, 42);
+  const sheet = workbook.addWorksheet("Financeiro 4ª CRE V2", { views: [{ state: "frozen", xSplit: 8, ySplit: 4 }] });
+  sheet.mergeCells(1, 1, 1, financialHeaders.length);
   sheet.getCell("A1").value = title;
   sheet.getCell("A1").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0E3B43" } };
   sheet.getCell("A1").font = { name: "Aptos Display", size: 14, bold: true, color: { argb: "FFFFFFFF" } };
   sheet.getCell("A1").alignment = { vertical: "middle" };
   sheet.getRow(1).height = 28;
-  sheet.mergeCells(2, 1, 2, 42);
-  sheet.getCell("A2").value = "Dados extraídos por consulta individual ao PDDEInfo. “Pagamento registrado” não confirma crédito bancário. Contas de PDDE Básico só são preenchidas quando o rótulo bancário é exatamente PDDE.";
+  sheet.mergeCells(2, 1, 2, financialHeaders.length);
+  sheet.getCell("A2").value = "Base para análise por unidade, programa e parcela. PDDE Básico é o rótulo bancário exato “PDDE”; não se confunde com PDDE Qualidade ou PDDE Equidade. “Pagamento registrado” não confirma crédito bancário. Metadados e proveniência detalhada estão em “Validação V2”.";
   sheet.getCell("A2").font = { name: "Aptos", italic: true, color: { argb: "FF5D4037" } };
   sheet.getCell("A2").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF4D6" } };
   sheet.getCell("A2").alignment = { vertical: "middle", wrapText: true };
   sheet.getRow(2).height = 30;
 
   const groups = [
-    [1, 5, "IDENTIFICAÇÃO DA UNIDADE", "FF315A67"], [6, 12, "PDDE • CONTA, VALIDAÇÃO E EVIDÊNCIA", "FF9A6B35"], [13, 21, "PDDE • REPASSES", "FF6F4E37"],
-    [22, 35, "PDDE QUALIDADE • CONTA E AÇÕES 2026", "FF3F6B64"], [36, 40, "PDDE EQUIDADE • CONTA E REPASSE", "FF5B506B"], [41, 42, "PDDE EDUCAÇÃO INTEGRAL • CONTA", "FF426D8A"],
+    [1, 5, "IDENTIFICAÇÃO DA UNIDADE", "FF315A67"],
+    [6, 14, "PDDE BÁSICO • CONTA E PARCELAS", "FF9A6B35"],
+    [15, 20, "OUTRAS CONTAS BANCÁRIAS", "FF5B506B"],
+    [21, 38, "OUTROS PROGRAMAS E AÇÕES 2026", "FF3F6B64"],
   ];
   groups.forEach(([start, end, label, color]) => {
     sheet.mergeCells(3, start as number, 3, end as number);
@@ -183,7 +194,7 @@ export async function createV2Workbook(records: SchoolExtraction[], audits: Audi
     styleHeader(cell, "FF164E63");
   });
   sheet.getRow(4).height = 46;
-  sheet.autoFilter = { from: "A4", to: "AP4" };
+  sheet.autoFilter = { from: "A4", to: sheet.getCell(4, financialHeaders.length).address };
 
   records.forEach((record, index) => {
     const row = sheet.getRow(index + 5);
@@ -199,8 +210,8 @@ export async function createV2Workbook(records: SchoolExtraction[], audits: Audi
   currencyColumns.forEach(column => { sheet.getColumn(column).numFmt = "R$ #,##0.00"; });
   dateColumns.forEach(column => { sheet.getColumn(column).numFmt = "dd/mm/yyyy"; });
   textAccountColumns.forEach(column => { sheet.getColumn(column).numFmt = "@"; });
-  [1, 2, 6, 7, 8, 22, 23, 36, 37, 41, 42].forEach(column => (sheet.getColumn(column).alignment = { horizontal: "left", vertical: "top" }));
-  [12, 18, 22, 34, 46, 50, 34, 34, 20, 34, 44, 52, 24, 28, 14, 24, 28, 14, 24, 28, 14, 24, 28, 24, 28, 14, 24, 28, 14, 24, 28, 14, 24, 28, 14, 24, 28, 24, 28, 14, 24, 28].forEach((width, index) => (sheet.getColumn(index + 1).width = width));
+  [1, 2, 3, 4, 5, 6, 7, 8, 15, 16, 17, 18, 19, 20].forEach(column => (sheet.getColumn(column).alignment = { horizontal: "left", vertical: "top" }));
+  [12, 12, 34, 30, 20, 14, 18, 28, 18, 22, 16, 18, 22, 16, 14, 18, 14, 18, 14, 18, 18, 22, 16, 18, 22, 16, 18, 22, 16, 18, 22, 16, 18, 22, 16, 18, 22, 16].forEach((width, index) => (sheet.getColumn(index + 1).width = width));
 
   const audit = workbook.addWorksheet("Validação V2", { views: [{ state: "frozen", ySplit: 12 }] });
   audit.mergeCells("A1:H1");
@@ -224,18 +235,21 @@ export async function createV2Workbook(records: SchoolExtraction[], audits: Audi
     audit.getCell(index + 4, 2).value = result;
   });
   audit.getCell("B4").font = { name: "Aptos", bold: true, color: { argb: validation.passed ? "FF176B50" : "FF9D3030" } };
-  audit.getCell("A12").value = "AUDITORIA POR UNIDADE";
+  audit.getCell("A12").value = "METADADOS, PROVENIÊNCIA E AUDITORIA POR UNIDADE";
   audit.getCell("A12").font = { name: "Aptos", bold: true, color: { argb: "FF0E3B43" } };
-  const auditHeaders = ["Código SME", "Código INEP", "URL consultada", "Data/hora da consulta", "Status", "Tentativas", "Programas bancários encontrados", "Exceção registrada"];
+  const recordsByInep = new Map(records.map(record => [record.inep, record]));
+  const auditHeaders = ["Código SME", "Código INEP", "URL consultada", "Data/hora da consulta", "Status", "Tentativas", "Programas bancários encontrados", "Exceção registrada", "Conta PDDE Básico — fonte/status", "PDDE Básico — evidência das parcelas", "Completude das fontes"];
   auditHeaders.forEach((header, index) => { audit.getCell(13, index + 1).value = header; styleHeader(audit.getCell(13, index + 1), "FF9A6B35"); });
   audits.forEach((record, index) => {
     const row = audit.getRow(index + 14);
-    row.values = [record.sme, record.inep, record.sourceUrl, record.consultedAt ?? "", record.status, record.attempts, record.programsFound.join(" | "), record.exception ?? ""];
+    const extracted = recordsByInep.get(record.inep);
+    const missingBasic = extracted ? !accountForExactProgram(extracted, "PDDE")?.agency && !accountForExactProgram(extracted, "PDDE")?.account : false;
+    row.values = [record.sme, record.inep, record.sourceUrl, record.consultedAt ?? "", record.status, record.attempts, record.programsFound.join(" | "), record.exception ?? "", extracted ? `${basicAccountSource(extracted)} · ${missingBasic ? "Não informada pelo PDDEInfo" : "Informada pelo PDDEInfo"}` : "Sem registro financeiro extraído", extracted ? paymentEvidenceSummary(extracted) : "Sem registro financeiro extraído", extracted ? sourceCompletenessSummary(extracted) : "Sem registro financeiro extraído"];
     row.alignment = { vertical: "top", wrapText: true };
     if (record.status === "FAILED") row.getCell(5).font = { color: { argb: "FFB42318" }, bold: true };
   });
-  audit.autoFilter = { from: "A13", to: "H13" };
-  [14, 14, 70, 24, 14, 12, 42, 42].forEach((width, index) => (audit.getColumn(index + 1).width = width));
+  audit.autoFilter = { from: "A13", to: "K13" };
+  [14, 14, 70, 24, 14, 12, 42, 42, 42, 62, 62].forEach((width, index) => (audit.getColumn(index + 1).width = width));
   audit.getColumn(4).numFmt = "dd/mm/yyyy hh:mm";
 
   return Buffer.from(await workbook.xlsx.writeBuffer());
