@@ -100,3 +100,4 @@
 - [x] Pesquisar APIs oficiais, arquivos públicos e facilitadores permitidos para dados do PDDE, avaliando cobertura, atualização, rastreabilidade e integração futura.
 - [x] Executar testes controlados adicionais no SIGEF e em portais oficiais correlatos do FNDE/PDDE, usando o conector Parallel quando pertinente, para buscar campos verificáveis ainda indisponíveis sem contornar CAPTCHA ou controles de acesso.
 - [x] Documentar a evidência, a cobertura, a chave de associação e as limitações de cada nova fonte testada antes de habilitar qualquer integração no fluxo de produção.
+- [x] Atualizar o catálogo e os testes do SIGEF para registrar que a rota pública de Extratos exige reCAPTCHA, preservando o piloto por PDF autorizado como fonte separada e limitada.

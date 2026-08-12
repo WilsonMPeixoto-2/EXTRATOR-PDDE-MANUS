@@ -56,7 +56,7 @@ const SOURCE_AUTOMATION_CATALOG: SourceAutomationDefinition[] = [
     accessState: "PILOT_COMPLETED_WITH_LIMITATIONS",
     autonomous: false,
     collectionMethod: "file-import",
-    detail: "Piloto de PDF autorizado concluído: armazenamento, hash, extração e recuperação auditáveis comprovados. O arquivo identificou créditos FNDE, mas não traz programa, parcela e conta destinatária suficientes para associação estrita. A automação do formulário público continua em piloto e não é habilitada.",
+    detail: "Piloto de PDF autorizado concluído: armazenamento, hash, extração e recuperação auditáveis comprovados. O arquivo identificou créditos FNDE, mas não traz programa, parcela e conta destinatária suficientes para associação estrita. A rota pública de Extratos exibe reCAPTCHA após a seleção do programa; por isso, não é automatizada nem habilitada.",
     baseUrl: "https://www.fnde.gov.br/sigefweb/index.php/extratos",
   },
   {

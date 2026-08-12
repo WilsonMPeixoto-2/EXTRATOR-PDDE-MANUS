@@ -32,13 +32,14 @@ describe("catálogo de automação por fonte", () => {
     ]));
   });
 
-  it("mantém o SIGEF Conta Corrente bloqueado por CAPTCHA e o piloto de extrato com limitações explícitas", () => {
+  it("mantém o SIGEF Conta Corrente bloqueado por CAPTCHA e registra o reCAPTCHA da rota pública do piloto de extrato", () => {
     const contaCorrente = sourceDefinition("SIGEF_CONTA_CORRENTE");
     const extrato = sourceDefinition("SIGEF_EXTRATO");
     expect(contaCorrente).toMatchObject({ accessState: "CAPTCHA_REQUIRED", autonomous: false, collectionMethod: "institutional-channel" });
     expect(contaCorrente.baseUrl).toContain("extrato-conta-corrente");
     expect(extrato).toMatchObject({ accessState: "PILOT_COMPLETED_WITH_LIMITATIONS", autonomous: false, collectionMethod: "file-import" });
     expect(extrato.detail).toContain("programa, parcela e conta destinatária");
+    expect(extrato.detail).toContain("reCAPTCHA");
   });
 
   it("versiona o roteiro autônomo do PDDEInfo com retentativas e bloqueia fontes não autorizadas", () => {
