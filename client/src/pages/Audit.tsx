@@ -1,8 +1,9 @@
-import { useAuth } from "@/_core/hooks/useAuth";
+import { useAuth } from "../_core/hooks/useAuth";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { AlertTriangle, ArrowLeft, FileSearch, RefreshCw, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { buildFinancialSchoolDossier, filterAuditObservations, filterAuditSchools, operationalConsultationStatus, operationalRunStatus } from "./auditFilters";
+import { buildFinancialSchoolDossier, evidenceStateExplanation, filterAuditObservations, filterAuditSchools, operationalConsultationStatus, operationalRunStatus } from "./auditFilters";
 
 type AuditRun = { id: string; status: "running" | "approved" | "partial" | "blocked" | "failed"; masterCount: number; processedCount: number; parserVersion: string; startedAt: string; completedAt: string | null; validationJson: { passed?: boolean; errors?: string[]; sourceLimitations?: string[] } };
 type School = { inep: string; sme: string; schoolName: string | null; status: "success" | "failed"; consultedAt: string; programsJson: string[]; exception: string | null };
@@ -47,6 +48,14 @@ function evidenceStateLabel(state: string | null) {
   return state ? labels[state] ?? state : "Sem estado de evidência";
 }
 
+function EvidenceStateBadge({ state, className = "" }: { state: string | null; className?: string }) {
+  const label = evidenceStateLabel(state);
+  return <Tooltip>
+    <TooltipTrigger asChild><span tabIndex={0} className={`${className} audit-evidence-tooltip-trigger`} aria-label={`Explicação: ${label}`}>{label}</span></TooltipTrigger>
+    <TooltipContent side="top" sideOffset={7} className="audit-evidence-tooltip">{evidenceStateExplanation(state)}</TooltipContent>
+  </Tooltip>;
+}
+
 function operationalEventLabel(type: string) {
   const labels: Record<string, string> = {
     FIELD_PARSED: "Campo identificado",
@@ -66,7 +75,7 @@ function EvidenceActions({ dossier, observation, runId, onOpenArtifact }: { doss
     <p><b>Normalizado:</b> {String(observation.normalizedValueJson?.value ?? "—")}</p>
     <p><b>Fonte:</b> {observation.source} · {displayDate(observation.consultedAt)}</p>
     <p><b>URL:</b> <code>{observation.sourceUrl}</code></p>
-    <p><b>Estado:</b> {evidenceStateLabel(observation.state)}</p>
+    <p><b>Estado:</b> <EvidenceStateBadge state={observation.state} className="audit-evidence-state-inline" /></p>
     <p><b>Trecho:</b> {observation.evidenceSnippet ?? "não disponível"}</p>
     <div className="audit-evidence-actions">
       {htmlArtifact && <button className="audit-evidence-button" onClick={() => onOpenArtifact(runId, htmlArtifact.id)}>HTML bruto · {htmlArtifact.sha256.slice(0, 12)}</button>}
@@ -198,7 +207,7 @@ export default function Audit() {
             </article>
             <article className="financial-payments-panel">
               <header><h3>Parcelas e valores registrados</h3><small>“Valor pago” significa pagamento registrado no PDDEInfo; não confirma crédito bancário.</small></header>
-              {financialDossier.payments.length ? <div className="financial-table-scroll"><table className="financial-data-table"><thead><tr><th>Destinação</th><th>Previsto</th><th>Pago registrado</th><th>Data da ordem</th><th>Estado</th></tr></thead><tbody>{financialDossier.payments.map(payment => <tr key={payment.index}><td className="financial-destination">{payment.destination ?? "—"}</td><td className="financial-amount">{payment.expected ?? "—"}</td><td className="financial-amount financial-paid">{payment.paid ?? "—"}</td><td>{payment.paymentDate ?? "—"}</td><td><span className={`financial-evidence-state ${payment.state === "PAGAMENTO_INFORMADO_PDDEINFO" ? "financial-evidence-confirmed" : ""}`}>{evidenceStateLabel(payment.state)}</span></td></tr>)}</tbody></table></div> : <p className="audit-empty">Nenhuma parcela foi exibida na página consultada.</p>}
+              {financialDossier.payments.length ? <div className="financial-table-scroll"><table className="financial-data-table"><thead><tr><th>Destinação</th><th>Previsto</th><th>Pago registrado</th><th>Data da ordem</th><th>Estado</th></tr></thead><tbody>{financialDossier.payments.map(payment => <tr key={payment.index}><td className="financial-destination">{payment.destination ?? "—"}</td><td className="financial-amount">{payment.expected ?? "—"}</td><td className="financial-amount financial-paid">{payment.paid ?? "—"}</td><td>{payment.paymentDate ?? "—"}</td><td><EvidenceStateBadge state={payment.state} className={`financial-evidence-state ${payment.state === "PAGAMENTO_INFORMADO_PDDEINFO" ? "financial-evidence-confirmed" : ""}`} /></td></tr>)}</tbody></table></div> : <p className="audit-empty">Nenhuma parcela foi exibida na página consultada.</p>}
             </article>
           </div>
         </div> : <p className="audit-empty">Selecione uma unidade na tabela acima. O resumo financeiro mostrará contas, parcelas e valores efetivamente extraídos.</p>}
@@ -217,7 +226,7 @@ export default function Audit() {
             <div>
               <h3>Campos e evidências preservados</h3>
               <input className="audit-filter" value={fieldFilter} onChange={event => setFieldFilter(event.target.value)} placeholder="Buscar campo ou evidência" aria-label="Buscar campo ou evidência" />
-              <div className="audit-observation-list">{filteredObservations.map(observation => <article key={observation.id}><header><strong>{observation.fieldPath}</strong><span className={badgeClass(observation.state ?? "info")}>{evidenceStateLabel(observation.state)}</span></header><EvidenceActions dossier={dossier} observation={observation} runId={selectedRunId} onOpenArtifact={(runId, artifactId) => void openArtifact(runId, artifactId)} /><p><b>Regra:</b> {observation.extractionRule} · {observation.parserVersion}</p><p><b>Hash:</b> <code>{observation.sourceHashSha256?.slice(0, 18) ?? "—"}</code></p>{observation.validationResultsJson?.map(result => <small key={`${observation.id}-${result.code}`} className={`audit-validation audit-validation-${result.level}`}>{result.message}</small>)}</article>)}</div>
+              <div className="audit-observation-list">{filteredObservations.map(observation => <article key={observation.id}><header><strong>{observation.fieldPath}</strong><EvidenceStateBadge state={observation.state} className={badgeClass(observation.state ?? "info")} /></header><EvidenceActions dossier={dossier} observation={observation} runId={selectedRunId} onOpenArtifact={(runId, artifactId) => void openArtifact(runId, artifactId)} /><p><b>Regra:</b> {observation.extractionRule} · {observation.parserVersion}</p><p><b>Hash:</b> <code>{observation.sourceHashSha256?.slice(0, 18) ?? "—"}</code></p>{observation.validationResultsJson?.map(result => <small key={`${observation.id}-${result.code}`} className={`audit-validation audit-validation-${result.level}`}>{result.message}</small>)}</article>)}</div>
             </div>
           </div> : <p className="audit-empty">Selecione uma unidade para consultar os registros técnicos preservados.</p>}
           <div className="audit-source-records">

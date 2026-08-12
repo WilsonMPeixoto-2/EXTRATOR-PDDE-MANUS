@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildFinancialSchoolDossier, buildObservationComparisons, filterAuditObservations, filterAuditRuns, filterAuditSchools, operationalConsultationStatus, operationalRunStatus } from "./auditFilters";
+import { buildFinancialSchoolDossier, buildObservationComparisons, evidenceStateExplanation, filterAuditObservations, filterAuditRuns, filterAuditSchools, operationalConsultationStatus, operationalRunStatus } from "./auditFilters";
 
 describe("filtros da auditoria", () => {
   it("filtra escolas pelo programa identificado na execução", () => {
@@ -25,6 +25,12 @@ describe("filtros da auditoria", () => {
     expect(operationalRunStatus("blocked")).toBe("Bloqueada");
     expect(operationalConsultationStatus("success")).toBe("Dados extraídos");
     expect(operationalConsultationStatus("failed")).toBe("Consulta sem dados");
+  });
+
+  it("explica o alcance dos estados de evidência sem inferir crédito bancário", () => {
+    expect(evidenceStateExplanation("PAGAMENTO_INFORMADO_PDDEINFO")).toContain("não confirma");
+    expect(evidenceStateExplanation("CONSULTA_INCONCLUSIVA")).toContain("não permitem concluir");
+    expect(evidenceStateExplanation(null)).toContain("Não há estado");
   });
 
   it("filtra execuções por identificador, data ISO ou estado", () => {

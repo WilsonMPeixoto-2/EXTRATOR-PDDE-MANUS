@@ -110,3 +110,4 @@
 - [x] Remover o comparador histórico por campo da leitura principal da auditoria, preservando somente os dados financeiros e a rastreabilidade sob demanda.
 - [x] Revalidar visualmente a auditoria sem qualquer bloco histórico exposto, confirmando o aproveitamento do espaço pela lista de unidades e pelo resumo financeiro.
 - [x] Refinar tipografia, espaçamento e cores institucionais do resumo financeiro e da lista de unidades para distinguir identificação, contas, parcelas e estados sem aumentar a complexidade visual.
+- [x] Adicionar tooltips acessíveis aos estados de evidência da auditoria, com explicação operacional ao passar o mouse ou navegar por teclado.

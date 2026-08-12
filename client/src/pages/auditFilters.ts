@@ -51,6 +51,22 @@ export function operationalConsultationStatus(status: string): string {
   return status === "success" ? "Dados extraídos" : status === "failed" ? "Consulta sem dados" : status;
 }
 
+const EVIDENCE_STATE_EXPLANATIONS: Record<string, string> = {
+  PAGAMENTO_INFORMADO_PDDEINFO: "O PDDEInfo registra pagamento ou ordem. Isso não confirma, por si só, o crédito na conta bancária.",
+  OB_CORROBORADA_CREDITO_NAO_LOCALIZADO: "A ordem bancária foi corroborada, mas o crédito correspondente ainda não foi localizado na fonte consultada.",
+  CREDITO_LOCALIZADO_SIGEF: "Um crédito correspondente foi localizado no SIGEF, sem substituir as regras de conciliação documental.",
+  CREDITO_CONFIRMADO_EXTRATO_BB: "O crédito foi confirmado em extrato bancário vinculado à evidência preservada.",
+  CREDITO_ESTORNADO_OU_DEVOLVIDO: "A evidência indica estorno ou devolução; o valor não deve ser tratado como crédito disponível.",
+  SEM_PAGAMENTO_REGISTRADO_ATE_CONSULTA: "Não havia pagamento registrado na fonte até a data e hora desta consulta.",
+  DIVERGENCIA_ENTRE_FONTES: "As fontes consultadas apresentam informações incompatíveis e exigem conferência na rastreabilidade.",
+  CONSULTA_INCONCLUSIVA: "As fontes disponíveis não permitem concluir se houve crédito bancário confirmado.",
+  REVISAO_NECESSARIA: "O registro requer conferência antes de qualquer conclusão operacional.",
+};
+
+export function evidenceStateExplanation(state: string | null | undefined): string {
+  return state ? EVIDENCE_STATE_EXPLANATIONS[state] ?? "Estado registrado na fonte consultada. Abra a rastreabilidade para conferir a evidência preservada." : "Não há estado de evidência informado para este campo.";
+}
+
 export function filterAuditObservations<T extends AuditObservationFilterItem>(observations: T[], fieldQuery: string): T[] {
   if (!fieldQuery.trim()) return observations;
   return observations.filter(observation => [observation.fieldPath, observation.logicalKey, observation.rawValue ?? "", observation.evidenceSnippet ?? ""].some(value => includesNormalized(value, fieldQuery)));
