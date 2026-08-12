@@ -36,6 +36,8 @@
 - [ ] Cobrir em testes o preenchimento real de proveniência, validações e estados, além da existência dos tipos.
 - [x] Produzir matriz de viabilidade técnica por fonte, distinguindo capacidade já comprovada, integração possível mediante piloto e dependências institucionais de acesso/autorização.
 - [ ] Executar piloto controlado de navegação, consulta, extração, armazenamento e recuperação de evidências antes de habilitar cada fonte em produção.
+- [x] Comparar ferramentas de coleta e automação por aderência ao PDDEInfo/SIGEF, licenças, custo operacional, determinismo, evidência preservada e respeito a CAPTCHA.
+- [x] Manter como núcleo as requisições e parsers próprios; admitir ferramentas externas apenas como camada opcional de leitura/navegação permitida, nunca como mecanismo de contorno de acesso.
 - [x] Substituir a apresentação promocional por uma interface institucional, sóbria e direta, orientada a execução, conferência, exceções e auditoria.
 - [x] Remover linguagem de autoafirmação e destaques visuais de marketing, preservando apenas indicadores operacionais e informações necessárias à rotina da GAD/4ª CRE.
 - [ ] Proibir o uso de “Não pago” como conclusão absoluta e registrar data/hora e fontes consultadas nas ausências de evidência.
