@@ -114,6 +114,7 @@ client/public/__manus__/version.json
 .project-config.json
 
 # Evidências e saídas operacionais do PDDE (somente storage gerenciado)
+.pilot-private/
 evidence/
 exports/
 storage/

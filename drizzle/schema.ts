@@ -62,7 +62,7 @@ export const schoolConsultations = mysqlTable("school_consultations", {
 export const runArtifacts = mysqlTable("run_artifacts", {
   id: int("id").autoincrement().primaryKey(),
   runId: varchar("run_id", { length: 64 }).notNull(),
-  kind: mysqlEnum("kind", ["workbook", "manifest", "raw_html", "normalized_json", "open_data_file"]).notNull(),
+  kind: mysqlEnum("kind", ["workbook", "manifest", "raw_html", "normalized_json", "open_data_file", "sigef_movement_pdf"]).notNull(),
   storageKey: text("storage_key").notNull(),
   storageUrl: text("storage_url").notNull(),
   contentType: varchar("content_type", { length: 128 }).notNull(),

@@ -55,6 +55,7 @@
 - [x] Substituir o destino de publicação pelo repositório existente WilsonMPeixoto-2/EXTRATOR-PDDE-MANUS, indicado pelo usuário.
 - [x] Verificar o histórico do repositório existente antes de sincronizar, preservando quaisquer conteúdos já presentes.
 - [x] Confirmar o site pddeinfo4cre-zn9f2kak.manus.space como ambiente oficial já publicado e alinhá-lo ao repositório correto.
+- [x] Executar piloto controlado com o PDF de movimentação PDDE fornecido, preservando evidência e aplicando conciliação estrita.
 - [x] Aplicar a semântica “pagamento registrado no PDDEInfo” em toda a interface, auditoria e Excel visível ao usuário, revisando textos remanescentes.
 - [x] Implementar schema formal de validação do registro extraído e cobrir casos de estrutura inválida além das validações por campo.
 - [x] Aplicar autenticação e limite de requisição às rotas de status, lista-mestre, fontes e demais endpoints operacionais do módulo PDDE.

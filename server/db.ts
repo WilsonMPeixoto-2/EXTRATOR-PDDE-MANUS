@@ -201,7 +201,7 @@ export async function persistSchoolCollection(runId: string, audit: AuditRecord,
 
 export async function persistRunArtifact(input: {
   runId: string;
-  kind: "workbook" | "manifest" | "raw_html" | "normalized_json" | "open_data_file";
+  kind: "workbook" | "manifest" | "raw_html" | "normalized_json" | "open_data_file" | "sigef_movement_pdf";
   storageKey: string;
   storageUrl: string;
   contentType: string;
