@@ -174,7 +174,7 @@ export default function Home() {
           <span className="side-caption">NAVEGAÇÃO</span>
           <a className="side-nav side-nav-active" href="#operacao"><Gauge size={17} /><span>Execução</span></a>
           <a className="side-nav" href="#validacoes"><ShieldCheck size={17} /><span>Validações</span></a>
-          <a className="side-nav" href="#auditoria"><Activity size={17} /><span>Registros</span></a>
+          <a className="side-nav" href="/auditoria"><Activity size={17} /><span>Auditoria</span></a>
         </div>
         <div className="side-rule">
           <LockKeyhole size={16} />

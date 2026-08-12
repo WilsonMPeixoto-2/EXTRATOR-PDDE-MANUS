@@ -20,18 +20,18 @@
 - [x] Preservar por execução o HTML bruto, JSON normalizado, URL, horário, status HTTP, versão do parser e hash SHA-256.
 - [x] Persistir histórico imutável de execuções, consultas por escola, validações, artefatos e autor da operação.
 - [x] Comparar cada execução com a última linha de base aprovada e sinalizar perdas de pagamento ou alterações relevantes.
-- [ ] Criar navegação de auditoria para consultar execução, escola, evidência, anomalia e alteração histórica.
+- [x] Criar navegação de auditoria para consultar execução, escola, evidência, anomalia e alteração histórica.
 - [x] Proteger a operação com autenticação, limites de requisição e registro de operador.
 - [ ] Adicionar fixtures reais anonimizadas, dataset dourado e testes de schema, aritmética, alertas e histórico.
 - [ ] Validar tecnicamente as consultas públicas SIGEF de Liberação de Recursos, Conta Corrente e Movimentação Bancária, sem assumir disponibilidade ou chaves de ligação.
 - [x] Modelar proveniência por campo e status de conciliação entre PDDEInfo, SIGEF e confirmação bancária.
 - [x] Manter dados de fontes distintas separados, sem preenchimento silencioso de conta, pagamento ou crédito.
 - [ ] Integrar somente as rotas SIGEF comprovadamente acessíveis, com evidência, limites de consulta e tratamento de divergências.
-- [ ] Criar contrato de proveniência por campo, incluindo fonte, URL, evidência bruta, regra de parsing, transformação, hash, validações e nível de confirmação.
+- [x] Criar contrato de proveniência por campo, incluindo fonte, URL, evidência bruta, regra de parsing, transformação, hash, validações e nível de confirmação.
 - [x] Modelar eventos de auditoria imutáveis para coleta, parsing, normalização, validação, conciliação, exportação e intervenção humana.
-- [ ] Implementar interface de auditoria com busca por execução, escola, programa e campo; painel de evidência; linha do tempo; comparador histórico e fila de exceções.
+- [x] Implementar interface de auditoria com busca por execução, escola, programa e campo; painel de evidência; linha do tempo; comparador histórico e fila de exceções.
 - [x] Substituir estados genéricos por uma taxonomia que diferencie OB corroborada, crédito localizado no SIGEF, crédito confirmado em extrato BB, divergência, estorno e consulta inconclusiva.
-- [ ] Referenciar, em cada observação de campo, o artefato bruto HTML/JSON persistido e o trecho de evidência navegável.
+- [x] Referenciar, em cada observação de campo, o artefato bruto HTML/JSON persistido e o trecho de evidência navegável.
 - [ ] Popular resultados de validação e estado de evidência no pipeline de extração, refletindo-os na auditoria, interface e Excel.
 - [ ] Cobrir em testes o preenchimento real de proveniência, validações e estados, além da existência dos tipos.
 - [x] Produzir matriz de viabilidade técnica por fonte, distinguindo capacidade já comprovada, integração possível mediante piloto e dependências institucionais de acesso/autorização.
@@ -58,3 +58,9 @@
 - [x] Cobrir em teste que somente usuário autenticado consulta uma execução auditável e inicia nova execução.
 - [x] Cobrir 429 HTTP também para lista-mestre e status de execução, além de fontes e início de execução.
 - [x] Cobrir o acesso autenticado a uma execução existente e o início autorizado de uma nova execução sem disparar coleta real no teste.
+- [x] Adicionar filtros explícitos por programa e campo na auditoria, com teste dos resultados filtrados.
+- [x] Vincular cada observação aos artefatos HTML e JSON normalizado correspondentes, expondo ambos na interface e API.
+- [x] Persistir e exibir um trecho navegável de evidência por campo, em vez de apenas abrir o artefato integral.
+- [x] Adicionar busca textual por escola, INEP e SME na auditoria, além da seleção por clique.
+- [x] Implementar comparador histórico explícito para confrontar observação de campo, valor anterior, valor atual e evidências das duas execuções.
+- [x] Adicionar busca ou filtro explícito por execução na auditoria, por identificador, data ou status, com teste automatizado.

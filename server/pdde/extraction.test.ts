@@ -43,6 +43,7 @@ describe("vinculação bancária por programa", () => {
       normalizedValue: 100,
       extractionRule: "brl-currency",
       state: "PAGAMENTO_INFORMADO_PDDEINFO",
+      evidenceSnippet: expect.stringContaining("100,00"),
     });
     expect(paid?.validationResults).toEqual(expect.arrayContaining([
       expect.objectContaining({ code: "source-hash", level: "passed" }),
@@ -52,8 +53,9 @@ describe("vinculação bancária por programa", () => {
     expect(account).toMatchObject({
       fieldId: "33069247:PDDEINFO:bank-account:PDDE QUALIDADE:account",
       rawValue: "0000546402",
-      normalizedValue: "0000546402",
+      sourceHashSha256: hash,
       parserVersion: expect.any(String),
+      evidenceSnippet: expect.stringContaining("0000546402"),
     });
     expect(record.fieldProvenance).toContainEqual(paid);
     expect(record.fieldProvenance).toContainEqual(account);

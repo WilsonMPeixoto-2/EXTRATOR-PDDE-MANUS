@@ -130,6 +130,7 @@ export async function appendAuditTrail(runId: string, inep: string, provenance: 
       parserVersion: field.parserVersion,
       extractionRule: field.extractionRule,
       selector: field.selector,
+      evidenceSnippet: field.evidenceSnippet,
       validationResultsJson: field.validationResults,
       state: field.state,
     })));
@@ -227,6 +228,46 @@ export async function persistHistoricalFindings(runId: string, findings: Histori
     runId, inep: finding.inep, severity: finding.severity, code: finding.code, message: finding.message,
     previousValue: finding.previousValue === null ? null : String(finding.previousValue), currentValue: finding.currentValue === null ? null : String(finding.currentValue),
   })));
+}
+
+export async function listPersistedAuditRuns(limit = 25) {
+  const db = await getAuditDbOrThrow();
+  return db.select().from(extractionRuns).orderBy(desc(extractionRuns.completedAt), desc(extractionRuns.createdAt)).limit(limit);
+}
+
+export async function getPersistedAuditRun(runId: string) {
+  const db = await getAuditDbOrThrow();
+  const rows = await db.select().from(extractionRuns).where(eq(extractionRuns.id, runId)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function listRunSchools(runId: string) {
+  const db = await getAuditDbOrThrow();
+  return db.select().from(schoolConsultations).where(eq(schoolConsultations.runId, runId)).orderBy(schoolConsultations.inep);
+}
+
+export async function getSchoolAuditDossier(runId: string, inep: string) {
+  const db = await getAuditDbOrThrow();
+  const [consultations, observations, events, findings, artifacts] = await Promise.all([
+    db.select().from(schoolConsultations).where(and(eq(schoolConsultations.runId, runId), eq(schoolConsultations.inep, inep))),
+    db.select().from(fieldObservations).where(and(eq(fieldObservations.runId, runId), eq(fieldObservations.inep, inep))).orderBy(fieldObservations.logicalKey),
+    db.select().from(runAuditEvents).where(and(eq(runAuditEvents.runId, runId), eq(runAuditEvents.inep, inep))).orderBy(desc(runAuditEvents.occurredAt)),
+    db.select().from(runFindings).where(and(eq(runFindings.runId, runId), eq(runFindings.inep, inep))).orderBy(desc(runFindings.createdAt)),
+    db.select().from(runArtifacts).where(eq(runArtifacts.runId, runId)),
+  ]);
+  const schoolArtifacts = artifacts.filter(artifact => artifact.storageKey.includes(`/${inep}/`));
+  return { consultation: consultations[0] ?? null, observations, events, findings, artifacts: schoolArtifacts };
+}
+
+export async function listRunFindings(runId: string) {
+  const db = await getAuditDbOrThrow();
+  return db.select().from(runFindings).where(eq(runFindings.runId, runId)).orderBy(desc(runFindings.severity), desc(runFindings.createdAt));
+}
+
+export async function getRunArtifact(runId: string, artifactId: number) {
+  const db = await getAuditDbOrThrow();
+  const rows = await db.select().from(runArtifacts).where(and(eq(runArtifacts.runId, runId), eq(runArtifacts.id, artifactId))).limit(1);
+  return rows[0] ?? null;
 }
 
 export async function completeAuditRun(

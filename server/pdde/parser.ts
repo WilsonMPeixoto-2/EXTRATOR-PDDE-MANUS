@@ -68,6 +68,7 @@ function capture(
     parserVersion: PDDEINFO_PARSER_VERSION,
     extractionRule,
     selector,
+    evidenceSnippet: rawValue === null || clean(rawValue) === "" ? null : `Recorte extraído em ${selector}: ${clean(rawValue).slice(0, 500)}`,
     validationResults: [
       {
         code: "source-hash",

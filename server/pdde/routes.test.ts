@@ -15,13 +15,26 @@ vi.mock("./run", () => ({
   }),
 }));
 
+vi.mock("../db", () => ({
+  getPersistedAuditRun: vi.fn(),
+  getRunArtifact: vi.fn(),
+  getSchoolAuditDossier: vi.fn(),
+  listPersistedAuditRuns: vi.fn(),
+  listRunFindings: vi.fn(),
+  listRunSchools: vi.fn(),
+}));
+
+vi.mock("../storage", () => ({ storageGetSignedUrl: vi.fn() }));
+
 import { sdk } from "../_core/sdk";
+import { listPersistedAuditRuns } from "../db";
 import { getRun, runExtraction } from "./run";
 import { registerPddeRoutes } from "./routes";
 
 const authenticateRequest = vi.mocked(sdk.authenticateRequest);
 const mockedGetRun = vi.mocked(getRun);
 const mockedRunExtraction = vi.mocked(runExtraction);
+const mockedListPersistedAuditRuns = vi.mocked(listPersistedAuditRuns);
 
 async function request(app: Express, path: string) {
   const server = await new Promise<ReturnType<Express["listen"]>>(resolve => {
@@ -54,7 +67,7 @@ describe("rotas operacionais protegidas do PDDE", () => {
 
   it("retorna 401 para lista, fontes, início e status quando não há autenticação", async () => {
     authenticateRequest.mockResolvedValue(null);
-    for (const path of ["/api/pdde/master-list", "/api/pdde/sources", "/api/pdde/run", "/api/pdde/run/inexistente"]) {
+    for (const path of ["/api/pdde/master-list", "/api/pdde/sources", "/api/pdde/run", "/api/pdde/run/inexistente", "/api/pdde/audit/runs", "/api/pdde/audit/run/existente", "/api/pdde/audit/run/existente/schools", "/api/pdde/audit/run/existente/school/33069247", "/api/pdde/audit/run/existente/findings", "/api/pdde/audit/run/existente/artifact/1"]) {
       const response = await request(appForTest(), path);
       expect(response.status).toBe(401);
     }
@@ -99,5 +112,13 @@ describe("rotas operacionais protegidas do PDDE", () => {
     const runResponse = await request(appForTest(), "/api/pdde/run");
     expect(runResponse.status).toBe(200);
     expect(mockedRunExtraction).toHaveBeenCalledWith(expect.any(Function), user.id);
+  });
+
+  it("permite consultar histórico de auditoria somente após autenticação", async () => {
+    authenticateRequest.mockResolvedValue(user);
+    mockedListPersistedAuditRuns.mockResolvedValue([{ id: "run-existente", status: "approved", masterCount: 163, processedCount: 163 }] as any);
+    const response = await request(appForTest(), "/api/pdde/audit/runs");
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ runs: [expect.objectContaining({ id: "run-existente", status: "approved" })] });
   });
 });

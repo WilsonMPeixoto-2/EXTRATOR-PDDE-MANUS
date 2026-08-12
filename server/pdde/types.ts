@@ -54,6 +54,7 @@ export type FieldProvenance = {
   parserVersion: string;
   extractionRule: string;
   selector: string;
+  evidenceSnippet: string | null;
   validationResults: FieldValidationResult[];
   state: FieldState | null;
 };

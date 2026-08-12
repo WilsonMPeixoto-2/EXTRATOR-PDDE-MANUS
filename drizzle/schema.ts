@@ -104,6 +104,7 @@ export const fieldObservations = mysqlTable("field_observations", {
   parserVersion: varchar("parser_version", { length: 32 }).notNull(),
   extractionRule: varchar("extraction_rule", { length: 80 }).notNull(),
   selector: text("selector").notNull(),
+  evidenceSnippet: text("evidence_snippet"),
   validationResultsJson: json("validation_results_json").notNull(),
   state: varchar("state", { length: 64 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),

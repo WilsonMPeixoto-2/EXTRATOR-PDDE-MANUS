@@ -4,6 +4,8 @@ import { getRun, masterListSummary, runExtraction } from "./run";
 import { sourceAutomationCatalog } from "./sources";
 import { sdk } from "../_core/sdk";
 import { decidePddeAccess, type PddeResource } from "./access";
+import { getPersistedAuditRun, getRunArtifact, getSchoolAuditDossier, listPersistedAuditRuns, listRunFindings, listRunSchools } from "../db";
+import { storageGetSignedUrl } from "../storage";
 
 function writeEvent(response: Response, payload: unknown) {
   response.write(`data: ${JSON.stringify(payload)}\n\n`);
@@ -55,5 +57,43 @@ export function registerPddeRoutes(app: Express) {
     const run = getRun(request.params.runId);
     if (!run) return response.status(404).json({ message: "Execução não encontrada neste servidor." });
     return response.json({ id: run.id, status: run.status, validation: run.validation, downloadUrl: run.downloadUrl, records: run.records.length, audits: run.audits.length });
+  });
+
+  app.get("/api/pdde/audit/runs", async (request, response) => {
+    if (!await authorize(request, response, "audit-runs")) return;
+    const limit = Math.max(1, Math.min(Number(request.query.limit ?? 25), 100));
+    response.json({ runs: await listPersistedAuditRuns(limit) });
+  });
+
+  app.get("/api/pdde/audit/run/:runId", async (request, response) => {
+    if (!await authorize(request, response, "run-status")) return;
+    const run = await getPersistedAuditRun(request.params.runId);
+    if (!run) return response.status(404).json({ message: "Execução auditável não encontrada." });
+    response.json({ run });
+  });
+
+  app.get("/api/pdde/audit/run/:runId/schools", async (request, response) => {
+    if (!await authorize(request, response, "audit-schools")) return;
+    response.json({ schools: await listRunSchools(request.params.runId) });
+  });
+
+  app.get("/api/pdde/audit/run/:runId/school/:inep", async (request, response) => {
+    if (!await authorize(request, response, "audit-dossier")) return;
+    response.json(await getSchoolAuditDossier(request.params.runId, request.params.inep));
+  });
+
+  app.get("/api/pdde/audit/run/:runId/findings", async (request, response) => {
+    if (!await authorize(request, response, "audit-findings")) return;
+    response.json({ findings: await listRunFindings(request.params.runId) });
+  });
+
+  app.get("/api/pdde/audit/run/:runId/artifact/:artifactId", async (request, response) => {
+    if (!await authorize(request, response, "artifact")) return;
+    const artifactId = Number(request.params.artifactId);
+    if (!Number.isSafeInteger(artifactId) || artifactId < 1) return response.status(400).json({ message: "Identificador de artefato inválido." });
+    const artifact = await getRunArtifact(request.params.runId, artifactId);
+    if (!artifact) return response.status(404).json({ message: "Artefato não encontrado para esta execução." });
+    const url = await storageGetSignedUrl(artifact.storageKey);
+    response.json({ artifact: { id: artifact.id, kind: artifact.kind, sha256: artifact.sha256, contentType: artifact.contentType, url } });
   });
 }
