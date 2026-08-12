@@ -81,3 +81,7 @@
 - [x] Integrar persistOpenDataControl ao fluxo operacional real de execução ou rota de importação autenticada, com entrada explícita do arquivo secundário.
 - [x] Recuperar artefato e metadados open_data_file na auditoria de execução, com exposição específica na API e interface.
 - [x] Adicionar teste de integração do registro do arquivo secundário até sua recuperação na auditoria.
+- [x] Priorizar a execução autônoma da coleta completa das 163 escolas da 4ª CRE diretamente no PDDEInfo, com evidências por unidade e sem dependência do SIGEF.
+- [x] Validar o resultado da coleta PDDEInfo contra os bloqueios de cobertura, unicidade, parcelas e conta PDDE Básico antes de liberar o Excel.
+- [x] Reduzir a concorrência do roteiro PDDEInfo e reexecutar a coleta completa após seis falhas transitórias de rede, preservando a execução bloqueada como histórico imutável.
+- [x] Aceitar e preservar como texto as contas PDDEInfo com dígito verificador alfanumérico, sem converter esse formato legítimo em falha de schema.

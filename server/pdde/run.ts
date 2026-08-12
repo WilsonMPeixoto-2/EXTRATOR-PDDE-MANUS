@@ -35,6 +35,13 @@ export type ExtractionRun = {
 const activeRuns = new Map<string, ExtractionRun>();
 export const getRun = (runId: string) => activeRuns.get(runId);
 
+/** A trilha mantém todas as tentativas; a validação usa a última por INEP. */
+export function effectiveAuditsForValidation(audits: AuditRecord[]): AuditRecord[] {
+  const latestByInep = new Map<string, AuditRecord>();
+  audits.forEach(audit => latestByInep.set(audit.inep, audit));
+  return Array.from(latestByInep.values());
+}
+
 export type SecondaryOpenDataInput = OpenDataControlInput & { fileName: string; contentType: string };
 
 /**
@@ -211,7 +218,9 @@ export async function runExtraction(onEvent: (event: ExtractionEvent) => void, c
   activeRuns.set(runId, run);
   onEvent({ type: "ready", runId, total: MASTER_SCHOOLS.length });
 
-  const batchSize = 10;
+  // O PDDEInfo responde de forma irregular a rajadas maiores. Três consultas por lote
+  // preservam a coleta autônoma e reduzem falhas de transporte sem relaxar validações.
+  const batchSize = 3;
   for (let start = 0; start < MASTER_SCHOOLS.length; start += batchSize) {
     const batch = MASTER_SCHOOLS.slice(start, start + batchSize);
     const results = await Promise.all(batch.map(school => fetchSchool(school.inep, school.sme, runId)));
@@ -234,7 +243,28 @@ export async function runExtraction(onEvent: (event: ExtractionEvent) => void, c
         audit: result.audit,
       });
     }
-    if (start + batchSize < MASTER_SCHOOLS.length) await delay(1_100);
+    if (start + batchSize < MASTER_SCHOOLS.length) await delay(1_500);
+  }
+
+  const initialFailures = effectiveAuditsForValidation(run.audits).filter(audit => audit.status === "FAILED");
+  for (const failedAudit of initialFailures) {
+    const school = MASTER_SCHOOLS.find(candidate => candidate.inep === failedAudit.inep);
+    if (!school) continue;
+    const recoveryStarted = event(runId, "SOURCE_FETCHED", "warning", school.inep, null, "Iniciada reconsulta isolada após falha transitória do PDDEInfo.", {
+      sourceUrl: failedAudit.sourceUrl,
+      previousAttempts: failedAudit.attempts,
+      previousException: failedAudit.exception,
+      recoveryPass: true,
+    });
+    run.auditEvents.push(recoveryStarted);
+    await appendAuditTrail(runId, school.inep, [], [recoveryStarted]);
+    await delay(3_000);
+    const recovered = await fetchSchool(school.inep, school.sme, runId);
+    run.audits.push(recovered.audit);
+    run.auditEvents.push(...recovered.events);
+    if (recovered.record) run.records.push(recovered.record);
+    await persistSchoolCollection(runId, recovered.audit, PDDEINFO_PARSER_VERSION);
+    await appendAuditTrail(runId, recovered.audit.inep, recovered.record?.fieldProvenance ?? [], recovered.events);
   }
 
   const baseline = await loadLatestApprovedPaymentSnapshots(runId);
@@ -248,7 +278,8 @@ export async function runExtraction(onEvent: (event: ExtractionEvent) => void, c
   if (!baseline.runId) historicalEvents.push(event(runId, "FIELD_RECONCILED", "info", null, null, "Nenhuma baseline aprovada anterior foi encontrada; comparação histórica adiada para a próxima execução aprovada.", {}));
   run.auditEvents.push(...historicalEvents);
   await appendAuditTrail(runId, "00000000", [], historicalEvents);
-  run.validation = validateExtraction(run.records, run.audits, historicalFindings);
+  const finalAudits = effectiveAuditsForValidation(run.audits);
+  run.validation = validateExtraction(run.records, finalAudits, historicalFindings);
   run.auditEvents.push(event(runId, "FIELD_VALIDATED", run.validation.passed ? "info" : "critical", null, null, "Validações bloqueantes da execução concluídas.", {
     passed: run.validation.passed,
     errors: run.validation.errors,
@@ -257,10 +288,10 @@ export async function runExtraction(onEvent: (event: ExtractionEvent) => void, c
   if (!canReleaseDownload(run.validation)) {
     run.status = "BLOCKED";
     await completeAuditRun(runId, "blocked", run.records.length, run.validation);
-    onEvent({ type: "complete", validation: run.validation, downloadUrl: null, completed: run.records.length, errors: run.audits.filter(audit => audit.status === "FAILED").length });
+    onEvent({ type: "complete", validation: run.validation, downloadUrl: null, completed: run.records.length, errors: finalAudits.filter(audit => audit.status === "FAILED").length });
     return run;
   }
-  const workbook = await createV2Workbook(run.records, run.audits, run.validation);
+  const workbook = await createV2Workbook(run.records, finalAudits, run.validation);
   const stored = await storagePut(`exports/pdde-4cre/${runId}/PDDEInfo_4a_CRE_2026_Visao_Financeira_V2.xlsx`, workbook, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   run.downloadUrl = stored.url;
   run.status = "COMPLETE";

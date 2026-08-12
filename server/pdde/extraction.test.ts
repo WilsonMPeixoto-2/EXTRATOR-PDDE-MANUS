@@ -71,6 +71,17 @@ describe("vinculação bancária por programa", () => {
     expect(basicAccountSource(record)).toBe("PDDEInfo · tabela bancária sem linha com rótulo exato PDDE");
   });
 
+  it("preserva conta com dígito verificador alfanumérico como texto e sem falha de schema", () => {
+    const record = parseSchoolPage(fixture.replace("0000546402", "000054640X"), "33069247", "0410001", "https://fonte.test/33069247", "2026-08-11T12:00:00.000Z", "a".repeat(64));
+    const account = accountForExactProgram(record, "PDDE QUALIDADE");
+
+    expect(account?.account).toBe("000054640X");
+    expect(account?.provenance.account.validationResults).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "bank-account-format", level: "passed" }),
+    ]));
+    expect(record.schemaIssues).not.toContainEqual(expect.stringContaining("bankAccounts"));
+  });
+
   it("mantém proveniência individual para valores, datas e dados bancários", () => {
     const hash = "a".repeat(64);
     const record = parseSchoolPage(fixture, "33069247", "0410001", "https://fonte.test/33069247", "2026-08-11T12:00:00.000Z", hash);

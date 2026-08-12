@@ -160,7 +160,7 @@ function parseBankRows(
       const agencyProvenance = capture(metadata, sink, `${path}.agency`, cells[2] ?? "", cells[2] ?? "", cellSelector(tableIndex, rowOffset, 2), "bank-account-row", `${accountKey}:agency`);
       const accountProvenance = capture(metadata, sink, `${path}.account`, cells[3] ?? "", cells[3] ?? "", cellSelector(tableIndex, rowOffset, 3), "bank-account-row", `${accountKey}:account`);
       validate(agencyProvenance, "bank-agency-format", !agencyProvenance.rawValue || /^\d{1,8}$/.test(agencyProvenance.rawValue), "Agência vazia ou composta apenas por dígitos, preservada como texto.", true);
-      validate(accountProvenance, "bank-account-format", !accountProvenance.rawValue || /^\d{1,24}$/.test(accountProvenance.rawValue), "Conta vazia ou composta apenas por dígitos, preservada como texto.", true);
+      validate(accountProvenance, "bank-account-format", !accountProvenance.rawValue || /^(?:\d{1,24}|\d{1,23}[A-Za-z])$/.test(accountProvenance.rawValue), "Conta vazia ou com dígito verificador alfanumérico, preservada como texto.", true);
       accounts.push({
         program: cells[0],
         programSemanticKey: classification.key,

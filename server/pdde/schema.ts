@@ -18,7 +18,7 @@ const fieldProvenanceSchema = z.object({
 
 const bankAccountSchema = z.object({
   program: z.string().min(1), programSemanticKey: z.string().nullable(), programSemanticStatus: z.enum(["known", "unknown"]),
-  bank: z.string(), agency: z.string().regex(/^\d{1,8}$/).or(z.literal("")), account: z.string().regex(/^\d{1,24}$/).or(z.literal("")), balance: z.string(),
+  bank: z.string(), agency: z.string().regex(/^\d{1,8}$/).or(z.literal("")), account: z.string().regex(/^(?:\d{1,24}|\d{1,23}[A-Za-z])$/).or(z.literal("")), balance: z.string(),
   provenance: z.object({ program: fieldProvenanceSchema, bank: fieldProvenanceSchema, agency: fieldProvenanceSchema, account: fieldProvenanceSchema, balance: fieldProvenanceSchema }),
 });
 
