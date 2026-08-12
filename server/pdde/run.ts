@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { appendAuditTrail, completeAuditRun, createAuditRun } from "../db";
+import { appendAuditTrail, completeAuditRun, createAuditRun, persistSchoolCollection } from "../db";
 import { storagePut } from "../storage";
 import { MASTER_SCHOOLS } from "./masterList";
 import { PDDEINFO_PARSER_VERSION, parseSchoolPage } from "./parser";
@@ -54,6 +54,10 @@ async function fetchSchool(inep: string, sme: string, runId: string): Promise<{ 
     attempts: 0,
     httpStatus: null,
     sourceHashSha256: null,
+    normalizedHashSha256: null,
+    rawHtmlKey: null,
+    normalizedJsonKey: null,
+    responseBytes: null,
     programsFound: [],
     exception: null,
   };
@@ -80,9 +84,11 @@ async function fetchSchool(inep: string, sme: string, runId: string): Promise<{ 
         html,
         "text/html; charset=iso-8859-1",
       );
+      const normalizedJson = JSON.stringify(record, null, 2);
+      const normalizedHashSha256 = createHash("sha256").update(normalizedJson, "utf8").digest("hex");
       const normalizedArtifact = await storagePut(
         `evidence/pdde-4cre/${runId}/${inep}/normalized.json`,
-        JSON.stringify(record, null, 2),
+        normalizedJson,
         "application/json",
       );
       attachEvidenceArtifacts(record, {
@@ -94,12 +100,18 @@ async function fetchSchool(inep: string, sme: string, runId: string): Promise<{ 
       audit.status = "SUCCESS";
       audit.consultedAt = consultedAt;
       audit.sourceHashSha256 = sourceHashSha256;
+      audit.normalizedHashSha256 = normalizedHashSha256;
+      audit.rawHtmlKey = rawArtifact.key;
+      audit.normalizedJsonKey = normalizedArtifact.key;
+      audit.responseBytes = Buffer.byteLength(html, "latin1");
       audit.programsFound = record.rawPrograms;
       events.push(event(runId, "SOURCE_FETCHED", "info", inep, null, "Resposta PDDEInfo coletada, persistida e identificada por hash.", {
         sourceUrl,
         httpStatus: response.status,
         attempts: attempt,
         sourceHashSha256,
+        normalizedHashSha256,
+        responseBytes: audit.responseBytes,
         rawHtmlKey: rawArtifact.key,
         normalizedJsonKey: normalizedArtifact.key,
       }));
@@ -184,6 +196,7 @@ export async function runExtraction(onEvent: (event: ExtractionEvent) => void): 
       run.audits.push(result.audit);
       run.auditEvents.push(...result.events);
       if (result.record) run.records.push(result.record);
+      await persistSchoolCollection(runId, result.audit, PDDEINFO_PARSER_VERSION);
       await appendAuditTrail(runId, result.audit.inep, result.record?.fieldProvenance ?? [], result.events);
       const completed = start + index + 1;
       onEvent({

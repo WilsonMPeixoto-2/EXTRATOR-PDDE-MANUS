@@ -17,7 +17,7 @@
 - [ ] Renomear a semântica financeira para diferenciar pagamento registrado no PDDEInfo de crédito bancário confirmado.
 - [ ] Criar catálogo explícito de destinações e programas, bloqueando a exportação diante de rótulo desconhecido ou ambíguo.
 - [ ] Validar registros extraídos com esquema, identificadores, formatos de conta, datas e invariantes aritméticas.
-- [ ] Preservar por execução o HTML bruto, JSON normalizado, URL, horário, status HTTP, versão do parser e hash SHA-256.
+- [x] Preservar por execução o HTML bruto, JSON normalizado, URL, horário, status HTTP, versão do parser e hash SHA-256.
 - [ ] Persistir histórico imutável de execuções, consultas por escola, validações, artefatos e autor da operação.
 - [ ] Comparar cada execução com a última linha de base aprovada e sinalizar perdas de pagamento ou alterações relevantes.
 - [ ] Criar navegação de auditoria para consultar execução, escola, evidência, anomalia e alteração histórica.
@@ -46,3 +46,5 @@
 - [ ] Associar conta SIGEF somente mediante correspondência documentada de CNPJ, exercício, programa, ação/parcela, valor, data, OB e conta destinatária, conforme disponibilidade.
 - [ ] Suportar conciliação de um pagamento contra múltiplas ordens bancárias, créditos, aplicações automáticas, estornos e devoluções.
 - [ ] Validar Dados Abertos do FNDE como controle secundário por arquivo, com data de atualização, exercício, cobertura e completude registrados.
+- [x] Consolidar os contratos de produção para coleta, evidência, validação, conciliação, eventos, bloqueios externos e liberação de exportação.
+- [ ] Executar uma rodada de implementação operacional por fase, com testes automatizados, migrações revisadas e checkpoints recuperáveis.

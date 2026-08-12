@@ -1,8 +1,8 @@
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { extractionRuns, fieldObservations, InsertUser, runAuditEvents, users } from "../drizzle/schema";
+import { extractionRuns, fieldObservations, InsertUser, runArtifacts, runAuditEvents, schoolConsultations, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
-import type { AuditEvent, FieldProvenance, ValidationSummary } from "./pdde/types";
+import type { AuditEvent, AuditRecord, FieldProvenance, ValidationSummary } from "./pdde/types";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -145,6 +145,55 @@ export async function appendAuditTrail(runId: string, inep: string, provenance: 
       payloadJson: auditEvent.payload,
     })));
   }
+}
+
+export function schoolConsultationPayload(runId: string, audit: AuditRecord, parserVersion: string) {
+  return {
+    runId,
+    inep: audit.inep,
+    sme: audit.sme,
+    sourceUrl: audit.sourceUrl,
+    consultedAt: new Date(audit.consultedAt ?? new Date().toISOString()),
+    status: audit.status === "SUCCESS" ? "success" as const : "failed" as const,
+    attempts: audit.attempts,
+    httpStatus: audit.httpStatus,
+    parserVersion,
+    sourceHashSha256: audit.sourceHashSha256,
+    rawHtmlKey: audit.rawHtmlKey,
+    normalizedJsonKey: audit.normalizedJsonKey,
+    programsJson: audit.programsFound,
+    unknownDestinationsJson: [],
+    validationIssuesJson: audit.exception ? [{ code: "collection-error", level: "failed", message: audit.exception }] : [],
+    exception: audit.exception,
+  };
+}
+
+export function schoolArtifactPayloads(runId: string, audit: AuditRecord) {
+  const artifacts: Array<{
+    runId: string;
+    kind: "raw_html" | "normalized_json";
+    storageKey: string;
+    storageUrl: string;
+    contentType: string;
+    sha256: string;
+  }> = [];
+  if (audit.rawHtmlKey && audit.sourceHashSha256) {
+    artifacts.push({ runId, kind: "raw_html", storageKey: audit.rawHtmlKey, storageUrl: `/manus-storage/${audit.rawHtmlKey}`, contentType: "text/html; charset=iso-8859-1", sha256: audit.sourceHashSha256 });
+  }
+  if (audit.normalizedJsonKey && audit.normalizedHashSha256) {
+    artifacts.push({ runId, kind: "normalized_json", storageKey: audit.normalizedJsonKey, storageUrl: `/manus-storage/${audit.normalizedJsonKey}`, contentType: "application/json", sha256: audit.normalizedHashSha256 });
+  }
+  return artifacts;
+}
+
+/** Persiste a consulta e os artefatos somente por inclusão, sem substituir execuções anteriores. */
+export async function persistSchoolCollection(runId: string, audit: AuditRecord, parserVersion: string) {
+  const db = await getAuditDbOrThrow();
+  const artifacts = schoolArtifactPayloads(runId, audit);
+  await db.transaction(async transaction => {
+    await transaction.insert(schoolConsultations).values(schoolConsultationPayload(runId, audit, parserVersion));
+    if (artifacts.length > 0) await transaction.insert(runArtifacts).values(artifacts);
+  });
 }
 
 export async function completeAuditRun(

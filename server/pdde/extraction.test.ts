@@ -4,7 +4,8 @@ import { accountForExactProgram, parseSchoolPage } from "./parser";
 import { attachEvidenceArtifacts } from "./provenance";
 import { derivePaymentEvidenceState } from "./reconciliation";
 import { canReleaseDownload, validateExtraction } from "./workbook";
-import type { SchoolExtraction } from "./types";
+import { schoolArtifactPayloads, schoolConsultationPayload } from "../db";
+import type { AuditRecord, SchoolExtraction } from "./types";
 
 const fixture = `
 <table><tr><td>Cod. Escola:</td><td>33069247</td><td>Nome Escola:</td><td>Escola de Teste</td></tr></table>
@@ -115,5 +116,24 @@ describe("estados de evidência financeira", () => {
   it("só declara ausência de pagamento depois da conclusão das fontes obrigatórias", () => {
     expect(derivePaymentEvidenceState({ ...baseSignals })).toBe("CONSULTA_INCONCLUSIVA");
     expect(derivePaymentEvidenceState({ ...baseSignals, allRequiredSourcesCompleted: true })).toBe("SEM_PAGAMENTO_REGISTRADO_ATE_CONSULTA");
+  });
+});
+
+describe("persistência imutável de evidências", () => {
+  const audit: AuditRecord = {
+    inep: "33069247", sme: "0410001", sourceUrl: "https://fonte.test/33069247", consultedAt: "2026-08-12T12:00:00.000Z",
+    status: "SUCCESS", attempts: 1, httpStatus: 200, sourceHashSha256: "a".repeat(64), normalizedHashSha256: "b".repeat(64),
+    rawHtmlKey: "evidence/run/33069247/source.html", normalizedJsonKey: "evidence/run/33069247/normalized.json", responseBytes: 321,
+    programsFound: ["PDDE"], exception: null,
+  };
+
+  it("gera uma consulta e dois artefatos identificados por hash", () => {
+    expect(schoolConsultationPayload("run-1", audit, "parser-test")).toMatchObject({
+      runId: "run-1", inep: "33069247", status: "success", rawHtmlKey: audit.rawHtmlKey, normalizedJsonKey: audit.normalizedJsonKey,
+    });
+    expect(schoolArtifactPayloads("run-1", audit)).toEqual([
+      expect.objectContaining({ kind: "raw_html", sha256: "a".repeat(64) }),
+      expect.objectContaining({ kind: "normalized_json", sha256: "b".repeat(64) }),
+    ]);
   });
 });

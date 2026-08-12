@@ -147,6 +147,10 @@ export type AuditRecord = {
   attempts: number;
   httpStatus: number | null;
   sourceHashSha256: string | null;
+  normalizedHashSha256: string | null;
+  rawHtmlKey: string | null;
+  normalizedJsonKey: string | null;
+  responseBytes: number | null;
   programsFound: string[];
   exception: string | null;
 };
