@@ -14,9 +14,9 @@
 - [x] Explicitar que a trilha de auditoria por unidade integra a aba obrigatória "Validação V2", sem criar uma terceira aba.
 - [x] Disponibilizar botões distintos para download direto do Excel da sessão e abertura da cópia persistente aprovada.
 - [x] Cobrir em teste automatizado a liberação do download apenas quando a validação for aprovada.
-- [ ] Renomear a semântica financeira para diferenciar pagamento registrado no PDDEInfo de crédito bancário confirmado.
-- [ ] Criar catálogo explícito de destinações e programas, bloqueando a exportação diante de rótulo desconhecido ou ambíguo.
-- [ ] Validar registros extraídos com esquema, identificadores, formatos de conta, datas e invariantes aritméticas.
+- [x] Renomear a semântica financeira para diferenciar pagamento registrado no PDDEInfo de crédito bancário confirmado.
+- [x] Criar catálogo explícito de destinações e programas, bloqueando a exportação diante de rótulo desconhecido ou ambíguo.
+- [x] Validar registros extraídos com esquema, identificadores, formatos de conta, datas e invariantes aritméticas.
 - [x] Preservar por execução o HTML bruto, JSON normalizado, URL, horário, status HTTP, versão do parser e hash SHA-256.
 - [ ] Persistir histórico imutável de execuções, consultas por escola, validações, artefatos e autor da operação.
 - [ ] Comparar cada execução com a última linha de base aprovada e sinalizar perdas de pagamento ou alterações relevantes.
@@ -48,3 +48,5 @@
 - [ ] Validar Dados Abertos do FNDE como controle secundário por arquivo, com data de atualização, exercício, cobertura e completude registrados.
 - [x] Consolidar os contratos de produção para coleta, evidência, validação, conciliação, eventos, bloqueios externos e liberação de exportação.
 - [ ] Executar uma rodada de implementação operacional por fase, com testes automatizados, migrações revisadas e checkpoints recuperáveis.
+- [x] Aplicar a semântica “pagamento registrado no PDDEInfo” em toda a interface, auditoria e Excel visível ao usuário, revisando textos remanescentes.
+- [x] Implementar schema formal de validação do registro extraído e cobrir casos de estrutura inválida além das validações por campo.

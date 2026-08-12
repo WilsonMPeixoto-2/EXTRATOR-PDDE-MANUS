@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
-import { accountForExactProgram, normalize } from "./parser";
+import { accountForExactProgram } from "./parser";
+import type { DestinationSemanticKey } from "./semantics";
 import type { AuditRecord, SchoolExtraction, ValidationSummary } from "./types";
 
 const title = "4ª CRE • VISÃO FINANCEIRA POR UNIDADE ESCOLAR • PDDEINFO 2026 • VERSÃO 2";
@@ -8,11 +9,11 @@ const missingAccountNote =
 
 const headers = [
   "Código INEP", "Código SME", "Unidade Escolar", "UEx", "CNPJ UEx", "Agência PDDE", "Conta PDDE", "Status conta PDDE", "Observação da validação",
-  "Previsto 1ª Parcela", "Recebido 1ª Parcela", "Data Ordem/Pagamento 1ª Parcela", "Previsto 2ª Parcela", "Recebido 2ª Parcela", "Data Ordem/Pagamento 2ª Parcela",
-  "Previsto Primeira Infância P1", "Recebido Primeira Infância P1", "Data Ordem/Pagamento Primeira Infância P1", "Agência PDDE Qualidade", "Conta PDDE Qualidade",
-  "Previsto Educação Conectada 2026", "Recebido Educação Conectada 2026", "Data Ordem/Pagamento Educação Conectada 2026", "Previsto Escola e Comunidade 2026", "Recebido Escola e Comunidade 2026", "Data Ordem/Pagamento Escola e Comunidade 2026",
-  "Previsto Escola das Adolescências 2026", "Recebido Escola das Adolescências 2026", "Data Ordem/Pagamento Escola das Adolescências 2026", "Previsto Cantinho da Leitura 2026", "Recebido Cantinho da Leitura 2026", "Data Ordem/Pagamento Cantinho da Leitura 2026",
-  "Agência PDDE Equidade", "Conta PDDE Equidade", "Previsto PDDE SRM 2026", "Recebido PDDE SRM 2026", "Data Ordem/Pagamento PDDE SRM 2026", "Agência Educação Integral", "Conta Educação Integral",
+  "Previsto 1ª Parcela", "Pagamento registrado no PDDEInfo — 1ª Parcela", "Data da ordem registrada — 1ª Parcela", "Previsto 2ª Parcela", "Pagamento registrado no PDDEInfo — 2ª Parcela", "Data da ordem registrada — 2ª Parcela",
+  "Previsto Primeira Infância P1", "Pagamento registrado no PDDEInfo — Primeira Infância P1", "Data da ordem registrada — Primeira Infância P1", "Agência PDDE Qualidade", "Conta PDDE Qualidade",
+  "Previsto Educação Conectada 2026", "Pagamento registrado no PDDEInfo — Educação Conectada 2026", "Data da ordem registrada — Educação Conectada 2026", "Previsto Escola e Comunidade 2026", "Pagamento registrado no PDDEInfo — Escola e Comunidade 2026", "Data da ordem registrada — Escola e Comunidade 2026",
+  "Previsto Escola das Adolescências 2026", "Pagamento registrado no PDDEInfo — Escola das Adolescências 2026", "Data da ordem registrada — Escola das Adolescências 2026", "Previsto Cantinho da Leitura 2026", "Pagamento registrado no PDDEInfo — Cantinho da Leitura 2026", "Data da ordem registrada — Cantinho da Leitura 2026",
+  "Agência PDDE Equidade", "Conta PDDE Equidade", "Previsto PDDE SRM 2026", "Pagamento registrado no PDDEInfo — PDDE SRM 2026", "Data da ordem registrada — PDDE SRM 2026", "Agência Educação Integral", "Conta Educação Integral",
 ];
 
 const currencyColumns = [10, 11, 13, 14, 16, 17, 21, 22, 24, 25, 27, 28, 30, 31, 35, 36];
@@ -25,13 +26,12 @@ function asDate(value: string | null): Date | null {
   return new Date(Date.UTC(year, month - 1, day));
 }
 
-function paymentContaining(record: SchoolExtraction, fragment: string) {
-  const expected = normalize(fragment);
-  return record.payments.find(payment => normalize(payment.destination).includes(expected));
+function paymentContaining(record: SchoolExtraction, semanticKey: DestinationSemanticKey) {
+  return record.payments.find(payment => payment.semanticKey === semanticKey);
 }
 
-function paymentValues(record: SchoolExtraction, fragment: string): [number, number, Date | null] {
-  const payment = paymentContaining(record, fragment);
+function paymentValues(record: SchoolExtraction, semanticKey: DestinationSemanticKey): [number, number, Date | null] {
+  const payment = paymentContaining(record, semanticKey);
   return [payment?.expected ?? 0, payment?.paid ?? 0, asDate(payment?.paymentDate ?? null)];
 }
 
@@ -40,14 +40,14 @@ function buildRow(record: SchoolExtraction) {
   const quality = accountForExactProgram(record, "PDDE QUALIDADE");
   const equity = accountForExactProgram(record, "PDDE EQUIDADE");
   const integral = accountForExactProgram(record, "PDDE-EDUCAÇÃO INTEGRAL");
-  const first = paymentValues(record, "PDDE / PDDE BASICO - 1ª PARCELA");
-  const second = paymentValues(record, "PDDE / PDDE BASICO - 2ª PARCELA");
-  const firstChildhood = paymentValues(record, "PRIMEIRA INFANCIA");
-  const connected = paymentValues(record, "EDUCACAO CONECTADA 2026");
-  const community = paymentValues(record, "ESCOLA E COMUNIDADE 2026");
-  const adolescence = paymentValues(record, "ESCOLA DAS ADOLESCENCIAS 2026");
-  const reading = paymentValues(record, "CANTINHO DA LEITURA 2026");
-  const srm = paymentValues(record, "PDDE SRM 2026");
+  const first = paymentValues(record, "PDDE_BASIC_P1");
+  const second = paymentValues(record, "PDDE_BASIC_P2");
+  const firstChildhood = paymentValues(record, "PRIMEIRA_INFANCIA_P1");
+  const connected = paymentValues(record, "EDUCACAO_CONECTADA_2026");
+  const community = paymentValues(record, "ESCOLA_E_COMUNIDADE_2026");
+  const adolescence = paymentValues(record, "ESCOLA_DAS_ADOLESCENCIAS_2026");
+  const reading = paymentValues(record, "CANTINHO_DA_LEITURA_2026");
+  const srm = paymentValues(record, "PDDE_SRM_2026");
   const missingBasic = !basic?.agency && !basic?.account;
 
   return [
@@ -62,8 +62,8 @@ function buildRow(record: SchoolExtraction) {
 export function validateExtraction(records: SchoolExtraction[], audits: AuditRecord[]): ValidationSummary {
   const errors: string[] = [];
   const uniqueIneps = new Set(records.map(record => record.inep)).size;
-  const firstInstallmentPaid = records.filter(record => (paymentContaining(record, "PDDE / PDDE BASICO - 1ª PARCELA")?.paid ?? 0) > 0).length;
-  const secondInstallmentExpected = records.filter(record => (paymentContaining(record, "PDDE / PDDE BASICO - 2ª PARCELA")?.expected ?? 0) > 0).length;
+  const firstInstallmentPaid = records.filter(record => (paymentContaining(record, "PDDE_BASIC_P1")?.paid ?? 0) > 0).length;
+  const secondInstallmentExpected = records.filter(record => (paymentContaining(record, "PDDE_BASIC_P2")?.expected ?? 0) > 0).length;
   const missingBasicAccounts = records.filter(record => {
     const basic = accountForExactProgram(record, "PDDE");
     return !basic?.agency && !basic?.account;
@@ -72,11 +72,18 @@ export function validateExtraction(records: SchoolExtraction[], audits: AuditRec
   if (records.length !== 163) errors.push(`Cobertura inválida: ${records.length} escolas processadas; esperado 163.`);
   if (uniqueIneps !== 163) errors.push(`Unicidade inválida: ${uniqueIneps} INEPs únicos; esperado 163.`);
   if (audits.some(audit => audit.status === "FAILED")) errors.push("Há consultas com falha definitiva registradas na auditoria.");
-  if (firstInstallmentPaid !== 111) errors.push(`1ª parcela recebida em ${firstInstallmentPaid} escolas; esperado 111.`);
+  if (firstInstallmentPaid !== 111) errors.push(`1ª parcela com pagamento registrado no PDDEInfo em ${firstInstallmentPaid} escolas; esperado 111.`);
   if (secondInstallmentExpected !== 163) errors.push(`2ª parcela prevista em ${secondInstallmentExpected} escolas; esperado 163.`);
   if (missingBasicAccounts !== 47) errors.push(`Conta PDDE Básico não informada em ${missingBasicAccounts} escolas; esperado 47.`);
+  const semanticIssues = records.flatMap(record => record.semanticIssues);
+  if (semanticIssues.length > 0) errors.push(`Há ${semanticIssues.length} destinação(ões) desconhecida(s) ou ambígua(s); a exportação foi bloqueada.`);
+  const fieldValidationErrors = records.flatMap(record => record.fieldProvenance
+    .flatMap(field => field.validationResults.filter(result => result.level === "failed").map(result => `${record.inep} · ${field.fieldPath} · ${result.code}: ${result.message}`)));
+  if (fieldValidationErrors.length > 0) errors.push(`Há ${fieldValidationErrors.length} falha(s) crítica(s) de validação por campo; a exportação foi bloqueada.`);
+  const schemaIssues = records.flatMap(record => record.schemaIssues.map(issue => `${record.inep} · ${issue}`));
+  if (schemaIssues.length > 0) errors.push(`Há ${schemaIssues.length} falha(s) de schema no registro extraído; a exportação foi bloqueada.`);
 
-  return { passed: errors.length === 0, uniqueIneps, firstInstallmentPaid, secondInstallmentExpected, missingBasicAccounts, errors };
+  return { passed: errors.length === 0, uniqueIneps, firstInstallmentPaid, secondInstallmentExpected, missingBasicAccounts, semanticIssues, fieldValidationErrors, schemaIssues, errors };
 }
 
 /** A URL do arquivo só pode ser entregue quando todos os controles estiverem aprovados. */
@@ -104,7 +111,7 @@ export async function createV2Workbook(records: SchoolExtraction[], audits: Audi
   sheet.getCell("A1").alignment = { vertical: "middle" };
   sheet.getRow(1).height = 28;
   sheet.mergeCells(2, 1, 2, 39);
-  sheet.getCell("A2").value = "Dados extraídos por consulta individual ao PDDEInfo. Contas de PDDE Básico são preenchidas somente quando o rótulo bancário é exatamente PDDE.";
+  sheet.getCell("A2").value = "Dados extraídos por consulta individual ao PDDEInfo. “Pagamento registrado” não confirma crédito bancário. Contas de PDDE Básico só são preenchidas quando o rótulo bancário é exatamente PDDE.";
   sheet.getCell("A2").font = { name: "Aptos", italic: true, color: { argb: "FF5D4037" } };
   sheet.getCell("A2").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF4D6" } };
   sheet.getCell("A2").alignment = { vertical: "middle", wrapText: true };
@@ -158,7 +165,8 @@ export async function createV2Workbook(records: SchoolExtraction[], audits: Audi
   const indicators: [string, string | number][] = [
     ["Resultado das validações bloqueantes", validation.passed ? "APROVADO" : "BLOQUEADO"],
     ["Total de unidades da 4ª CRE", records.length], ["INEPs únicos", validation.uniqueIneps], ["Conta PDDE não informada pelo PDDEInfo", validation.missingBasicAccounts],
-    ["1ª parcela PDDE Básico com recebimento", validation.firstInstallmentPaid], ["2ª parcela PDDE Básico prevista", validation.secondInstallmentExpected], ["Consultas com erro", audits.filter(item => item.status === "FAILED").length],
+    ["1ª parcela PDDE Básico com pagamento registrado no PDDEInfo", validation.firstInstallmentPaid], ["2ª parcela PDDE Básico prevista", validation.secondInstallmentExpected], ["Consultas com erro", audits.filter(item => item.status === "FAILED").length],
+    ["Semântica financeira", "Pagamento registrado no PDDEInfo; não confirma crédito bancário."],
   ];
   audit.getCell("A3").value = "Indicador";
   audit.getCell("B3").value = "Resultado";

@@ -247,7 +247,7 @@ export default function Home() {
           <div className="validation-heading"><div><span>CONTROLES DE LIBERAÇÃO</span><h2>Validações da execução</h2></div><p>O arquivo permanece bloqueado enquanto houver requisito obrigatório pendente ou reprovado.</p></div>
           <div className="validation-grid">
             <ValidationItem label="INEPs únicos" value={validation?.uniqueIneps ?? "—"} expected="163" ready={ready} />
-            <ValidationItem label="1ª parcela recebida" value={validation?.firstInstallmentPaid ?? "—"} expected="111" ready={ready} />
+            <ValidationItem label="1ª parcela com pagamento registrado" value={validation?.firstInstallmentPaid ?? "—"} expected="111" ready={ready} />
             <ValidationItem label="2ª parcela prevista" value={validation?.secondInstallmentExpected ?? "—"} expected="163" ready={ready} />
             <ValidationItem label="Conta PDDE não informada" value={validation?.missingBasicAccounts ?? "—"} expected="47" ready={ready} />
           </div>
@@ -256,7 +256,7 @@ export default function Home() {
         </section>
 
         <section className="audit-card" id="auditoria">
-          <div className="panel-title"><div><span>REGISTRO DE CONSULTAS</span><h2>Ocorrências recentes</h2></div><div className="audit-meta"><FileSpreadsheet size={16} /> Excel: <strong>Validação V2</strong></div></div>
+          <div className="panel-title"><div><span>REGISTRO DE CONSULTAS</span><h2>Ocorrências recentes</h2></div><div className="audit-meta"><FileSpreadsheet size={16} /> Pagamento: <strong>registro no PDDEInfo, sem confirmação bancária</strong></div></div>
           <div className="audit-table-wrap"><table className="audit-table"><thead><tr><th>INEP</th><th>SME</th><th>STATUS</th><th>TENTATIVAS</th><th>PROGRAMAS IDENTIFICADOS</th><th>OCORRÊNCIA</th></tr></thead><tbody>{recentAudits.length ? recentAudits.map(audit => <tr key={`${audit.inep}-${audit.sme}`}><td className="mono">{audit.inep}</td><td className="mono">{audit.sme}</td><td><span className={`table-status ${audit.status === "SUCCESS" ? "table-ok" : "table-error"}`}>{audit.status === "SUCCESS" ? "SUCESSO" : "FALHA"}</span></td><td>{audit.attempts}</td><td>{audit.programsFound.join(" · ") || "—"}</td><td>{audit.exception ?? "Consulta registrada"}</td></tr>) : <tr><td colSpan={6} className="empty-audit"><UsersRound size={18} /> A auditoria por unidade aparecerá aqui durante a extração.</td></tr>}</tbody></table></div>
         </section>
 

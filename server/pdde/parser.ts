@@ -1,5 +1,7 @@
 import * as cheerio from "cheerio";
 import { derivePaymentEvidenceState } from "./reconciliation";
+import { classifyBankProgram, classifyDestination } from "./semantics";
+import { schoolExtractionSchemaIssues } from "./schema";
 import type { BankAccount, EvidenceSource, FieldProvenance, FieldState, PaymentLine, SchoolExtraction } from "./types";
 
 export const PDDEINFO_PARSER_VERSION = "2.3.0";
@@ -25,6 +27,11 @@ export function parseBrazilianCurrency(value: string): number {
   const normalized = clean(value).replace(/\./g, "").replace(",", ".");
   const parsed = Number.parseFloat(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export function isBrazilianCurrency(value: string): boolean {
+  const cleaned = clean(value);
+  return /^-?(?:\d{1,3}(?:\.\d{3})*|\d+)(?:,\d{1,2})?$/.test(cleaned);
 }
 
 export function parseBrazilianDate(value: string): string | null {
@@ -89,6 +96,14 @@ function capture(
   return provenance;
 }
 
+function validate(provenance: FieldProvenance, code: string, passed: boolean, message: string, emptyIsWarning = false) {
+  provenance.validationResults.push({
+    code,
+    level: passed ? "passed" : emptyIsWarning && !provenance.rawValue ? "warning" : "failed",
+    message,
+  });
+}
+
 function readLabelPairs(
   $: cheerio.CheerioAPI,
   table: any,
@@ -133,17 +148,31 @@ function parseBankRows(
       const rowOffset = rowIndex + 1;
       const path = `bankAccounts[${accountIndex}]`;
       const accountKey = `bank-account:${normalize(cells[0])}`;
+      const classification = classifyBankProgram(cells[0]);
+      const programProvenance = capture(metadata, sink, `${path}.program`, cells[0], cells[0], cellSelector(tableIndex, rowOffset, 0), "bank-account-row", `${accountKey}:program`);
+      programProvenance.validationResults.push({
+        code: "bank-program-catalog",
+        level: classification.status === "known" ? "passed" : "failed",
+        message: classification.status === "known" ? `Programa bancário reconhecido: ${classification.key}.` : "Programa bancário não reconhecido pelo catálogo; exportação deve ser bloqueada até revisão.",
+      });
+      const bankProvenance = capture(metadata, sink, `${path}.bank`, cells[1] ?? "", cells[1] ?? "", cellSelector(tableIndex, rowOffset, 1), "bank-account-row", `${accountKey}:bank`);
+      const agencyProvenance = capture(metadata, sink, `${path}.agency`, cells[2] ?? "", cells[2] ?? "", cellSelector(tableIndex, rowOffset, 2), "bank-account-row", `${accountKey}:agency`);
+      const accountProvenance = capture(metadata, sink, `${path}.account`, cells[3] ?? "", cells[3] ?? "", cellSelector(tableIndex, rowOffset, 3), "bank-account-row", `${accountKey}:account`);
+      validate(agencyProvenance, "bank-agency-format", !agencyProvenance.rawValue || /^\d{1,8}$/.test(agencyProvenance.rawValue), "Agência vazia ou composta apenas por dígitos, preservada como texto.", true);
+      validate(accountProvenance, "bank-account-format", !accountProvenance.rawValue || /^\d{1,24}$/.test(accountProvenance.rawValue), "Conta vazia ou composta apenas por dígitos, preservada como texto.", true);
       accounts.push({
         program: cells[0],
+        programSemanticKey: classification.key,
+        programSemanticStatus: classification.status,
         bank: cells[1] ?? "",
         agency: cells[2] ?? "",
         account: cells[3] ?? "",
         balance: cells[4] ?? "",
         provenance: {
-          program: capture(metadata, sink, `${path}.program`, cells[0], cells[0], cellSelector(tableIndex, rowOffset, 0), "bank-account-row", `${accountKey}:program`),
-          bank: capture(metadata, sink, `${path}.bank`, cells[1] ?? "", cells[1] ?? "", cellSelector(tableIndex, rowOffset, 1), "bank-account-row", `${accountKey}:bank`),
-          agency: capture(metadata, sink, `${path}.agency`, cells[2] ?? "", cells[2] ?? "", cellSelector(tableIndex, rowOffset, 2), "bank-account-row", `${accountKey}:agency`),
-          account: capture(metadata, sink, `${path}.account`, cells[3] ?? "", cells[3] ?? "", cellSelector(tableIndex, rowOffset, 3), "bank-account-row", `${accountKey}:account`),
+          program: programProvenance,
+          bank: bankProvenance,
+          agency: agencyProvenance,
+          account: accountProvenance,
           balance: capture(metadata, sink, `${path}.balance`, cells[4] ?? "", cells[4] ?? "", cellSelector(tableIndex, rowOffset, 4), "bank-account-row", `${accountKey}:balance`),
         },
       });
@@ -159,6 +188,9 @@ function parsePaymentRows(
   sink: FieldProvenance[],
 ): PaymentLine[] {
   const payments: PaymentLine[] = [];
+  const headers = $(table).find("tr").first().find("th, td").toArray().map(cell => normalize($(cell).text()));
+  const paidCusteioColumn = headers.findIndex(header => header.includes("PAGO CUSTEIO"));
+  const paidCapitalColumn = headers.findIndex(header => header.includes("PAGO CAPITAL"));
   $(table)
     .find("tr")
     .slice(1)
@@ -180,35 +212,58 @@ function parsePaymentRows(
       const expected = parseBrazilianCurrency(expectedRaw);
       const paid = parseBrazilianCurrency(paidRaw);
       const paymentDate = parseBrazilianDate(paymentDateRaw);
+      const paidCusteioRaw = paidCusteioColumn >= 0 ? cells[paidCusteioColumn] ?? "" : "";
+      const paidCapitalRaw = paidCapitalColumn >= 0 ? cells[paidCapitalColumn] ?? "" : "";
+      const paidCusteio = paidCusteioColumn >= 0 ? parseBrazilianCurrency(paidCusteioRaw) : null;
+      const paidCapital = paidCapitalColumn >= 0 ? parseBrazilianCurrency(paidCapitalRaw) : null;
+      const classification = classifyDestination(destination);
+      const semanticMessage = classification.status === "known"
+        ? `Destinação reconhecida no catálogo: ${classification.key}.`
+        : classification.status === "unknown"
+          ? "Destinação não reconhecida pelo catálogo; exportação deve ser bloqueada até revisão."
+          : `Destinação ambígua no catálogo: ${classification.candidates.join(", ")}.`;
+      const arithmeticMessage = paidCusteio !== null && paidCapital !== null
+        ? Math.abs(paid - (paidCusteio + paidCapital)) < 0.005
+          ? "Valor pago total confere com custeio mais capital."
+          : "Valor pago total diverge de custeio mais capital."
+        : "Componentes de custeio/capital não informados na tabela de origem.";
+      const destinationProvenance = capture(metadata, sink, `${path}.destination`, destination, destination, cellSelector(tableIndex, rowOffset, 0), "payment-destination-row", `${paymentKey}:destination`);
+      destinationProvenance.validationResults.push({
+        code: "destination-catalog",
+        level: classification.status === "known" ? "passed" : "failed",
+        message: semanticMessage,
+      });
+      const expectedProvenance = capture(metadata, sink, `${path}.expected`, expectedRaw, expected, cellSelector(tableIndex, rowOffset, 7), "brl-currency", `${paymentKey}:expected`);
+      validate(expectedProvenance, "expected-currency-format", isBrazilianCurrency(expectedRaw), "Valor previsto possui formato monetário brasileiro válido.");
+      const paidProvenance = capture(
+        metadata, sink, `${path}.paid`, paidRaw, paid, cellSelector(tableIndex, rowOffset, 10), "brl-currency", `${paymentKey}:paid`,
+        derivePaymentEvidenceState({ pddeInfoPaymentRegistered: paid > 0, sigefLiberationMatched: false, sigefCreditMatched: false, directBankStatementConfirmed: false, reversalMatched: false, divergent: false, allRequiredSourcesCompleted: false }),
+      );
+      validate(paidProvenance, "paid-currency-format", isBrazilianCurrency(paidRaw), "Valor pago possui formato monetário brasileiro válido.");
+      const paymentDateProvenance = capture(metadata, sink, `${path}.paymentDate`, paymentDateRaw, paymentDate, cellSelector(tableIndex, rowOffset, 11), "br-date-to-iso", `${paymentKey}:payment-date`);
+      validate(paymentDateProvenance, "payment-date-format", !paymentDateRaw || paymentDate !== null, "Data de pagamento vazia ou no formato DD/MM/AAAA.", true);
       payments.push({
         destination,
+        semanticKey: classification.key,
+        semanticStatus: classification.status,
         expected,
         paid,
+        paidCusteio,
+        paidCapital,
         paymentDate,
         provenance: {
-          destination: capture(metadata, sink, `${path}.destination`, destination, destination, cellSelector(tableIndex, rowOffset, 0), "payment-destination-row", `${paymentKey}:destination`),
-          expected: capture(metadata, sink, `${path}.expected`, expectedRaw, expected, cellSelector(tableIndex, rowOffset, 7), "brl-currency", `${paymentKey}:expected`),
-          paid: capture(
-            metadata,
-            sink,
-            `${path}.paid`,
-            paidRaw,
-            paid,
-            cellSelector(tableIndex, rowOffset, 10),
-            "brl-currency",
-            `${paymentKey}:paid`,
-            derivePaymentEvidenceState({
-              pddeInfoPaymentRegistered: paid > 0,
-              sigefLiberationMatched: false,
-              sigefCreditMatched: false,
-              directBankStatementConfirmed: false,
-              reversalMatched: false,
-              divergent: false,
-              allRequiredSourcesCompleted: false,
-            }),
-          ),
-          paymentDate: capture(metadata, sink, `${path}.paymentDate`, paymentDateRaw, paymentDate, cellSelector(tableIndex, rowOffset, 11), "br-date-to-iso", `${paymentKey}:payment-date`),
+          destination: destinationProvenance,
+          expected: expectedProvenance,
+          paid: paidProvenance,
+          paidCusteio: paidCusteioColumn >= 0 ? capture(metadata, sink, `${path}.paidCusteio`, paidCusteioRaw, paidCusteio, cellSelector(tableIndex, rowOffset, paidCusteioColumn), "brl-currency", `${paymentKey}:paid-custeio`) : null,
+          paidCapital: paidCapitalColumn >= 0 ? capture(metadata, sink, `${path}.paidCapital`, paidCapitalRaw, paidCapital, cellSelector(tableIndex, rowOffset, paidCapitalColumn), "brl-currency", `${paymentKey}:paid-capital`) : null,
+          paymentDate: paymentDateProvenance,
         },
+      });
+      if (paidProvenance) paidProvenance.validationResults.push({
+        code: "paid-arithmetic",
+        level: paidCusteio !== null && paidCapital !== null && Math.abs(paid - (paidCusteio + paidCapital)) >= 0.005 ? "failed" : "passed",
+        message: arithmeticMessage,
       });
     });
   return payments;
@@ -235,6 +290,10 @@ export function parseSchoolPage(
     const tableText = normalize($(table).text());
     if (tableText.includes("COD. ESCOLA:")) {
       readLabelPairs($, table, tableIndex, {
+        "COD. ESCOLA:": (value, selector) => {
+          const provenance = capture(metadata, fieldProvenance, "inep", value, value, selector, "label-pair:COD. ESCOLA");
+          validate(provenance, "inep-request-match", value === inep && /^\d{8}$/.test(value), "INEP da fonte possui oito dígitos e corresponde ao INEP consultado.");
+        },
         "NOME ESCOLA:": (value, selector) => {
           schoolName = value;
           capture(metadata, fieldProvenance, "schoolName", value, value, selector, "label-pair:NOME ESCOLA");
@@ -249,7 +308,8 @@ export function parseSchoolPage(
         },
         "CNPJ:": (value, selector) => {
           cnpj = value;
-          capture(metadata, fieldProvenance, "cnpj", value, value, selector, "label-pair:CNPJ");
+          const provenance = capture(metadata, fieldProvenance, "cnpj", value, value, selector, "label-pair:CNPJ");
+          validate(provenance, "cnpj-format", /^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/.test(value), "CNPJ está no formato 00.000.000/0000-00.");
         },
       });
     }
@@ -261,7 +321,7 @@ export function parseSchoolPage(
     }
   });
 
-  return {
+  const record: SchoolExtraction = {
     inep,
     sme,
     sourceUrl,
@@ -271,9 +331,16 @@ export function parseSchoolPage(
     cnpj,
     bankAccounts,
     payments,
+    semanticIssues: [
+      ...payments.filter(payment => payment.semanticStatus !== "known").map(payment => `Destinação ${payment.semanticStatus}: ${payment.destination}`),
+      ...bankAccounts.filter(account => account.programSemanticStatus !== "known").map(account => `Programa bancário unknown: ${account.program}`),
+    ],
+    schemaIssues: [],
     rawPrograms: bankAccounts.map(account => account.program),
     fieldProvenance,
   };
+  record.schemaIssues = schoolExtractionSchemaIssues(record);
+  return record;
 }
 
 /**

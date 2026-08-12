@@ -59,6 +59,16 @@ describe("vinculação bancária por programa", () => {
     expect(record.fieldProvenance).toContainEqual(account);
   });
 
+  it("registra falha por identificador ou data fora do formato esperado", () => {
+    const invalidFixture = fixture.replace("00.000.000/0001-00", "CNPJ-INVÁLIDO").replace("05/08/2026", "2026-08-05");
+    const record = parseSchoolPage(invalidFixture, "33069247", "0410001", "https://fonte.test/33069247", "2026-08-11T12:00:00.000Z", "c".repeat(64));
+    const failedCodes = record.fieldProvenance.flatMap(field => field.validationResults.filter(result => result.level === "failed").map(result => result.code));
+    expect(failedCodes).toEqual(expect.arrayContaining(["cnpj-format", "payment-date-format"]));
+    expect(record.schemaIssues.join(" ")).toContain("cnpj");
+    expect(validateExtraction([record], []).errors.join(" ")).toContain("falha(s) crítica(s) de validação por campo");
+    expect(validateExtraction([record], []).errors.join(" ")).toContain("falha(s) de schema no registro extraído");
+  });
+
   it("liga cada campo ao HTML bruto e JSON normalizado persistidos", () => {
     const record = parseSchoolPage(fixture, "33069247", "0410001", "https://fonte.test/33069247", "2026-08-11T12:00:00.000Z", "b".repeat(64));
     attachEvidenceArtifacts(record, {

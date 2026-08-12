@@ -96,6 +96,8 @@ export type SourceCollectionAttempt = {
 
 export type BankAccount = {
   program: string;
+  programSemanticKey: string | null;
+  programSemanticStatus: "known" | "unknown";
   bank: string;
   agency: string;
   account: string;
@@ -111,13 +113,19 @@ export type BankAccount = {
 
 export type PaymentLine = {
   destination: string;
+  semanticKey: string | null;
+  semanticStatus: "known" | "unknown" | "ambiguous";
   expected: number;
   paid: number;
+  paidCusteio: number | null;
+  paidCapital: number | null;
   paymentDate: string | null;
   provenance: {
     destination: FieldProvenance;
     expected: FieldProvenance;
     paid: FieldProvenance;
+    paidCusteio: FieldProvenance | null;
+    paidCapital: FieldProvenance | null;
     paymentDate: FieldProvenance;
   };
 };
@@ -132,6 +140,8 @@ export type SchoolExtraction = {
   cnpj: string;
   bankAccounts: BankAccount[];
   payments: PaymentLine[];
+  semanticIssues: string[];
+  schemaIssues: string[];
   rawPrograms: string[];
   fieldProvenance: FieldProvenance[];
 };
@@ -161,5 +171,8 @@ export type ValidationSummary = {
   firstInstallmentPaid: number;
   secondInstallmentExpected: number;
   missingBasicAccounts: number;
+  semanticIssues?: string[];
+  fieldValidationErrors?: string[];
+  schemaIssues?: string[];
   errors: string[];
 };
