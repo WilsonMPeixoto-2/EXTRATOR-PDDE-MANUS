@@ -32,7 +32,7 @@
 - [x] Implementar interface de auditoria com busca por execução, escola, programa e campo; painel de evidência; linha do tempo; comparador histórico e fila de exceções.
 - [x] Substituir estados genéricos por uma taxonomia que diferencie OB corroborada, crédito localizado no SIGEF, crédito confirmado em extrato BB, divergência, estorno e consulta inconclusiva.
 - [x] Referenciar, em cada observação de campo, o artefato bruto HTML/JSON persistido e o trecho de evidência navegável.
-- [ ] Popular resultados de validação e estado de evidência no pipeline de extração, refletindo-os na auditoria, interface e Excel.
+- [x] Popular resultados de validação e estado de evidência no pipeline de extração, refletindo-os na auditoria, interface e Excel.
 - [ ] Cobrir em testes o preenchimento real de proveniência, validações e estados, além da existência dos tipos.
 - [x] Produzir matriz de viabilidade técnica por fonte, distinguindo capacidade já comprovada, integração possível mediante piloto e dependências institucionais de acesso/autorização.
 - [ ] Executar piloto controlado de navegação, consulta, extração, armazenamento e recuperação de evidências antes de habilitar cada fonte em produção.

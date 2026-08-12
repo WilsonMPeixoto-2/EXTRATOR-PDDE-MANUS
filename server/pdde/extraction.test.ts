@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
+import ExcelJS from "exceljs";
 import { MASTER_SCHOOLS } from "./masterList";
 import { accountForExactProgram, parseSchoolPage } from "./parser";
 import { attachEvidenceArtifacts } from "./provenance";
 import { derivePaymentEvidenceState } from "./reconciliation";
-import { canReleaseDownload, validateExtraction } from "./workbook";
+import { basicAccountSource, canReleaseDownload, createV2Workbook, financialHeaders, paymentEvidenceSummary, validateExtraction } from "./workbook";
 import { schoolArtifactPayloads, schoolConsultationPayload } from "../db";
 import type { AuditRecord, SchoolExtraction } from "./types";
 
@@ -26,6 +27,7 @@ describe("vinculação bancária por programa", () => {
     expect(accountForExactProgram(record, "PDDE")).toBeUndefined();
     expect(accountForExactProgram(record, "PDDE QUALIDADE")?.account).toBe("0000546402");
     expect(accountForExactProgram(record, "PDDE EQUIDADE")?.account).toBe("0000999999");
+    expect(basicAccountSource(record)).toBe("PDDEInfo · tabela bancária sem linha com rótulo exato PDDE");
   });
 
   it("mantém proveniência individual para valores, datas e dados bancários", () => {
@@ -59,6 +61,9 @@ describe("vinculação bancária por programa", () => {
     });
     expect(record.fieldProvenance).toContainEqual(paid);
     expect(record.fieldProvenance).toContainEqual(account);
+    expect(paymentEvidenceSummary(record)).toContain("1ª parcela: Pagamento registrado no PDDEInfo");
+    expect(paymentEvidenceSummary(record)).toContain("2ª parcela: Consulta inconclusiva para crédito bancário");
+    expect(financialHeaders).toEqual(expect.arrayContaining(["Fonte da conta", "Estado de evidência"]));
   });
 
   it("registra falha por identificador ou data fora do formato esperado", () => {
@@ -85,6 +90,20 @@ describe("vinculação bancária por programa", () => {
       normalizedJsonKey: "evidence/run/33069247/normalized.json",
     });
     expect(record.fieldProvenance.every(field => field.artifact !== null)).toBe(true);
+  });
+
+  it("escreve fonte da conta e estado de evidência no Excel V2", async () => {
+    const record = parseSchoolPage(fixture, "33069247", "0410001", "https://fonte.test/33069247", "2026-08-11T12:00:00.000Z", "d".repeat(64));
+    const buffer = await createV2Workbook([record], [], { passed: true, uniqueIneps: 163, firstInstallmentPaid: 111, secondInstallmentExpected: 163, missingBasicAccounts: 47, errors: [] });
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]);
+    const sheet = workbook.getWorksheet("Financeiro 4ª CRE V2");
+
+    expect(sheet?.getCell("H4").value).toBe("Fonte da conta");
+    expect(sheet?.getCell("K4").value).toBe("Estado de evidência");
+    expect(sheet?.getCell("H5").value).toBe("PDDEInfo · tabela bancária sem linha com rótulo exato PDDE");
+    expect(String(sheet?.getCell("K5").value)).toContain("Pagamento registrado no PDDEInfo");
+    expect(sheet?.getCell("G5").numFmt).toBe("@");
   });
 });
 

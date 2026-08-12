@@ -21,6 +21,21 @@ function badgeClass(status: string) {
   return "audit-badge audit-badge-error";
 }
 
+function evidenceStateLabel(state: string | null) {
+  const labels: Record<string, string> = {
+    PAGAMENTO_INFORMADO_PDDEINFO: "Pagamento registrado no PDDEInfo",
+    OB_CORROBORADA_CREDITO_NAO_LOCALIZADO: "OB corroborada; crédito não localizado",
+    CREDITO_LOCALIZADO_SIGEF: "Crédito localizado no SIGEF",
+    CREDITO_CONFIRMADO_EXTRATO_BB: "Crédito confirmado em extrato BB",
+    CREDITO_ESTORNADO_OU_DEVOLVIDO: "Crédito estornado ou devolvido",
+    SEM_PAGAMENTO_REGISTRADO_ATE_CONSULTA: "Sem pagamento registrado até a consulta",
+    DIVERGENCIA_ENTRE_FONTES: "Divergência entre fontes",
+    CONSULTA_INCONCLUSIVA: "Consulta inconclusiva para crédito bancário",
+    REVISAO_NECESSARIA: "Revisão necessária",
+  };
+  return state ? labels[state] ?? state : "Sem estado de evidência";
+}
+
 function EvidenceActions({ dossier, observation, runId, onOpenArtifact }: { dossier: Dossier; observation: Observation | null; runId: string; onOpenArtifact: (runId: string, artifactId: number) => void }) {
   if (!observation) return <p><b>Campo:</b> inexistente nesta execução.</p>;
   const htmlArtifact = dossier.artifacts.find(item => item.storageKey === observation.rawHtmlKey);
@@ -28,7 +43,8 @@ function EvidenceActions({ dossier, observation, runId, onOpenArtifact }: { doss
   return <>
     <p><b>Valor bruto:</b> {observation.rawValue ?? "—"}</p>
     <p><b>Normalizado:</b> {String(observation.normalizedValueJson?.value ?? "—")}</p>
-    <p><b>Estado:</b> {observation.state ?? "SEM ESTADO"}</p>
+    <p><b>Fonte:</b> {observation.source}</p>
+    <p><b>Estado:</b> {evidenceStateLabel(observation.state)}</p>
     <p><b>Trecho:</b> {observation.evidenceSnippet ?? "não disponível"}</p>
     <div className="audit-evidence-actions">
       {htmlArtifact && <button className="audit-evidence-button" onClick={() => onOpenArtifact(runId, htmlArtifact.id)}>HTML bruto · {htmlArtifact.sha256.slice(0, 12)}</button>}
