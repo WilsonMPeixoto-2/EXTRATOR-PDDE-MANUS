@@ -77,7 +77,7 @@
 - [x] Adicionar busca ou filtro explícito por execução na auditoria, por identificador, data ou status, com teste automatizado.
 - [x] Integrar a validação de Dados Abertos ao pipeline operacional, persistindo hash, URL, datas, exercício, cobertura e completude do arquivo.
 - [x] Expor na auditoria ou nos eventos da execução o controle secundário por arquivo, incluindo validação e advertências.
-- [ ] Cobrir em teste a integração ponta a ponta do arquivo de Dados Abertos no fluxo de execução e auditoria.
+- [x] Cobrir em teste a integração ponta a ponta do arquivo de Dados Abertos no fluxo de execução e auditoria.
 - [x] Integrar persistOpenDataControl ao fluxo operacional real de execução ou rota de importação autenticada, com entrada explícita do arquivo secundário.
 - [x] Recuperar artefato e metadados open_data_file na auditoria de execução, com exposição específica na API e interface.
-- [ ] Adicionar teste de integração do registro do arquivo secundário até sua recuperação na auditoria.
+- [x] Adicionar teste de integração do registro do arquivo secundário até sua recuperação na auditoria.
