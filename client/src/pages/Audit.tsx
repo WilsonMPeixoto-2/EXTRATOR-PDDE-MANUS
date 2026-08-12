@@ -2,7 +2,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { AlertTriangle, ArrowLeft, FileSearch, History, RefreshCw, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { buildObservationComparisons, filterAuditObservations, filterAuditRuns, filterAuditSchools } from "./auditFilters";
+import { buildFinancialSchoolDossier, buildObservationComparisons, filterAuditObservations, filterAuditRuns, filterAuditSchools } from "./auditFilters";
 
 type AuditRun = { id: string; status: "running" | "approved" | "partial" | "blocked" | "failed"; masterCount: number; processedCount: number; parserVersion: string; startedAt: string; completedAt: string | null; validationJson: { passed?: boolean; errors?: string[]; sourceLimitations?: string[] } };
 type School = { inep: string; sme: string; status: "success" | "failed"; consultedAt: string; programsJson: string[]; exception: string | null };
@@ -14,6 +14,16 @@ type Dossier = { consultation: School | null; observations: Observation[]; event
 
 function displayDate(value: string | null | undefined) {
   return value ? new Date(value).toLocaleString("pt-BR") : "—";
+}
+
+async function operationalFetch(url: string, attempts = 2): Promise<Response> {
+  let response = await fetch(url);
+  for (let attempt = 0; response.status === 429 && attempt < attempts; attempt += 1) {
+    const retryAfter = Math.max(1, Number(response.headers.get("Retry-After") ?? "1"));
+    await new Promise(resolve => window.setTimeout(resolve, retryAfter * 1_000));
+    response = await fetch(url);
+  }
+  return response;
 }
 
 function badgeClass(status: string) {
@@ -80,7 +90,7 @@ export default function Audit() {
     if (!isAuthenticated) return;
     setLoading(true); setError(null);
     try {
-      const response = await fetch("/api/pdde/audit/runs");
+      const response = await operationalFetch("/api/pdde/audit/runs");
       if (!response.ok) throw new Error("Não foi possível carregar o histórico de execuções.");
       const payload = await response.json() as { runs: AuditRun[] };
       setRuns(payload.runs);
@@ -97,9 +107,9 @@ export default function Audit() {
       setLoading(true); setError(null); setSelectedInep(null); setDossier(null); setComparisonDossier(null);
       try {
         const [schoolResponse, findingResponse, overviewResponse] = await Promise.all([
-          fetch(`/api/pdde/audit/run/${selectedRunId}/schools`),
-          fetch(`/api/pdde/audit/run/${selectedRunId}/findings`),
-          fetch(`/api/pdde/audit/run/${selectedRunId}`),
+          operationalFetch(`/api/pdde/audit/run/${selectedRunId}/schools`),
+          operationalFetch(`/api/pdde/audit/run/${selectedRunId}/findings`),
+          operationalFetch(`/api/pdde/audit/run/${selectedRunId}`),
         ]);
         if (!schoolResponse.ok || !findingResponse.ok || !overviewResponse.ok) throw new Error("Não foi possível carregar os detalhes da execução selecionada.");
         setSchools((await schoolResponse.json() as { schools: School[] }).schools);
@@ -127,9 +137,10 @@ export default function Audit() {
     if (!selectedRunId) return;
     setSelectedInep(inep); setLoading(true); setError(null); setComparisonDossier(null);
     try {
-      const response = await fetch(`/api/pdde/audit/run/${selectedRunId}/school/${inep}`);
+      const response = await operationalFetch(`/api/pdde/audit/run/${selectedRunId}/school/${inep}`);
       if (!response.ok) throw new Error("Não foi possível abrir o dossiê da unidade.");
       setDossier(await response.json() as Dossier);
+      window.setTimeout(() => document.getElementById("dossie-financeiro")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao abrir dossiê."); }
     finally { setLoading(false); }
   };
@@ -137,7 +148,7 @@ export default function Audit() {
   const openArtifact = async (runId: string, artifactId: number) => {
     setError(null);
     try {
-      const response = await fetch(`/api/pdde/audit/run/${runId}/artifact/${artifactId}`);
+      const response = await operationalFetch(`/api/pdde/audit/run/${runId}/artifact/${artifactId}`);
       if (!response.ok) throw new Error("Não foi possível abrir a evidência solicitada.");
       const payload = await response.json() as { artifact: { url: string } };
       window.open(payload.artifact.url, "_blank", "noopener,noreferrer");
@@ -148,7 +159,7 @@ export default function Audit() {
     if (!comparisonRunId || !selectedInep) return;
     setComparisonLoading(true); setError(null);
     try {
-      const response = await fetch(`/api/pdde/audit/run/${comparisonRunId}/school/${selectedInep}`);
+      const response = await operationalFetch(`/api/pdde/audit/run/${comparisonRunId}/school/${selectedInep}`);
       if (!response.ok) throw new Error("Não foi possível carregar a execução de referência.");
       setComparisonDossier(await response.json() as Dossier);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao carregar comparação histórica."); }
@@ -160,6 +171,7 @@ export default function Audit() {
   const filteredRuns = useMemo(() => filterAuditRuns(runs, runFilter), [runs, runFilter]);
   const filteredSchools = useMemo(() => filterAuditSchools(schools, programFilter, schoolFilter), [schools, programFilter, schoolFilter]);
   const filteredObservations = useMemo(() => dossier ? filterAuditObservations(dossier.observations, fieldFilter) : [], [dossier, fieldFilter]);
+  const financialDossier = useMemo(() => dossier ? buildFinancialSchoolDossier(dossier.observations) : null, [dossier]);
   const observationComparisons = useMemo(() => dossier && comparisonDossier ? buildObservationComparisons(dossier.observations, comparisonDossier.observations) : [], [dossier, comparisonDossier]);
   const changedComparisonCount = observationComparisons.filter(item => item.status !== "unchanged").length;
   const openDataArtifacts = runArtifacts.filter(artifact => artifact.kind === "open_data_file");
@@ -193,6 +205,28 @@ export default function Audit() {
         <main className="audit-panel audit-schools"><div className="audit-panel-heading"><FileSearch size={17} /><h2>Unidades da execução</h2><span>{selectedRunId ? `${filteredSchools.length}/${schools.length} registros` : "selecione uma execução"}</span></div>{schools.length ? <><div className="audit-filter-grid"><input className="audit-filter" value={schoolFilter} onChange={event => setSchoolFilter(event.target.value)} placeholder="Buscar INEP ou SME" aria-label="Buscar escola por INEP ou SME" /><input className="audit-filter" value={programFilter} onChange={event => setProgramFilter(event.target.value)} placeholder="Filtrar por programa" aria-label="Filtrar escolas por programa" /></div><div className="audit-table-scroll"><table className="audit-data-table"><thead><tr><th>INEP</th><th>SME</th><th>Consulta</th><th>Status</th><th>Programas</th></tr></thead><tbody>{filteredSchools.map(school => <tr key={`${school.inep}-${school.sme}`} className={selectedInep === school.inep ? "audit-row-selected" : ""} onClick={() => void openDossier(school.inep)}><td><button className="audit-link-button">{school.inep}</button></td><td>{school.sme}</td><td>{displayDate(school.consultedAt)}</td><td><span className={badgeClass(school.status)}>{school.status}</span></td><td>{school.programsJson?.join(" · ") || "—"}</td></tr>)}</tbody></table></div></> : <p className="audit-empty">Selecione uma execução com consultas persistidas.</p>}</main>
 
         <aside className="audit-panel audit-findings"><div className="audit-panel-heading"><ShieldCheck size={17} /><h2>Exceções</h2></div>{findings.length ? <div className="audit-finding-list">{findings.map(finding => <article key={finding.id} className="audit-finding"><span className={badgeClass(finding.severity)}>{finding.severity}</span><strong>{finding.code}</strong><p>{finding.message}</p>{(finding.previousValue !== null || finding.currentValue !== null) && <small>Anterior: {finding.previousValue ?? "—"} · Atual: {finding.currentValue ?? "—"}</small>}<small>{finding.inep ?? "execução geral"}</small></article>)}</div> : <p className="audit-empty">Nenhum achado persistido para esta execução.</p>}</aside>
+      </section>
+
+      <section className="audit-panel audit-financial-dossier" id="dossie-financeiro">
+        <div className="audit-panel-heading"><FileSearch size={17} /><h2>Dados financeiros extraídos</h2><span>{selectedInep ? `INEP ${selectedInep}` : "clique em um INEP"}</span></div>
+        {dossier && financialDossier ? <div className="financial-dossier-content">
+          <div className="financial-identity">
+            <div><span>UNIDADE EXECUTORA</span><strong>{financialDossier.schoolName ?? "Nome não informado pela fonte"}</strong></div>
+            <div><span>UEx</span><strong>{financialDossier.uex ?? "—"}</strong></div>
+            <div><span>CNPJ</span><strong>{financialDossier.cnpj ?? "—"}</strong></div>
+            <div><span>CONSULTA</span><strong>{displayDate(dossier.consultation?.consultedAt)}</strong></div>
+          </div>
+          <div className="financial-sections">
+            <article>
+              <header><h3>Contas informadas no PDDEInfo</h3><small>A conta do PDDE Básico somente aparece quando o rótulo é exatamente PDDE.</small></header>
+              {financialDossier.accounts.length ? <div className="financial-table-scroll"><table className="financial-data-table"><thead><tr><th>Programa</th><th>Banco</th><th>Agência</th><th>Conta</th><th>Saldo</th></tr></thead><tbody>{financialDossier.accounts.map(account => <tr key={account.index}><td>{account.program ?? "—"}</td><td>{account.bank ?? "—"}</td><td>{account.agency ?? "—"}</td><td className="financial-code">{account.account ?? "não informado"}</td><td>{account.balance ?? "—"}</td></tr>)}</tbody></table></div> : <p className="audit-empty">Nenhuma conta bancária foi exibida na página consultada.</p>}
+            </article>
+            <article>
+              <header><h3>Parcelas e valores registrados</h3><small>“Valor pago” significa pagamento registrado no PDDEInfo; não confirma crédito bancário.</small></header>
+              {financialDossier.payments.length ? <div className="financial-table-scroll"><table className="financial-data-table"><thead><tr><th>Destinação</th><th>Previsto</th><th>Pago registrado</th><th>Data da ordem</th><th>Estado</th></tr></thead><tbody>{financialDossier.payments.map(payment => <tr key={payment.index}><td>{payment.destination ?? "—"}</td><td>{payment.expected ?? "—"}</td><td>{payment.paid ?? "—"}</td><td>{payment.paymentDate ?? "—"}</td><td>{evidenceStateLabel(payment.state)}</td></tr>)}</tbody></table></div> : <p className="audit-empty">Nenhuma parcela foi exibida na página consultada.</p>}
+            </article>
+          </div>
+        </div> : <p className="audit-empty">Selecione um INEP na tabela acima. Este dossiê mostrará os dados financeiros efetivamente extraídos, não apenas o status da consulta.</p>}
       </section>
 
       <section className="audit-panel audit-dossier"><div className="audit-panel-heading"><FileSearch size={17} /><h2>Dossiê por campo</h2><span>{selectedInep ? `INEP ${selectedInep}` : "selecione uma unidade"}</span></div>{dossier && selectedRunId ? <div className="audit-dossier-grid"><div><h3>Consulta e eventos</h3><p><strong>Status:</strong> {dossier.consultation?.status ?? "—"}</p><p><strong>Fonte:</strong> PDDEInfo; pagamento registrado não equivale a crédito confirmado.</p><div className="audit-timeline">{dossier.events.map(event => <div key={event.id}><time>{displayDate(event.occurredAt)}</time><span className={badgeClass(event.severity)}>{event.type}</span><p>{event.message}</p></div>)}</div></div><div><h3>Proveniência dos campos</h3><input className="audit-filter" value={fieldFilter} onChange={event => setFieldFilter(event.target.value)} placeholder="Filtrar por campo, chave ou evidência" aria-label="Filtrar observações por campo" /><div className="audit-observation-list">{filteredObservations.map(observation => <article key={observation.id}><header><strong>{observation.fieldPath}</strong><span className={badgeClass(observation.state ?? "info")}>{observation.state ?? "SEM ESTADO"}</span></header><EvidenceActions dossier={dossier} observation={observation} runId={selectedRunId} onOpenArtifact={(runId, artifactId) => void openArtifact(runId, artifactId)} /><p><b>Regra:</b> {observation.extractionRule} · {observation.parserVersion}</p><p><b>Hash:</b> <code>{observation.sourceHashSha256?.slice(0, 18) ?? "—"}</code></p>{observation.validationResultsJson?.map(result => <small key={`${observation.id}-${result.code}`} className={`audit-validation audit-validation-${result.level}`}>{result.code}: {result.message}</small>)}</article>)}</div></div></div> : <p className="audit-empty">O cartão de proveniência exibirá valor bruto, valor normalizado, regra, hash, evidência e validações do campo selecionado.</p>}</section>

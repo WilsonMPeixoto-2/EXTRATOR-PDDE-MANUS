@@ -1,6 +1,7 @@
 import type { Express, Response } from "express";
 import type { Request as ExpressRequest, Response as ExpressResponse } from "express";
 import { getRun, masterListSummary, registerSecondaryOpenDataControl, runExtraction } from "./run";
+import { appendAuditTrail, completeAuditRun } from "../db";
 import { sourceAutomationCatalog } from "./sources";
 import { sdk } from "../_core/sdk";
 import { decidePddeAccess, type PddeResource } from "./access";
@@ -9,6 +10,24 @@ import { storageGetSignedUrl } from "../storage";
 
 function writeEvent(response: Response, payload: unknown) {
   response.write(`data: ${JSON.stringify(payload)}\n\n`);
+}
+
+function restoredRunPayload(overview: Awaited<ReturnType<typeof getPersistedRunAuditOverview>>) {
+  if (!overview.run) return null;
+  const workbookArtifact = overview.artifacts.find(artifact => artifact.kind === "workbook");
+  const releasedEvent = overview.events.find(event => event.type === "WORKBOOK_RELEASED");
+  const eventDownloadUrl = typeof (releasedEvent?.payloadJson as { downloadUrl?: unknown } | undefined)?.downloadUrl === "string"
+    ? (releasedEvent?.payloadJson as { downloadUrl: string }).downloadUrl
+    : null;
+  return {
+    id: overview.run.id,
+    status: overview.run.status,
+    validation: overview.run.validationJson,
+    downloadUrl: eventDownloadUrl ?? workbookArtifact?.storageUrl ?? null,
+    records: overview.run.processedCount,
+    audits: overview.run.processedCount,
+    persisted: true,
+  };
 }
 
 async function authorize(request: ExpressRequest, response: ExpressResponse, resource: PddeResource) {
@@ -55,8 +74,45 @@ export function registerPddeRoutes(app: Express) {
   app.get("/api/pdde/run/:runId", async (request, response) => {
     if (!await authorize(request, response, "run-status")) return;
     const run = getRun(request.params.runId);
-    if (!run) return response.status(404).json({ message: "Execução não encontrada neste servidor." });
-    return response.json({ id: run.id, status: run.status, validation: run.validation, downloadUrl: run.downloadUrl, records: run.records.length, audits: run.audits.length });
+    if (run) return response.json({ id: run.id, status: run.status, validation: run.validation, downloadUrl: run.downloadUrl, records: run.records.length, audits: run.audits.length, persisted: false });
+    let overview = await getPersistedRunAuditOverview(request.params.runId);
+    if (overview.run?.status === "running") {
+      const schools = await listRunSchools(request.params.runId);
+      const interruptedAt = new Date().toISOString();
+      const validation = {
+        passed: false,
+        uniqueIneps: schools.length,
+        firstInstallmentPaid: 0,
+        secondInstallmentExpected: 0,
+        missingBasicAccounts: 0,
+        errors: [`A execução foi interrompida pelo reinício do servidor após ${schools.length}/163 consulta(s) persistida(s). As evidências já coletadas permanecem disponíveis na auditoria; inicie uma nova execução para obter um Excel validado.`],
+      };
+      await appendAuditTrail(request.params.runId, "00000000", [], [{
+        eventId: `interrupted-${request.params.runId}-${Date.now()}`,
+        runId: request.params.runId,
+        occurredAt: interruptedAt,
+        type: "FIELD_VALIDATED",
+        severity: "critical",
+        inep: null,
+        fieldId: null,
+        message: validation.errors[0],
+        payload: { recoveredConsultations: schools.length, reason: "server-restart-without-active-worker" },
+      }]);
+      await completeAuditRun(request.params.runId, "failed", schools.length, validation);
+      overview = await getPersistedRunAuditOverview(request.params.runId);
+    }
+    const payload = restoredRunPayload(overview);
+    if (!payload) return response.status(404).json({ message: "Execução auditável não encontrada." });
+    return response.json(payload);
+  });
+
+  app.get("/api/pdde/latest-approved", async (request, response) => {
+    if (!await authorize(request, response, "run-status")) return;
+    const latestApproved = (await listPersistedAuditRuns(100)).find(run => run.status === "approved");
+    if (!latestApproved) return response.status(404).json({ message: "Nenhuma execução aprovada foi encontrada." });
+    const payload = restoredRunPayload(await getPersistedRunAuditOverview(latestApproved.id));
+    if (!payload) return response.status(404).json({ message: "A execução aprovada não pôde ser recuperada." });
+    return response.json(payload);
   });
 
   app.get("/api/pdde/audit/runs", async (request, response) => {

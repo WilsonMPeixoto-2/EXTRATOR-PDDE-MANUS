@@ -6,7 +6,7 @@ import {
   FileSpreadsheet, Gauge, LockKeyhole, Play, RefreshCw,
   ShieldCheck, Timer, UsersRound, XCircle,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 
 type Validation = {
@@ -47,6 +47,16 @@ const initialEvents: TimelineItem[] = [
   { timestamp: "PRONTO", message: "Lista-mestre embutida e validação preventiva disponível.", kind: "info" },
   { timestamp: "REGRA", message: "Conta do PDDE Básico só é aceita quando o rótulo bancário é exatamente PDDE.", kind: "info" },
 ];
+
+const ACTIVE_RUN_STORAGE_KEY = "pddeinfo-4cre:last-run-id";
+type RestoredRun = {
+  id: string;
+  status: string;
+  validation?: Validation | null;
+  downloadUrl?: string | null;
+  records: number;
+  persisted?: boolean;
+};
 
 function MetricCard({ label, value, hint, accent }: { label: string; value: string | number; hint: string; accent: "teal" | "gold" | "plum" | "blue" }) {
   return (
@@ -89,6 +99,7 @@ export default function Home() {
   const [events, setEvents] = useState<TimelineItem[]>(initialEvents);
   const [fatalError, setFatalError] = useState<string | null>(null);
   const [sources, setSources] = useState<SourceAutomation[]>([]);
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -112,6 +123,66 @@ export default function Home() {
 
   const appendEvent = (item: TimelineItem) => setEvents(current => [item, ...current].slice(0, 9));
 
+  const restoreRun = useCallback(async (runId: string, quiet = false) => {
+    const response = await fetch(`/api/pdde/run/${runId}`);
+    if (!response.ok) {
+      if (response.status === 404) window.localStorage.removeItem(ACTIVE_RUN_STORAGE_KEY);
+      throw new Error("Não foi possível recuperar o estado persistido da execução.");
+    }
+    const payload = await response.json() as RestoredRun;
+    const isRunning = payload.status.toLowerCase() === "running";
+    setActiveRunId(payload.id);
+    setCompleted(payload.records);
+    setRunning(isRunning);
+    setValidation(payload.validation ?? null);
+    setDownloadUrl(payload.downloadUrl ?? null);
+    setFatalError(null);
+    if (!quiet) {
+      appendEvent({
+        timestamp: payload.persisted ? "RETOMADO" : "RECONECTADO",
+        message: isRunning
+          ? `${payload.records}/163 consultas persistidas. O acompanhamento foi restaurado sem reiniciar a coleta.`
+          : payload.validation?.passed
+            ? "Execução aprovada recuperada do histórico; o Excel V2 permanece disponível."
+            : "Execução recuperada do histórico; consulte as validações e a auditoria para o resultado.",
+        kind: isRunning ? "info" : payload.validation?.passed ? "success" : "error",
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const runId = window.localStorage.getItem(ACTIVE_RUN_STORAGE_KEY);
+    if (!runId) return;
+    void restoreRun(runId).catch(cause => setFatalError(cause instanceof Error ? cause.message : "Não foi possível restaurar a execução anterior."));
+  }, [isAuthenticated, restoreRun]);
+
+  useEffect(() => {
+    if (!isAuthenticated || window.localStorage.getItem(ACTIVE_RUN_STORAGE_KEY)) return;
+    const restoreLatestApproved = async () => {
+      const response = await fetch("/api/pdde/latest-approved");
+      if (response.status === 404) return;
+      if (!response.ok) throw new Error("Não foi possível recuperar a última execução aprovada.");
+      const payload = await response.json() as RestoredRun;
+      setActiveRunId(payload.id);
+      setCompleted(payload.records);
+      setRunning(false);
+      setValidation(payload.validation ?? null);
+      setDownloadUrl(payload.downloadUrl ?? null);
+      window.localStorage.setItem(ACTIVE_RUN_STORAGE_KEY, payload.id);
+      appendEvent({ timestamp: "RESULTADO", message: "Última execução aprovada recuperada. O Excel V2 está disponível para download.", kind: "success" });
+    };
+    void restoreLatestApproved().catch(cause => setFatalError(cause instanceof Error ? cause.message : "Não foi possível recuperar a última execução aprovada."));
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!running || !activeRunId) return;
+    const interval = window.setInterval(() => {
+      void restoreRun(activeRunId, true).catch(() => undefined);
+    }, 5_000);
+    return () => window.clearInterval(interval);
+  }, [activeRunId, restoreRun, running]);
+
   const startExtraction = () => {
     if (running || authLoading || !isAuthenticated) return;
     setCompleted(0);
@@ -120,12 +191,15 @@ export default function Home() {
     setDownloadUrl(null);
     setFatalError(null);
     setRunning(true);
+    setActiveRunId(null);
     setEvents([{ timestamp: "INÍCIO", message: "Verificação prévia concluída. Abrindo consulta individual ao PDDEInfo.", kind: "info" }, ...initialEvents]);
 
     const source = new EventSource("/api/pdde/run");
     source.onmessage = event => {
       const payload = JSON.parse(event.data);
       if (payload.type === "ready") {
+        setActiveRunId(payload.runId);
+        window.localStorage.setItem(ACTIVE_RUN_STORAGE_KEY, payload.runId);
         appendEvent({ timestamp: "LISTA", message: `${payload.total} INEPs únicos confirmados. Iniciando lotes resilientes.`, kind: "success" });
       }
       if (payload.type === "progress") {
@@ -158,8 +232,9 @@ export default function Home() {
       }
     };
     source.onerror = () => {
-      if (running) setFatalError("A conexão de acompanhamento foi interrompida. Verifique o log e inicie uma nova execução se necessário.");
       source.close();
+      const runId = window.localStorage.getItem(ACTIVE_RUN_STORAGE_KEY);
+      if (runId) void restoreRun(runId).catch(() => setFatalError("A conexão de acompanhamento foi interrompida. A execução persistida será recuperada ao atualizar a página."));
     };
   };
 
@@ -200,7 +275,7 @@ export default function Home() {
               </Button>
               {downloadUrl && validation?.passed ? (
                 <div className="download-actions">
-                  <a href={downloadUrl} className="download-link download-direct" download><FileSpreadsheet size={17} /> Baixar Excel V2</a>
+                  <a href={downloadUrl} className="download-link download-direct" download><FileSpreadsheet size={17} /> Baixar Excel V2 aprovado</a>
                   <a href={downloadUrl} className="download-link" target="_blank" rel="noreferrer"><CloudDownload size={17} /> Abrir cópia persistente</a>
                 </div>
               ) : <span className="download-locked"><LockKeyhole size={15} /> Download condicionado à validação</span>}

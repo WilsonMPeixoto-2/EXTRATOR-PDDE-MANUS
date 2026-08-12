@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { appendAuditTrail, completeAuditRun, createAuditRun, loadLatestApprovedPaymentSnapshots, persistHistoricalFindings, persistSchoolCollection } from "../db";
+import { appendAuditTrail, completeAuditRun, createAuditRun, loadLatestApprovedPaymentSnapshots, persistHistoricalFindings, persistRunArtifact, persistSchoolCollection, updateAuditRunProgress } from "../db";
 import { storagePut } from "../storage";
 import { MASTER_SCHOOLS } from "./masterList";
 import { PDDEINFO_PARSER_VERSION, parseSchoolPage } from "./parser";
@@ -232,6 +232,7 @@ export async function runExtraction(onEvent: (event: ExtractionEvent) => void, c
       run.auditEvents.push(...result.events);
       if (result.record) run.records.push(result.record);
       await persistSchoolCollection(runId, result.audit, PDDEINFO_PARSER_VERSION);
+      await updateAuditRunProgress(runId, effectiveAuditsForValidation(run.audits).length);
       await appendAuditTrail(runId, result.audit.inep, result.record?.fieldProvenance ?? [], result.events);
       const completed = start + index + 1;
       onEvent({
@@ -264,6 +265,7 @@ export async function runExtraction(onEvent: (event: ExtractionEvent) => void, c
     run.auditEvents.push(...recovered.events);
     if (recovered.record) run.records.push(recovered.record);
     await persistSchoolCollection(runId, recovered.audit, PDDEINFO_PARSER_VERSION);
+    await updateAuditRunProgress(runId, effectiveAuditsForValidation(run.audits).length);
     await appendAuditTrail(runId, recovered.audit.inep, recovered.record?.fieldProvenance ?? [], recovered.events);
   }
 
@@ -293,6 +295,7 @@ export async function runExtraction(onEvent: (event: ExtractionEvent) => void, c
   }
   const workbook = await createV2Workbook(run.records, finalAudits, run.validation);
   const stored = await storagePut(`exports/pdde-4cre/${runId}/PDDEInfo_4a_CRE_2026_Visao_Financeira_V2.xlsx`, workbook, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  await persistRunArtifact({ runId, kind: "workbook", storageKey: stored.key, storageUrl: stored.url, contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", sha256: createHash("sha256").update(workbook).digest("hex") });
   run.downloadUrl = stored.url;
   run.status = "COMPLETE";
   run.auditEvents.push(event(runId, "WORKBOOK_RELEASED", "info", null, null, "Excel liberado após aprovação dos controles bloqueantes.", {

@@ -199,6 +199,12 @@ export async function persistSchoolCollection(runId: string, audit: AuditRecord,
   });
 }
 
+/** Atualiza somente o contador operacional da execução; consultas e evidências seguem append-only. */
+export async function updateAuditRunProgress(runId: string, processedCount: number) {
+  const db = await getAuditDbOrThrow();
+  await db.update(extractionRuns).set({ processedCount }).where(eq(extractionRuns.id, runId));
+}
+
 export async function persistRunArtifact(input: {
   runId: string;
   kind: "workbook" | "manifest" | "raw_html" | "normalized_json" | "open_data_file" | "sigef_movement_pdf";

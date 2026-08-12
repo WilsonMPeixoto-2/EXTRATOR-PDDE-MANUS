@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildObservationComparisons, filterAuditObservations, filterAuditRuns, filterAuditSchools } from "./auditFilters";
+import { buildFinancialSchoolDossier, buildObservationComparisons, filterAuditObservations, filterAuditRuns, filterAuditSchools } from "./auditFilters";
 
 describe("filtros da auditoria", () => {
   it("filtra escolas pelo programa identificado na execução", () => {
@@ -45,5 +45,27 @@ describe("filtros da auditoria", () => {
       { logicalKey: "payment:basic:paid", status: "changed" },
       { logicalKey: "payment:quality:paid", status: "new" },
     ]);
+  });
+
+  it("projeta contas e parcelas extraídas em um dossiê financeiro legível por escola", () => {
+    const dossier = buildFinancialSchoolDossier([
+      { fieldPath: "schoolName", logicalKey: "schoolName", rawValue: "Escola de Teste" },
+      { fieldPath: "cnpj", logicalKey: "cnpj", rawValue: "00.000.000/0001-00" },
+      { fieldPath: "bankAccounts[0].program", logicalKey: "bank:pdde:program", rawValue: "PDDE" },
+      { fieldPath: "bankAccounts[0].bank", logicalKey: "bank:pdde:bank", rawValue: "001" },
+      { fieldPath: "bankAccounts[0].agency", logicalKey: "bank:pdde:agency", rawValue: "0249" },
+      { fieldPath: "bankAccounts[0].account", logicalKey: "bank:pdde:account", rawValue: "000054640X" },
+      { fieldPath: "payments[0].destination", logicalKey: "payment:basic:destination", rawValue: "PDDE Básico - 1ª Parcela" },
+      { fieldPath: "payments[0].expected", logicalKey: "payment:basic:expected", rawValue: "100,00" },
+      { fieldPath: "payments[0].paid", logicalKey: "payment:basic:paid", rawValue: "100,00", state: "PAGAMENTO_INFORMADO_PDDEINFO" },
+      { fieldPath: "payments[0].paymentDate", logicalKey: "payment:basic:date", rawValue: "05/08/2026" },
+    ]);
+
+    expect(dossier).toMatchObject({
+      schoolName: "Escola de Teste",
+      cnpj: "00.000.000/0001-00",
+      accounts: [{ program: "PDDE", agency: "0249", account: "000054640X" }],
+      payments: [{ destination: "PDDE Básico - 1ª Parcela", expected: "100,00", paid: "100,00", paymentDate: "05/08/2026", state: "PAGAMENTO_INFORMADO_PDDEINFO" }],
+    });
   });
 });

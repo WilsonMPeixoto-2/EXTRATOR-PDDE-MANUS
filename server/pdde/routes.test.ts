@@ -17,6 +17,8 @@ vi.mock("./run", () => ({
 }));
 
 vi.mock("../db", () => ({
+  appendAuditTrail: vi.fn(),
+  completeAuditRun: vi.fn(),
   getPersistedAuditRun: vi.fn(),
   getPersistedRunAuditOverview: vi.fn(),
   getRunArtifact: vi.fn(),
@@ -29,7 +31,7 @@ vi.mock("../db", () => ({
 vi.mock("../storage", () => ({ storageGetSignedUrl: vi.fn() }));
 
 import { sdk } from "../_core/sdk";
-import { getPersistedAuditRun, getPersistedRunAuditOverview, listPersistedAuditRuns } from "../db";
+import { appendAuditTrail, completeAuditRun, getPersistedAuditRun, getPersistedRunAuditOverview, listPersistedAuditRuns, listRunSchools } from "../db";
 import { getRun, registerSecondaryOpenDataControl, runExtraction } from "./run";
 import { registerPddeRoutes } from "./routes";
 
@@ -40,6 +42,9 @@ const mockedListPersistedAuditRuns = vi.mocked(listPersistedAuditRuns);
 const mockedGetPersistedAuditRun = vi.mocked(getPersistedAuditRun);
 const mockedGetPersistedRunAuditOverview = vi.mocked(getPersistedRunAuditOverview);
 const mockedRegisterSecondaryOpenDataControl = vi.mocked(registerSecondaryOpenDataControl);
+const mockedListRunSchools = vi.mocked(listRunSchools);
+const mockedAppendAuditTrail = vi.mocked(appendAuditTrail);
+const mockedCompleteAuditRun = vi.mocked(completeAuditRun);
 
 async function request(app: Express, path: string) {
   const server = await new Promise<ReturnType<Express["listen"]>>(resolve => {
@@ -133,12 +138,41 @@ describe("rotas operacionais protegidas do PDDE", () => {
     expect(mockedRunExtraction).toHaveBeenCalledWith(expect.any(Function), user.id);
   });
 
+  it("encerra como falha auditável a execução persistida sem trabalhador ativo", async () => {
+    authenticateRequest.mockResolvedValue(user);
+    mockedGetRun.mockReturnValue(undefined);
+    mockedListRunSchools.mockResolvedValue(Array.from({ length: 156 }, (_, index) => ({ inep: String(index) })) as any);
+    mockedGetPersistedRunAuditOverview
+      .mockResolvedValueOnce({ run: { id: "run-interrompida", status: "running", processedCount: 0, validationJson: {} }, artifacts: [], events: [] } as any)
+      .mockResolvedValueOnce({ run: { id: "run-interrompida", status: "failed", processedCount: 156, validationJson: { passed: false, errors: ["interrompida"] } }, artifacts: [], events: [] } as any);
+
+    const response = await request(appForTest(), "/api/pdde/run/run-interrompida");
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ id: "run-interrompida", status: "failed", records: 156, persisted: true });
+    expect(mockedAppendAuditTrail).toHaveBeenCalledWith("run-interrompida", "00000000", [], [expect.objectContaining({ severity: "critical", payload: { recoveredConsultations: 156, reason: "server-restart-without-active-worker" } })]);
+    expect(mockedCompleteAuditRun).toHaveBeenCalledWith("run-interrompida", "failed", 156, expect.objectContaining({ passed: false }));
+  });
+
   it("permite consultar histórico de auditoria somente após autenticação", async () => {
     authenticateRequest.mockResolvedValue(user);
     mockedListPersistedAuditRuns.mockResolvedValue([{ id: "run-existente", status: "approved", masterCount: 163, processedCount: 163 }] as any);
     const response = await request(appForTest(), "/api/pdde/audit/runs");
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ runs: [expect.objectContaining({ id: "run-existente", status: "approved" })] });
+  });
+
+  it("recupera a última execução aprovada com o link persistido do Excel", async () => {
+    authenticateRequest.mockResolvedValue(user);
+    mockedListPersistedAuditRuns.mockResolvedValue([{ id: "run-aprovada", status: "approved", masterCount: 163, processedCount: 163 }] as any);
+    mockedGetPersistedRunAuditOverview.mockResolvedValue({
+      run: { id: "run-aprovada", status: "approved", processedCount: 163, validationJson: { passed: true, errors: [] } },
+      artifacts: [],
+      events: [{ type: "WORKBOOK_RELEASED", payloadJson: { downloadUrl: "/manus-storage/exports/run-aprovada.xlsx" } }],
+    } as any);
+
+    const response = await request(appForTest(), "/api/pdde/latest-approved");
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ id: "run-aprovada", status: "approved", records: 163, validation: { passed: true }, downloadUrl: "/manus-storage/exports/run-aprovada.xlsx", persisted: true });
   });
 
   it("registra arquivo secundário autenticado e o recupera no detalhe auditável da execução", async () => {

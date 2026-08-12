@@ -85,3 +85,7 @@
 - [x] Validar o resultado da coleta PDDEInfo contra os bloqueios de cobertura, unicidade, parcelas e conta PDDE Básico antes de liberar o Excel.
 - [x] Reduzir a concorrência do roteiro PDDEInfo e reexecutar a coleta completa após seis falhas transitórias de rede, preservando a execução bloqueada como histórico imutável.
 - [x] Aceitar e preservar como texto as contas PDDEInfo com dígito verificador alfanumérico, sem converter esse formato legítimo em falha de schema.
+- [x] Recuperar automaticamente a execução PDDEInfo em andamento ou concluída após atualização de página, preservando progresso, validações e link do Excel.
+- [x] Exibir na auditoria um dossiê financeiro navegável por escola, aberto pela linha/INEP, com valores extraídos, programas, contas, parcelas, evidências e links aos artefatos.
+- [x] Exibir de forma permanente na tela principal a última execução aprovada e um botão inequívoco para baixar o Excel correspondente.
+- [x] Distinguir uma execução persistida que foi interrompida por reinício do servidor de uma coleta ainda ativa, sem ocultar as consultas já registradas.
