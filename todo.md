@@ -22,7 +22,7 @@
 - [x] Comparar cada execução com a última linha de base aprovada e sinalizar perdas de pagamento ou alterações relevantes.
 - [x] Criar navegação de auditoria para consultar execução, escola, evidência, anomalia e alteração histórica.
 - [x] Proteger a operação com autenticação, limites de requisição e registro de operador.
-- [ ] Adicionar fixtures reais anonimizadas, dataset dourado e testes de schema, aritmética, alertas e histórico.
+- [x] Adicionar fixtures reais anonimizadas, dataset dourado e testes de schema, aritmética, alertas e histórico.
 - [x] Validar tecnicamente as consultas públicas SIGEF de Liberação de Recursos, Conta Corrente e Movimentação Bancária, sem assumir disponibilidade ou chaves de ligação.
 - [x] Modelar proveniência por campo e status de conciliação entre PDDEInfo, SIGEF e confirmação bancária.
 - [x] Manter dados de fontes distintas separados, sem preenchimento silencioso de conta, pagamento ou crédito.

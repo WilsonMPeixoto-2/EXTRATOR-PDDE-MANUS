@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import ExcelJS from "exceljs";
+import { readFileSync } from "node:fs";
 import { MASTER_SCHOOLS } from "./masterList";
 import { accountForExactProgram, parseSchoolPage } from "./parser";
 import { attachEvidenceArtifacts } from "./provenance";
 import { derivePaymentEvidenceState } from "./reconciliation";
 import { basicAccountSource, canReleaseDownload, createV2Workbook, financialHeaders, paymentEvidenceSummary, validateExtraction } from "./workbook";
+import { comparePaymentSnapshots, paymentSnapshotsFromRecords } from "./history";
 import { schoolArtifactPayloads, schoolConsultationPayload } from "../db";
 import type { AuditRecord, SchoolExtraction } from "./types";
 
@@ -13,11 +15,50 @@ const fixture = `
 <table><tr><td>Executora:</td><td>UEx de Teste</td><td>CNPJ:</td><td>00.000.000/0001-00</td></tr></table>
 <table><tr><th>Programa/Ação</th><th>Banco</th><th>Agência</th><th>Conta</th><th>Saldo</th></tr><tr><td>PDDE QUALIDADE</td><td>001</td><td>0249</td><td>0000546402</td><td>10,00</td></tr><tr><td>PDDE EQUIDADE</td><td>001</td><td>0249</td><td>0000999999</td><td>20,00</td></tr></table>
 <table><tr><th>Destinação</th><th>x</th><th>x</th><th>Vl Devido Total</th><th>x</th><th>x</th><th>x</th><th>Vl Final Devido Total</th><th>x</th><th>x</th><th>Valor Pago Total</th><th>Data Ord. Pgto</th></tr><tr><td>PDDE / PDDE Básico - 1ª Parcela</td><td></td><td></td><td>100,00</td><td></td><td></td><td></td><td>100,00</td><td></td><td></td><td>100,00</td><td>05/08/2026</td></tr></table>`;
+const anonymizedFixture = readFileSync(new URL("./fixtures/pddeinfo-2026-anonimizado.html", import.meta.url), "utf8");
+const goldenFixture = JSON.parse(readFileSync(new URL("./fixtures/pddeinfo-2026-anonimizado.golden.json", import.meta.url), "utf8")) as {
+  inep: string; sme: string; sourceUrl: string; consultedAt: string; bankPrograms: string[]; basicAccount: null;
+  payments: Array<{ semanticKey: string; expected: number; paid: number; paymentDate: string | null; state: string }>;
+  requiredValidation: { schemaIssues: number; p1Arithmetic: string; p2AbsenceWarning: string; historyAlert: string };
+};
 
 describe("lista-mestre 4ª CRE", () => {
   it("contém os 163 INEPs únicos esperados", () => {
     expect(MASTER_SCHOOLS).toHaveLength(163);
     expect(new Set(MASTER_SCHOOLS.map(school => school.inep)).size).toBe(163);
+  });
+});
+
+describe("fixture pública anonimizada e dataset dourado", () => {
+  it("mantém a estrutura do PDDEInfo com identificadores redigidos e resultados financeiros verificáveis", () => {
+    const record = parseSchoolPage(anonymizedFixture, goldenFixture.inep, goldenFixture.sme, goldenFixture.sourceUrl, goldenFixture.consultedAt, "f".repeat(64));
+    const expectedPayments = goldenFixture.payments.map(expected => ({
+      semanticKey: expected.semanticKey,
+      expected: expected.expected,
+      paid: expected.paid,
+      paymentDate: expected.paymentDate,
+      state: expected.state,
+    }));
+
+    expect(record.schemaIssues).toHaveLength(goldenFixture.requiredValidation.schemaIssues);
+    expect(record.bankAccounts.map(account => account.program)).toEqual(goldenFixture.bankPrograms);
+    expect(goldenFixture.basicAccount).toBeNull();
+    expect(accountForExactProgram(record, "PDDE")).toBeUndefined();
+    expect(record.payments.filter(payment => payment.semanticKey?.startsWith("PDDE_BASIC")).map(payment => ({
+      semanticKey: payment.semanticKey, expected: payment.expected, paid: payment.paid, paymentDate: payment.paymentDate, state: payment.provenance.paid.state,
+    }))).toEqual(expectedPayments);
+    expect(record.payments.find(payment => payment.semanticKey === "PDDE_BASIC_P1")?.provenance.paid.validationResults).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "paid-arithmetic", level: goldenFixture.requiredValidation.p1Arithmetic }),
+    ]));
+    expect(record.payments.find(payment => payment.semanticKey === "PDDE_BASIC_P2")?.provenance.paid.validationResults).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: goldenFixture.requiredValidation.p2AbsenceWarning, level: "warning" }),
+    ]));
+
+    const currentSnapshots = paymentSnapshotsFromRecords([record]);
+    const p1 = currentSnapshots.find(snapshot => snapshot.logicalKey.includes("PDDE BASICO - 1A PARCELA") && snapshot.value === goldenFixture.payments[0]?.paid);
+    expect(p1).toBeDefined();
+    const findings = comparePaymentSnapshots([{ ...p1!, value: p1!.value + 1 }], currentSnapshots);
+    expect(findings).toEqual(expect.arrayContaining([expect.objectContaining({ code: goldenFixture.requiredValidation.historyAlert })]));
   });
 });
 

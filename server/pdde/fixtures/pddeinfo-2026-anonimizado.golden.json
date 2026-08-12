@@ -1,0 +1,19 @@
+{
+  "fixture": "Estrutura pública do PDDEInfo 2026, coletada em 12/08/2026 e redigida para testes. INEP, unidade, UEx e CNPJ foram substituídos; não contém artefato bruto nem dados identificáveis.",
+  "inep": "00000001",
+  "sme": "0000001",
+  "sourceUrl": "https://fixture.local/pddeinfo/00000001",
+  "consultedAt": "2026-08-12T00:00:00.000Z",
+  "bankPrograms": ["PDDE QUALIDADE"],
+  "basicAccount": null,
+  "payments": [
+    { "semanticKey": "PDDE_BASIC_P1", "expected": 4185, "paid": 4185, "paymentDate": "2026-08-05", "state": "PAGAMENTO_INFORMADO_PDDEINFO" },
+    { "semanticKey": "PDDE_BASIC_P2", "expected": 4185, "paid": 0, "paymentDate": null, "state": "CONSULTA_INCONCLUSIVA" }
+  ],
+  "requiredValidation": {
+    "schemaIssues": 0,
+    "p1Arithmetic": "passed",
+    "p2AbsenceWarning": "payment-absence-pddeinfo",
+    "historyAlert": "PAYMENT_VALUE_CHANGED"
+  }
+}
