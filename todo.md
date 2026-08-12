@@ -94,3 +94,6 @@
 - [x] Reorganizar a aba principal do Excel por sequência analítica de unidade, programa, parcela, valores previstos, pagamentos registrados e dados bancários, deslocando metadados detalhados para apoio.
 - [x] Confirmar, testar e tornar explícita a classificação do rótulo exato “PDDE” como PDDE Básico, sem misturá-lo com PDDE Qualidade ou PDDE Equidade.
 - [x] Regenerar o Excel de uma execução aprovada a partir dos JSONs normalizados persistidos, sem nova coleta das 163 escolas.
+- [x] Auditar dependências, ferramentas de desenvolvimento, segurança e automações para identificar atualizações ou instalações justificadas.
+- [x] Atualizar a documentação do repositório com arquitetura, fluxos operacionais, decisões de rastreabilidade, execução aprovada e pendências não bloqueantes.
+- [x] Aplicar atualizações compatíveis de segurança, remover SDKs não utilizados e migrar as configurações de overrides do pnpm para o formato atual.

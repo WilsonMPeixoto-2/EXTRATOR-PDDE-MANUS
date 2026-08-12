@@ -7,12 +7,25 @@ Aplicação institucional para coleta seletiva, validação, auditoria e concili
 | Componente | Situação | Regra de segurança |
 |---|---|---|
 | PDDEInfo | Coleta autônoma por INEP | HTML bruto, JSON normalizado, hashes e proveniência por campo são preservados por execução. |
-| Excel V2 | Geração condicionada | O download só é liberado após validações obrigatórias; as abas são `Financeiro 4ª CRE V2` e `Validação V2`. |
+| Excel V2 | Geração condicionada e analítica | O download só é liberado após validações obrigatórias; as abas são `Financeiro 4ª CRE V2` e `Validação V2`. A primeira prioriza PDDE Básico, parcelas e contas; a segunda concentra proveniência e validação. |
 | Conta PDDE Básico | Associação estrita | Agência e conta somente são preenchidas quando o rótulo bancário é exatamente `PDDE`. |
 | SIGEF | Integração restrita | Liberações permanece bloqueada por CAPTCHA; fontes em piloto não são usadas para completar dados. |
 | Dados Abertos FNDE | Controle secundário | Arquivo importado é versionado por hash, URL, datas, exercício, cobertura e completude; não substitui a fonte primária. |
 
 > **Semântica financeira:** “Pagamento registrado no PDDEInfo” não confirma crédito bancário. Crédito, estorno e divergência somente são classificados quando houver evidência compatível e documentada.
+
+## Estado operacional de referência
+
+| Item | Situação registrada |
+|---|---|
+| Execução aprovada | `5fffa6d9-a598-437c-8399-f6b6c0c74a57` |
+| Cobertura | 163 de 163 escolas da lista-mestre |
+| PDDE Básico — 1ª parcela com pagamento registrado | 111 escolas |
+| PDDE Básico — 2ª parcela prevista | 163 escolas |
+| Conta PDDE Básico informada pelo PDDEInfo | 116 escolas; 47 ausências preservadas como ausência da fonte |
+| Site oficial | [pddeinfo4cre-zn9f2kak.manus.space](https://pddeinfo4cre-zn9f2kak.manus.space/) |
+
+O botão de download da tela inicial recupera a última execução aprovada, inclusive em nova sessão. Na auditoria, o clique no INEP abre o dossiê da escola com parcelas, contas, valores, observações e artefatos; uma atualização de página não elimina a execução persistida.
 
 ## Pré-requisitos
 
@@ -41,6 +54,20 @@ O controle secundário de Dados Abertos é registrado pela rota autenticada `POS
 
 A suíte cobre, entre outros aspectos, lista-mestre, parser, vínculo bancário estrito, schema, aritmética, histórico de pagamentos, conciliação por múltiplos componentes, rotas protegidas, auditoria por campo, dados abertos e geração do Excel. A fixture de teste baseada em estrutura pública do PDDEInfo foi anonimizada: não contém INEP, CNPJ, unidade, UEx ou evidência bruta identificável.
 
+Antes de publicar uma mudança, execute:
+
+```bash
+pnpm test
+pnpm check
+pnpm build
+```
+
+## Dependências e ferramentas
+
+O projeto usa Node.js 22, pnpm 10, TypeScript, Vitest, Vite, React, Express, tRPC, Drizzle e ExcelJS. Atualizações de segurança compatíveis são aplicadas com testes, tipagem e compilação; atualizações maiores de framework são avaliadas separadamente para não comprometer a coleta, o banco, a autenticação ou a trilha de auditoria.
+
+As configurações `overrides` e `patchedDependencies` do pnpm ficam em `pnpm-workspace.yaml`, no formato suportado pelas versões atuais do gerenciador. A revisão de 12/08/2026 atualizou Axios, Express 4, Drizzle, tRPC e nanoid; removeu dois SDKs AWS sem importação no código e registrou alertas transitivos remanescentes em `REVISAO_TECNICA_DEPENDENCIAS_2026_08_12.md`.
+
 ## Segurança de publicação
 
 O repositório não deve conter credenciais, `.env`, evidências brutas, arquivos de storage, exportações operacionais, logs, screenshots, planilhas baixadas ou artefatos de navegador. Esses itens são excluídos por `.gitignore`; revise também o histórico antes de publicar. O código nunca deve implementar contorno de CAPTCHA, nem automatizar acesso que exija autorização institucional.
@@ -56,3 +83,6 @@ O único destino aprovado para este código é o repositório existente [`Wilson
 - `MATRIZ_VIABILIDADE_TECNICA.md`: capacidades e restrições por fonte.
 - `REVALIDACAO_SIGEF_2026_08_12.md`: resultado da revalidação das consultas SIGEF.
 - `VALIDACAO_DADOS_ABERTOS_FNDE.md`: papel e requisitos do controle secundário por arquivo.
+- `RESULTADO_EXECUCAO_PDDEINFO_4CRE_2026_08_12.md`: resultado e controles da execução aprovada de 163 escolas.
+- `GUIA_CONTINUIDADE_PROJETO.md`: arquitetura, rotina operacional, decisões, manutenção e próximos cuidados.
+- `REVISAO_TECNICA_DEPENDENCIAS_2026_08_12.md`: inventário de dependências, atualizações aplicadas e riscos transitivos monitorados.
