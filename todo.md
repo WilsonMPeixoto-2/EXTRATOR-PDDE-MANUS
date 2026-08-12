@@ -26,7 +26,7 @@
 - [x] Validar tecnicamente as consultas públicas SIGEF de Liberação de Recursos, Conta Corrente e Movimentação Bancária, sem assumir disponibilidade ou chaves de ligação.
 - [x] Modelar proveniência por campo e status de conciliação entre PDDEInfo, SIGEF e confirmação bancária.
 - [x] Manter dados de fontes distintas separados, sem preenchimento silencioso de conta, pagamento ou crédito.
-- [ ] Integrar somente as rotas SIGEF comprovadamente acessíveis, com evidência, limites de consulta e tratamento de divergências. Pendente: SIGEF_EXTRATO foi integrado somente por arquivo autorizado; as rotas públicas continuam bloqueadas por reCAPTCHA.
+- [ ] Integrar somente as rotas SIGEF comprovadamente acessíveis, com evidência, limites de consulta e tratamento de divergências. SIGEF_EXTRATO permanece integrado somente por arquivo autorizado; SIGEF_LIBERACAO e SIGEF_CONTA_CORRENTE estão registrados como CAPTCHA_REQUIRED e aguardam uma rota pública utilizável ou canal autorizado.
 - [x] Criar contrato de proveniência por campo, incluindo fonte, URL, evidência bruta, regra de parsing, transformação, hash, validações e nível de confirmação.
 - [x] Modelar eventos de auditoria imutáveis para coleta, parsing, normalização, validação, conciliação, exportação e intervenção humana.
 - [x] Implementar interface de auditoria com busca por execução, escola, programa e campo; painel de evidência; linha do tempo; comparador histórico e fila de exceções.
@@ -35,7 +35,7 @@
 - [x] Popular resultados de validação e estado de evidência no pipeline de extração, refletindo-os na auditoria, interface e Excel.
 - [x] Cobrir em testes o preenchimento real de proveniência, validações e estados, além da existência dos tipos.
 - [x] Produzir matriz de viabilidade técnica por fonte, distinguindo capacidade já comprovada, integração possível mediante piloto e dependências institucionais de acesso/autorização.
-- [ ] Executar piloto controlado de navegação, consulta, extração, armazenamento e recuperação de evidências antes de habilitar cada fonte em produção. O piloto SIGEF_EXTRATO por arquivo foi concluído; SIGEF_LIBERACAO e SIGEF_CONTA_CORRENTE aguardam canal acessível/autorizado antes de piloto completo.
+- [ ] Executar piloto controlado de navegação, consulta, extração, armazenamento e recuperação de evidências antes de habilitar cada fonte em produção. SIGEF_EXTRATO por arquivo teve piloto completo; SIGEF_LIBERACAO e SIGEF_CONTA_CORRENTE aguardam canal acessível/autorizado antes de piloto completo.
 - [x] Implementar uma camada autônoma de coleta por fonte, com roteiros determinísticos, parâmetros versionados, retentativas, limites e registro de cada navegação permitida.
 - [x] Exibir no sistema bloqueios externos de acesso, como CAPTCHA, como estado operacional pendente de canal autorizado — nunca como falha silenciosa ou ausência de informação.
 - [x] Comparar ferramentas de coleta e automação por aderência ao PDDEInfo/SIGEF, licenças, custo operacional, determinismo, evidência preservada e respeito a CAPTCHA.
