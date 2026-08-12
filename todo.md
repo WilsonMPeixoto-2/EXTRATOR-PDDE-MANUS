@@ -48,10 +48,10 @@
 - [x] Validar Dados Abertos do FNDE como controle secundário por arquivo, com data de atualização, exercício, cobertura e completude registrados.
 - [x] Consolidar os contratos de produção para coleta, evidência, validação, conciliação, eventos, bloqueios externos e liberação de exportação.
 - [x] Executar uma rodada de implementação operacional por fase, com testes automatizados, migrações revisadas e checkpoints recuperáveis.
-- [ ] Preparar a publicação no GitHub após a validação de aceitação, com revisão de `.gitignore`, remoção de evidências brutas e confirmação de ausência de segredos.
-- [ ] Publicar a versão validada no repositório GitHub selecionado, com README técnico e instruções de execução sem credenciais expostas.
-- [ ] Criar repositório GitHub novo, privado e exclusivo para este projeto PDDE, sem reutilizar repositórios existentes.
-- [ ] Atualizar a validação de aceitação e as instruções de publicação para apontar somente ao novo repositório exclusivo.
+- [x] Preparar a publicação no GitHub após a validação de aceitação, com revisão de `.gitignore`, remoção de evidências brutas e confirmação de ausência de segredos.
+- [x] Publicar a versão validada no repositório GitHub selecionado, com README técnico e instruções de execução sem credenciais expostas.
+- [x] Criar repositório GitHub novo, privado e exclusivo para este projeto PDDE, sem reutilizar repositórios existentes.
+- [x] Atualizar a validação de aceitação e as instruções de publicação para apontar somente ao novo repositório exclusivo.
 - [x] Aplicar a semântica “pagamento registrado no PDDEInfo” em toda a interface, auditoria e Excel visível ao usuário, revisando textos remanescentes.
 - [x] Implementar schema formal de validação do registro extraído e cobrir casos de estrutura inválida além das validações por campo.
 - [x] Aplicar autenticação e limite de requisição às rotas de status, lista-mestre, fontes e demais endpoints operacionais do módulo PDDE.

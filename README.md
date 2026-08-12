@@ -45,6 +45,10 @@ A suíte cobre, entre outros aspectos, lista-mestre, parser, vínculo bancário 
 
 O repositório não deve conter credenciais, `.env`, evidências brutas, arquivos de storage, exportações operacionais, logs, screenshots, planilhas baixadas ou artefatos de navegador. Esses itens são excluídos por `.gitignore`; revise também o histórico antes de publicar. O código nunca deve implementar contorno de CAPTCHA, nem automatizar acesso que exija autorização institucional.
 
+## Repositório de publicação
+
+O único destino aprovado para este código é o repositório **privado e exclusivo** [`WilsonMPeixoto-2/extrator-pdde-4cre`](https://github.com/WilsonMPeixoto-2/extrator-pdde-4cre). Não reutilize nem envie este projeto a repositórios de outros sistemas. Antes de qualquer nova publicação, execute `pnpm test`, `pnpm check` e a revisão de arquivos rastreados prevista na seção anterior.
+
 ## Documentos técnicos
 
 - `CONTRATO_OPERACIONAL_PRODUCAO.md`: regras de coleta, validação e liberação.
