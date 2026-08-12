@@ -38,4 +38,33 @@ describe("conciliação estrita entre fontes", () => {
     expect(result.matchedEvidence).toHaveLength(3);
     expect(result.state).toBe("CREDITO_ESTORNADO_OU_DEVOLVIDO");
   });
+
+  it("concilia duas ordens fracionadas somente quando a identidade bancária comum coincide e a soma fecha", () => {
+    const result = reconcilePaymentEvidence(key, [
+      { source: "SIGEF_LIBERACAO", kind: "BANK_ORDER", amount: 60, key: { ...key, amount: 60, bankOrder: "OB-124" }, sourceUrl: "https://sigef.test/liberacao/1", consultedAt: "2026-08-12T00:00:00.000Z", artifactKey: "ob-1" },
+      { source: "SIGEF_LIBERACAO", kind: "BANK_ORDER", amount: 40, key: { ...key, amount: 40, bankOrder: "OB-125" }, sourceUrl: "https://sigef.test/liberacao/2", consultedAt: "2026-08-12T00:01:00.000Z", artifactKey: "ob-2" },
+    ]);
+    expect(result).toMatchObject({ state: "OB_CORROBORADA_CREDITO_NAO_LOCALIZADO" });
+    expect(result.aggregation).toMatchObject({ totalOrders: 100, reconciliationAmount: 100, componentCount: 2, status: "EXACT" });
+    expect(result.matchedEvidence).toHaveLength(2);
+  });
+
+  it("concilia créditos fracionados e registra aplicação automática sem tratá-la como novo crédito", () => {
+    const result = reconcilePaymentEvidence(key, [
+      { source: "SIGEF_EXTRATO", kind: "CREDIT", amount: 70, creditLocated: true, key: { ...key, amount: 70, bankOrder: "OB-124" }, sourceUrl: "https://sigef.test/extrato/1", consultedAt: "2026-08-12T00:00:00.000Z", artifactKey: "credito-1" },
+      { source: "SIGEF_EXTRATO", kind: "CREDIT", amount: 30, creditLocated: true, key: { ...key, amount: 30, bankOrder: "OB-125" }, sourceUrl: "https://sigef.test/extrato/2", consultedAt: "2026-08-12T00:01:00.000Z", artifactKey: "credito-2" },
+      { source: "SIGEF_EXTRATO", kind: "AUTOMATIC_APPLICATION", amount: 30, key: { ...key, amount: 30, bankOrder: "OB-125" }, sourceUrl: "https://sigef.test/extrato/3", consultedAt: "2026-08-12T00:02:00.000Z", artifactKey: "aplicacao-1" },
+    ]);
+    expect(result).toMatchObject({ state: "CREDITO_LOCALIZADO_SIGEF" });
+    expect(result.aggregation).toMatchObject({ totalCredits: 100, totalApplications: 30, reconciliationAmount: 100, status: "EXACT" });
+  });
+
+  it("registra devolução ou estorno em componente fracionado sem ocultar a evidência de reversão", () => {
+    const result = reconcilePaymentEvidence(key, [
+      { source: "SIGEF_EXTRATO", kind: "CREDIT", amount: 100, creditLocated: true, key, sourceUrl: "https://sigef.test/extrato/credito", consultedAt: "2026-08-12T00:00:00.000Z", artifactKey: "credito" },
+      { source: "SIGEF_EXTRATO", kind: "RETURN", amount: 25, reversalLocated: true, key: { ...key, amount: 25, bankOrder: "OB-124" }, sourceUrl: "https://sigef.test/extrato/devolucao", consultedAt: "2026-08-12T00:01:00.000Z", artifactKey: "devolucao" },
+    ]);
+    expect(result).toMatchObject({ state: "CREDITO_ESTORNADO_OU_DEVOLVIDO" });
+    expect(result.aggregation).toMatchObject({ totalReversalsAndReturns: 25, reconciliationAmount: 75, status: "PARTIAL" });
+  });
 });

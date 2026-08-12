@@ -33,7 +33,7 @@
 - [x] Substituir estados genéricos por uma taxonomia que diferencie OB corroborada, crédito localizado no SIGEF, crédito confirmado em extrato BB, divergência, estorno e consulta inconclusiva.
 - [x] Referenciar, em cada observação de campo, o artefato bruto HTML/JSON persistido e o trecho de evidência navegável.
 - [x] Popular resultados de validação e estado de evidência no pipeline de extração, refletindo-os na auditoria, interface e Excel.
-- [ ] Cobrir em testes o preenchimento real de proveniência, validações e estados, além da existência dos tipos.
+- [x] Cobrir em testes o preenchimento real de proveniência, validações e estados, além da existência dos tipos.
 - [x] Produzir matriz de viabilidade técnica por fonte, distinguindo capacidade já comprovada, integração possível mediante piloto e dependências institucionais de acesso/autorização.
 - [ ] Executar piloto controlado de navegação, consulta, extração, armazenamento e recuperação de evidências antes de habilitar cada fonte em produção.
 - [ ] Implementar uma camada autônoma de coleta por fonte, com roteiros determinísticos, parâmetros versionados, retentativas, limites e registro de cada navegação permitida.
@@ -44,7 +44,7 @@
 - [x] Remover linguagem de autoafirmação e destaques visuais de marketing, preservando apenas indicadores operacionais e informações necessárias à rotina da GAD/4ª CRE.
 - [x] Proibir o uso de “Não pago” como conclusão absoluta e registrar data/hora e fontes consultadas nas ausências de evidência.
 - [ ] Associar conta SIGEF somente mediante correspondência documentada de CNPJ, exercício, programa, ação/parcela, valor, data, OB e conta destinatária, conforme disponibilidade.
-- [ ] Suportar conciliação de um pagamento contra múltiplas ordens bancárias, créditos, aplicações automáticas, estornos e devoluções.
+- [x] Suportar conciliação de um pagamento contra múltiplas ordens bancárias, créditos, aplicações automáticas, estornos e devoluções.
 - [ ] Validar Dados Abertos do FNDE como controle secundário por arquivo, com data de atualização, exercício, cobertura e completude registrados.
 - [x] Consolidar os contratos de produção para coleta, evidência, validação, conciliação, eventos, bloqueios externos e liberação de exportação.
 - [ ] Executar uma rodada de implementação operacional por fase, com testes automatizados, migrações revisadas e checkpoints recuperáveis.
