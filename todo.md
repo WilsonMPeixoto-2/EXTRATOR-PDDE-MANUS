@@ -97,3 +97,4 @@
 - [x] Auditar dependências, ferramentas de desenvolvimento, segurança e automações para identificar atualizações ou instalações justificadas.
 - [x] Atualizar a documentação do repositório com arquitetura, fluxos operacionais, decisões de rastreabilidade, execução aprovada e pendências não bloqueantes.
 - [x] Aplicar atualizações compatíveis de segurança, remover SDKs não utilizados e migrar as configurações de overrides do pnpm para o formato atual.
+- [x] Pesquisar APIs oficiais, arquivos públicos e facilitadores permitidos para dados do PDDE, avaliando cobertura, atualização, rastreabilidade e integração futura.

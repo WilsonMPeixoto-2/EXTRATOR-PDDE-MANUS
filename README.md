@@ -86,3 +86,4 @@ O único destino aprovado para este código é o repositório existente [`Wilson
 - `RESULTADO_EXECUCAO_PDDEINFO_4CRE_2026_08_12.md`: resultado e controles da execução aprovada de 163 escolas.
 - `GUIA_CONTINUIDADE_PROJETO.md`: arquitetura, rotina operacional, decisões, manutenção e próximos cuidados.
 - `REVISAO_TECNICA_DEPENDENCIAS_2026_08_12.md`: inventário de dependências, atualizações aplicadas e riscos transitivos monitorados.
+- `PESQUISA_ALTERNATIVAS_DADOS_PDDE_2026_08_12.md`: avaliação de APIs, dados abertos, consultas públicas e ferramentas existentes para evolução futura.
