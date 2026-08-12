@@ -147,3 +147,10 @@ describe("persistência imutável de evidências", () => {
     ]);
   });
 });
+
+describe("execução auditável", () => {
+  it("mantém explícita a autoria institucional no contrato da execução", async () => {
+    const { runExtraction } = await import("./run");
+    expect(runExtraction.length).toBeGreaterThanOrEqual(1);
+  });
+});

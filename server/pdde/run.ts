@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
-import { appendAuditTrail, completeAuditRun, createAuditRun, persistSchoolCollection } from "../db";
+import { appendAuditTrail, completeAuditRun, createAuditRun, loadLatestApprovedPaymentSnapshots, persistHistoricalFindings, persistSchoolCollection } from "../db";
 import { storagePut } from "../storage";
 import { MASTER_SCHOOLS } from "./masterList";
 import { PDDEINFO_PARSER_VERSION, parseSchoolPage } from "./parser";
 import { attachEvidenceArtifacts } from "./provenance";
+import { comparePaymentSnapshots, paymentSnapshotsFromRecords } from "./history";
 import { pddeInfoSchoolUrl, sourceAutomationCatalog } from "./sources";
 import type { AuditEvent, AuditEventType, AuditRecord, SchoolExtraction, ValidationSummary } from "./types";
 import { canReleaseDownload, createV2Workbook, validateExtraction } from "./workbook";
@@ -20,6 +21,7 @@ export type ExtractionRun = {
   id: string;
   status: "IDLE" | "RUNNING" | "COMPLETE" | "BLOCKED" | "FAILED";
   startedAt: string;
+  createdByUserId: number | null;
   completedAt?: string;
   records: SchoolExtraction[];
   audits: AuditRecord[];
@@ -154,15 +156,16 @@ export function masterListSummary() {
   return { count: MASTER_SCHOOLS.length, unique, valid: MASTER_SCHOOLS.length === 163 && unique === 163 };
 }
 
-export async function runExtraction(onEvent: (event: ExtractionEvent) => void): Promise<ExtractionRun> {
+export async function runExtraction(onEvent: (event: ExtractionEvent) => void, createdByUserId: number | null = null): Promise<ExtractionRun> {
   const master = masterListSummary();
   if (!master.valid) throw new Error("A lista-mestre não passou na validação de cobertura e unicidade.");
   const runId = crypto.randomUUID();
-  const run: ExtractionRun = { id: runId, status: "RUNNING", startedAt: new Date().toISOString(), records: [], audits: [], auditEvents: [] };
+  const run: ExtractionRun = { id: runId, status: "RUNNING", startedAt: new Date().toISOString(), createdByUserId, records: [], audits: [], auditEvents: [] };
   run.auditEvents.push(event(runId, "RUN_STARTED", "info", null, null, "Execução iniciada com lista-mestre validada.", {
     masterCount: master.count,
     masterListUnique: master.unique,
     parserVersion: PDDEINFO_PARSER_VERSION,
+    createdByUserId,
   }));
   for (const source of sourceAutomationCatalog().filter(item => !item.autonomous)) {
     run.auditEvents.push(event(
@@ -180,7 +183,7 @@ export async function runExtraction(onEvent: (event: ExtractionEvent) => void): 
       },
     ));
   }
-  await createAuditRun(runId, master.count, PDDEINFO_PARSER_VERSION);
+  await createAuditRun(runId, master.count, PDDEINFO_PARSER_VERSION, createdByUserId);
   await appendAuditTrail(runId, "00000000", [], run.auditEvents);
   activeRuns.set(runId, run);
   onEvent({ type: "ready", runId, total: MASTER_SCHOOLS.length });
@@ -211,7 +214,18 @@ export async function runExtraction(onEvent: (event: ExtractionEvent) => void): 
     if (start + batchSize < MASTER_SCHOOLS.length) await delay(1_100);
   }
 
-  run.validation = validateExtraction(run.records, run.audits);
+  const baseline = await loadLatestApprovedPaymentSnapshots(runId);
+  const historicalFindings = baseline.runId
+    ? comparePaymentSnapshots(baseline.snapshots, paymentSnapshotsFromRecords(run.records))
+    : [];
+  await persistHistoricalFindings(runId, historicalFindings);
+  const historicalEvents = historicalFindings.map(finding => event(runId, "FINDING_OPENED", finding.severity, finding.inep, null, finding.message, {
+    code: finding.code, logicalKey: finding.logicalKey, previousValue: finding.previousValue, currentValue: finding.currentValue, baselineRunId: baseline.runId,
+  }));
+  if (!baseline.runId) historicalEvents.push(event(runId, "FIELD_RECONCILED", "info", null, null, "Nenhuma baseline aprovada anterior foi encontrada; comparação histórica adiada para a próxima execução aprovada.", {}));
+  run.auditEvents.push(...historicalEvents);
+  await appendAuditTrail(runId, "00000000", [], historicalEvents);
+  run.validation = validateExtraction(run.records, run.audits, historicalFindings);
   run.auditEvents.push(event(runId, "FIELD_VALIDATED", run.validation.passed ? "info" : "critical", null, null, "Validações bloqueantes da execução concluídas.", {
     passed: run.validation.passed,
     errors: run.validation.errors,

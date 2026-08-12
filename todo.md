@@ -18,10 +18,10 @@
 - [x] Criar catálogo explícito de destinações e programas, bloqueando a exportação diante de rótulo desconhecido ou ambíguo.
 - [x] Validar registros extraídos com esquema, identificadores, formatos de conta, datas e invariantes aritméticas.
 - [x] Preservar por execução o HTML bruto, JSON normalizado, URL, horário, status HTTP, versão do parser e hash SHA-256.
-- [ ] Persistir histórico imutável de execuções, consultas por escola, validações, artefatos e autor da operação.
-- [ ] Comparar cada execução com a última linha de base aprovada e sinalizar perdas de pagamento ou alterações relevantes.
+- [x] Persistir histórico imutável de execuções, consultas por escola, validações, artefatos e autor da operação.
+- [x] Comparar cada execução com a última linha de base aprovada e sinalizar perdas de pagamento ou alterações relevantes.
 - [ ] Criar navegação de auditoria para consultar execução, escola, evidência, anomalia e alteração histórica.
-- [ ] Proteger a operação com autenticação, limites de requisição e registro de operador.
+- [x] Proteger a operação com autenticação, limites de requisição e registro de operador.
 - [ ] Adicionar fixtures reais anonimizadas, dataset dourado e testes de schema, aritmética, alertas e histórico.
 - [ ] Validar tecnicamente as consultas públicas SIGEF de Liberação de Recursos, Conta Corrente e Movimentação Bancária, sem assumir disponibilidade ou chaves de ligação.
 - [ ] Modelar proveniência por campo e status de conciliação entre PDDEInfo, SIGEF e confirmação bancária.
@@ -50,3 +50,9 @@
 - [ ] Executar uma rodada de implementação operacional por fase, com testes automatizados, migrações revisadas e checkpoints recuperáveis.
 - [x] Aplicar a semântica “pagamento registrado no PDDEInfo” em toda a interface, auditoria e Excel visível ao usuário, revisando textos remanescentes.
 - [x] Implementar schema formal de validação do registro extraído e cobrir casos de estrutura inválida além das validações por campo.
+- [x] Aplicar autenticação e limite de requisição às rotas de status, lista-mestre, fontes e demais endpoints operacionais do módulo PDDE.
+- [x] Cobrir em teste os retornos 401/429 das rotas protegidas e impedir consulta de execução auditável por usuário não autenticado.
+- [x] Adicionar testes HTTP das rotas de lista-mestre, fontes, início e status de execução, cobrindo 401 para não autenticado e 429 para limite excedido.
+- [x] Cobrir em teste que somente usuário autenticado consulta uma execução auditável e inicia nova execução.
+- [x] Cobrir 429 HTTP também para lista-mestre e status de execução, além de fontes e início de execução.
+- [x] Cobrir o acesso autenticado a uma execução existente e o início autorizado de uma nova execução sem disparar coleta real no teste.

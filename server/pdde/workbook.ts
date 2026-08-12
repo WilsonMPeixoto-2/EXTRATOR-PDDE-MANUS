@@ -2,6 +2,7 @@ import ExcelJS from "exceljs";
 import { accountForExactProgram } from "./parser";
 import type { DestinationSemanticKey } from "./semantics";
 import type { AuditRecord, SchoolExtraction, ValidationSummary } from "./types";
+import type { HistoricalFinding } from "./history";
 
 const title = "4ª CRE • VISÃO FINANCEIRA POR UNIDADE ESCOLAR • PDDEINFO 2026 • VERSÃO 2";
 const missingAccountNote =
@@ -59,7 +60,7 @@ function buildRow(record: SchoolExtraction) {
   ];
 }
 
-export function validateExtraction(records: SchoolExtraction[], audits: AuditRecord[]): ValidationSummary {
+export function validateExtraction(records: SchoolExtraction[], audits: AuditRecord[], historicalFindings: HistoricalFinding[] = []): ValidationSummary {
   const errors: string[] = [];
   const uniqueIneps = new Set(records.map(record => record.inep)).size;
   const firstInstallmentPaid = records.filter(record => (paymentContaining(record, "PDDE_BASIC_P1")?.paid ?? 0) > 0).length;
@@ -82,8 +83,10 @@ export function validateExtraction(records: SchoolExtraction[], audits: AuditRec
   if (fieldValidationErrors.length > 0) errors.push(`Há ${fieldValidationErrors.length} falha(s) crítica(s) de validação por campo; a exportação foi bloqueada.`);
   const schemaIssues = records.flatMap(record => record.schemaIssues.map(issue => `${record.inep} · ${issue}`));
   if (schemaIssues.length > 0) errors.push(`Há ${schemaIssues.length} falha(s) de schema no registro extraído; a exportação foi bloqueada.`);
+  const criticalHistory = historicalFindings.filter(finding => finding.severity === "critical");
+  if (criticalHistory.length > 0) errors.push(`Há ${criticalHistory.length} perda(s) aparente(s) de pagamento em relação à última baseline aprovada; a exportação foi bloqueada.`);
 
-  return { passed: errors.length === 0, uniqueIneps, firstInstallmentPaid, secondInstallmentExpected, missingBasicAccounts, semanticIssues, fieldValidationErrors, schemaIssues, errors };
+  return { passed: errors.length === 0, uniqueIneps, firstInstallmentPaid, secondInstallmentExpected, missingBasicAccounts, semanticIssues, fieldValidationErrors, schemaIssues, historicalFindings, errors };
 }
 
 /** A URL do arquivo só pode ser entregue quando todos os controles estiverem aprovados. */

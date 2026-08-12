@@ -1,8 +1,9 @@
-import { eq } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { extractionRuns, fieldObservations, InsertUser, runArtifacts, runAuditEvents, schoolConsultations, users } from "../drizzle/schema";
+import { extractionRuns, fieldObservations, InsertUser, runArtifacts, runAuditEvents, runFindings, schoolConsultations, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import type { AuditEvent, AuditRecord, FieldProvenance, ValidationSummary } from "./pdde/types";
+import type { HistoricalFinding, PaymentSnapshot } from "./pdde/history";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -96,7 +97,7 @@ async function getAuditDbOrThrow() {
   return db;
 }
 
-export async function createAuditRun(runId: string, masterCount: number, parserVersion: string) {
+export async function createAuditRun(runId: string, masterCount: number, parserVersion: string, createdByUserId: number | null = null) {
   const db = await getAuditDbOrThrow();
   await db.insert(extractionRuns).values({
     id: runId,
@@ -104,6 +105,7 @@ export async function createAuditRun(runId: string, masterCount: number, parserV
     masterCount,
     processedCount: 0,
     parserVersion,
+    createdByUserId,
     validationJson: {},
   });
 }
@@ -194,6 +196,37 @@ export async function persistSchoolCollection(runId: string, audit: AuditRecord,
     await transaction.insert(schoolConsultations).values(schoolConsultationPayload(runId, audit, parserVersion));
     if (artifacts.length > 0) await transaction.insert(runArtifacts).values(artifacts);
   });
+}
+
+export async function loadLatestApprovedPaymentSnapshots(excludeRunId: string): Promise<{ runId: string | null; snapshots: PaymentSnapshot[] }> {
+  const db = await getAuditDbOrThrow();
+  const baseline = await db.select({ id: extractionRuns.id })
+    .from(extractionRuns)
+    .where(and(eq(extractionRuns.status, "approved"), ne(extractionRuns.id, excludeRunId)))
+    .orderBy(desc(extractionRuns.completedAt), desc(extractionRuns.createdAt))
+    .limit(1);
+  const runId = baseline[0]?.id;
+  if (!runId) return { runId: null, snapshots: [] };
+  const observations = await db.select({ inep: fieldObservations.inep, logicalKey: fieldObservations.logicalKey, fieldId: fieldObservations.fieldId, normalizedValueJson: fieldObservations.normalizedValueJson, fieldPath: fieldObservations.fieldPath })
+    .from(fieldObservations)
+    .where(eq(fieldObservations.runId, runId));
+  const snapshots: PaymentSnapshot[] = observations.flatMap(observation => {
+    if (!observation.fieldPath.endsWith(".paid")) return [];
+    const candidate = observation.normalizedValueJson as { value?: unknown } | null;
+    return typeof candidate?.value === "number" && Number.isFinite(candidate.value)
+      ? [{ inep: observation.inep, logicalKey: observation.logicalKey, fieldId: observation.fieldId, value: candidate.value }]
+      : [];
+  });
+  return { runId, snapshots };
+}
+
+export async function persistHistoricalFindings(runId: string, findings: HistoricalFinding[]) {
+  if (findings.length === 0) return;
+  const db = await getAuditDbOrThrow();
+  await db.insert(runFindings).values(findings.map(finding => ({
+    runId, inep: finding.inep, severity: finding.severity, code: finding.code, message: finding.message,
+    previousValue: finding.previousValue === null ? null : String(finding.previousValue), currentValue: finding.currentValue === null ? null : String(finding.currentValue),
+  })));
 }
 
 export async function completeAuditRun(

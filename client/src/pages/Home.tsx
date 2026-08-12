@@ -7,6 +7,7 @@ import {
   ShieldCheck, Timer, UsersRound, XCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 type Validation = {
   passed: boolean;
@@ -78,6 +79,7 @@ function ValidationItem({ label, value, expected, ready }: { label: string; valu
  * When building pages, remember your instructions in Frontend Workflow, Frontend Best Practices, Design Guide and Common Pitfalls
  */
 export default function Home() {
+  const { isAuthenticated, loading: authLoading } = useAuth({ redirectOnUnauthenticated: true });
   const [master, setMaster] = useState({ count: 163, unique: 163, valid: false });
   const [completed, setCompleted] = useState(0);
   const [running, setRunning] = useState(false);
@@ -89,18 +91,20 @@ export default function Home() {
   const [sources, setSources] = useState<SourceAutomation[]>([]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     fetch("/api/pdde/master-list")
       .then(response => response.json())
       .then(payload => setMaster(payload))
       .catch(() => setFatalError("Não foi possível validar a lista-mestre no servidor."));
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     fetch("/api/pdde/sources")
       .then(response => response.json())
       .then(payload => setSources(payload.sources ?? []))
       .catch(() => setSources([]));
-  }, []);
+  }, [isAuthenticated]);
 
   const progress = Math.round((completed / 163) * 100);
   const recentAudits = useMemo(() => audits.slice(-7).reverse(), [audits]);
@@ -109,7 +113,7 @@ export default function Home() {
   const appendEvent = (item: TimelineItem) => setEvents(current => [item, ...current].slice(0, 9));
 
   const startExtraction = () => {
-    if (running) return;
+    if (running || authLoading || !isAuthenticated) return;
     setCompleted(0);
     setAudits([]);
     setValidation(null);
@@ -191,7 +195,7 @@ export default function Home() {
             <h1>Execução de extração</h1>
             <p className="hero-copy">Inicie a consulta das unidades selecionadas, acompanhe o processamento por lote e libere o arquivo somente após os controles obrigatórios.</p>
             <div className="hero-actions">
-              <Button className="run-button" onClick={startExtraction} disabled={running || !master.valid}>
+              <Button className="run-button" onClick={startExtraction} disabled={running || !master.valid || authLoading || !isAuthenticated}>
                 {running ? <RefreshCw className="animate-spin" size={18} /> : <Play size={18} fill="currentColor" />} {running ? "Extração em curso" : "Iniciar extração"}
               </Button>
               {downloadUrl && validation?.passed ? (
