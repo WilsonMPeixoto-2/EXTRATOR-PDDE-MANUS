@@ -36,6 +36,8 @@
 - [ ] Cobrir em testes o preenchimento real de proveniência, validações e estados, além da existência dos tipos.
 - [x] Produzir matriz de viabilidade técnica por fonte, distinguindo capacidade já comprovada, integração possível mediante piloto e dependências institucionais de acesso/autorização.
 - [ ] Executar piloto controlado de navegação, consulta, extração, armazenamento e recuperação de evidências antes de habilitar cada fonte em produção.
+- [x] Substituir a apresentação promocional por uma interface institucional, sóbria e direta, orientada a execução, conferência, exceções e auditoria.
+- [x] Remover linguagem de autoafirmação e destaques visuais de marketing, preservando apenas indicadores operacionais e informações necessárias à rotina da GAD/4ª CRE.
 - [ ] Proibir o uso de “Não pago” como conclusão absoluta e registrar data/hora e fontes consultadas nas ausências de evidência.
 - [ ] Associar conta SIGEF somente mediante correspondência documentada de CNPJ, exercício, programa, ação/parcela, valor, data, OB e conta destinatária, conforme disponibilidade.
 - [ ] Suportar conciliação de um pagamento contra múltiplas ordens bancárias, créditos, aplicações automáticas, estornos e devoluções.

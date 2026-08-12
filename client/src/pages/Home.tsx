@@ -2,8 +2,8 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import {
-  Activity, ArrowUpRight, Building2, CheckCircle2, CircleAlert, CloudDownload,
-  DatabaseZap, FileSpreadsheet, Gauge, LockKeyhole, Play, RefreshCw,
+  Activity, CheckCircle2, CircleAlert, CloudDownload,
+  FileSpreadsheet, Gauge, LockKeyhole, Play, RefreshCw,
   ShieldCheck, Timer, UsersRound, XCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -146,32 +146,32 @@ export default function Home() {
       <aside className="side-rail">
         <div className="brand-block">
           <div className="brand-mark"><span>4</span><sup>ª</sup></div>
-          <div><p>CRE • RIO</p><strong>PDDE Info</strong></div>
+          <div><p>SECRETARIA MUNICIPAL DE EDUCAÇÃO</p><strong>4ª CRE · GAD</strong><small>Extrator Financeiro PDDE</small></div>
         </div>
         <div className="side-section">
-          <span className="side-caption">CENTRO DE CONTROLE</span>
+          <span className="side-caption">NAVEGAÇÃO</span>
           <a className="side-nav side-nav-active" href="#operacao"><Gauge size={17} /><span>Execução</span></a>
           <a className="side-nav" href="#validacoes"><ShieldCheck size={17} /><span>Validações</span></a>
-          <a className="side-nav" href="#auditoria"><Activity size={17} /><span>Auditoria</span></a>
+          <a className="side-nav" href="#auditoria"><Activity size={17} /><span>Registros</span></a>
         </div>
         <div className="side-rule">
           <LockKeyhole size={16} />
-          <p><strong>Regra de integridade</strong>PDDE Básico não recebe conta de qualquer outro programa.</p>
+          <p><strong>Controle obrigatório</strong>Conta do PDDE Básico somente é aceita quando o programa bancário é exatamente PDDE.</p>
         </div>
-        <div className="side-footer"><span className="pulse-dot" />SERVIÇO OPERACIONAL</div>
+        <div className="side-footer"><span className="pulse-dot" />AMBIENTE OPERACIONAL</div>
       </aside>
 
       <main className="command-center" id="operacao">
         <header className="topbar">
-          <div className="breadcrumb">GESTÃO FINANCEIRA <span>/</span> PDDEINFO <span>/</span> EXERCÍCIO 2026</div>
-          <div className="top-status"><span className="status-dot" />BACKEND PROTEGIDO <span className="top-divider" /> 4ª CRE</div>
+          <div className="breadcrumb">EXTRATOR FINANCEIRO PDDEINFO <span>/</span> 4ª CRE <span>/</span> EXERCÍCIO 2026</div>
+          <div className="top-status"><span className="status-dot" />SERVIÇO DISPONÍVEL <span className="top-divider" /> USO INTERNO</div>
         </header>
 
         <section className="hero-grid">
           <div>
-            <div className="eyebrow"><DatabaseZap size={15} /> EXTRAÇÃO SELETIVA E AUDITÁVEL</div>
-            <h1>Dados financeiros,<br /><em>sem inferências.</em></h1>
-            <p className="hero-copy">Consulta pública individual por INEP, vínculo bancário estrito e liberação do arquivo somente após a aprovação dos controles de regressão.</p>
+            <div className="eyebrow">ROTINA DE CONSULTA</div>
+            <h1>Execução de extração</h1>
+            <p className="hero-copy">Inicie a consulta das unidades selecionadas, acompanhe o processamento por lote e libere o arquivo somente após os controles obrigatórios.</p>
             <div className="hero-actions">
               <Button className="run-button" onClick={startExtraction} disabled={running || !master.valid}>
                 {running ? <RefreshCw className="animate-spin" size={18} /> : <Play size={18} fill="currentColor" />} {running ? "Extração em curso" : "Iniciar extração"}
@@ -185,22 +185,21 @@ export default function Home() {
             </div>
           </div>
           <div className="hero-seal">
-            <div className="seal-orbit"><span>PDDE</span><strong>2026</strong><small>4ª CRE</small></div>
-            <div className="seal-copy"><span>MODELO</span><strong>FINANCEIRO V2</strong><p>Conta e agência preservadas como texto.</p></div>
+            <div className="seal-copy"><span>REFERÊNCIA DA EXECUÇÃO</span><strong>Financeiro 4ª CRE V2</strong><dl><div><dt>Unidades</dt><dd>163 selecionadas</dd></div><div><dt>Fonte</dt><dd>PDDEInfo / 2026</dd></div><div><dt>Saída</dt><dd>Excel condicionado</dd></div></dl></div>
           </div>
         </section>
 
         <section className="metrics-row">
-          <MetricCard label="Lista-mestre" value={`${master.count}/163`} hint={master.valid ? "INEPs únicos validados" : "verificando integridade"} accent="teal" />
-          <MetricCard label="Processadas" value={`${completed}/163`} hint={running ? `lote ${Math.max(1, Math.ceil(completed / 10))} em operação` : "aguardando execução"} accent="gold" />
-          <MetricCard label="Contas PDDE" value={validation ? `${163 - validation.missingBasicAccounts}/163` : "—"} hint="informadas pela fonte" accent="plum" />
-          <MetricCard label="Gate de saída" value={validation ? (validation.passed ? "APROVADO" : "BLOQUEADO") : "PENDENTE"} hint="controles bloqueantes" accent="blue" />
+          <MetricCard label="Unidades selecionadas" value={`${master.count}/163`} hint={master.valid ? "INEPs únicos verificados" : "verificando lista-mestre"} accent="teal" />
+          <MetricCard label="Processamento" value={`${completed}/163`} hint={running ? `lote ${Math.max(1, Math.ceil(completed / 10))} em andamento` : "não iniciado"} accent="gold" />
+          <MetricCard label="Contas PDDE" value={validation ? `${163 - validation.missingBasicAccounts}/163` : "—"} hint="informadas no PDDEInfo" accent="plum" />
+          <MetricCard label="Arquivo" value={validation ? (validation.passed ? "LIBERADO" : "BLOQUEADO") : "PENDENTE"} hint="dependente das validações" accent="blue" />
         </section>
 
         <section className="workspace-grid">
           <article className="process-card">
-            <div className="panel-title"><div><span>OPERAÇÃO EM TEMPO REAL</span><h2>Esteira de consulta</h2></div><Badge className={running ? "badge-running" : "badge-idle"}>{running ? "EM EXECUÇÃO" : validation?.passed ? "CONCLUÍDA" : "PRONTA"}</Badge></div>
-            <div className="progress-header"><span>{running ? "Consultando a fonte pública em lotes de 10" : "Pronta para validar 163 escolas selecionadas"}</span><strong>{progress}%</strong></div>
+            <div className="panel-title"><div><span>PROCESSAMENTO</span><h2>Consulta das unidades</h2></div><Badge className={running ? "badge-running" : "badge-idle"}>{running ? "EM EXECUÇÃO" : validation?.passed ? "CONCLUÍDA" : "AGUARDANDO"}</Badge></div>
+            <div className="progress-header"><span>{running ? "Consulta ao PDDEInfo em lotes de 10 unidades" : "Aguardando início da execução"}</span><strong>{progress}%</strong></div>
             <Progress value={progress} className="extract-progress" />
             <div className="lot-map">
               {Array.from({ length: 17 }, (_, index) => {
@@ -218,16 +217,16 @@ export default function Home() {
 
           <article className="policy-card">
             <div className="policy-symbol"><ShieldCheck size={24} /></div>
-            <span className="policy-kicker">CONTROLE DE QUALIDADE</span>
-            <h2>Vínculo bancário<br />sem contaminação.</h2>
-            <p>O algoritmo confronta o INEP com o rótulo integral da tabela bancária. Somente <strong>PDDE</strong> preenche o bloco do PDDE Básico.</p>
+            <span className="policy-kicker">REGRA DE ASSOCIAÇÃO</span>
+            <h2>Vínculo da<br />conta PDDE</h2>
+            <p>A conta do PDDE Básico é preenchida somente quando o rótulo bancário é exatamente <strong>PDDE</strong>.</p>
             <div className="policy-rule"><span>RÓTULO ACEITO</span><strong>PDDE</strong></div>
             <div className="policy-denied"><span>REJEITADOS PARA BÁSICO</span><p>PDDE QUALIDADE<br />PDDE EQUIDADE<br />EDUCAÇÃO INTEGRAL</p></div>
           </article>
         </section>
 
         <section className="validation-card" id="validacoes">
-          <div className="validation-heading"><div><span>GATE DE LIBERAÇÃO</span><h2>Validações de regressão</h2></div><p>O arquivo Excel permanece indisponível se qualquer requisito falhar.</p></div>
+          <div className="validation-heading"><div><span>CONTROLES DE LIBERAÇÃO</span><h2>Validações da execução</h2></div><p>O arquivo permanece bloqueado enquanto houver requisito obrigatório pendente ou reprovado.</p></div>
           <div className="validation-grid">
             <ValidationItem label="INEPs únicos" value={validation?.uniqueIneps ?? "—"} expected="163" ready={ready} />
             <ValidationItem label="1ª parcela recebida" value={validation?.firstInstallmentPaid ?? "—"} expected="111" ready={ready} />
@@ -239,11 +238,11 @@ export default function Home() {
         </section>
 
         <section className="audit-card" id="auditoria">
-          <div className="panel-title"><div><span>TRILHA DE EVIDÊNCIAS</span><h2>Últimas consultas</h2></div><div className="audit-meta"><FileSpreadsheet size={16} /> O Excel inclui a aba <strong>Validação V2</strong></div></div>
+          <div className="panel-title"><div><span>REGISTRO DE CONSULTAS</span><h2>Ocorrências recentes</h2></div><div className="audit-meta"><FileSpreadsheet size={16} /> Excel: <strong>Validação V2</strong></div></div>
           <div className="audit-table-wrap"><table className="audit-table"><thead><tr><th>INEP</th><th>SME</th><th>STATUS</th><th>TENTATIVAS</th><th>PROGRAMAS IDENTIFICADOS</th><th>OCORRÊNCIA</th></tr></thead><tbody>{recentAudits.length ? recentAudits.map(audit => <tr key={`${audit.inep}-${audit.sme}`}><td className="mono">{audit.inep}</td><td className="mono">{audit.sme}</td><td><span className={`table-status ${audit.status === "SUCCESS" ? "table-ok" : "table-error"}`}>{audit.status === "SUCCESS" ? "SUCESSO" : "FALHA"}</span></td><td>{audit.attempts}</td><td>{audit.programsFound.join(" · ") || "—"}</td><td>{audit.exception ?? "Consulta registrada"}</td></tr>) : <tr><td colSpan={6} className="empty-audit"><UsersRound size={18} /> A auditoria por unidade aparecerá aqui durante a extração.</td></tr>}</tbody></table></div>
         </section>
 
-        <footer className="footer-line"><span>EXTRATOR FINANCEIRO PDDEINFO • 4ª CRE</span><span>ARQUIVO V2 · CONTAS EM TEXTO · DATAS CALENDÁRIO</span><ArrowUpRight size={15} /></footer>
+        <footer className="footer-line"><span>EXTRATOR FINANCEIRO PDDEINFO · 4ª CRE</span><span>ARQUIVO V2 · CONTAS COMO TEXTO · DATAS EM CALENDÁRIO</span></footer>
       </main>
     </div>
   );

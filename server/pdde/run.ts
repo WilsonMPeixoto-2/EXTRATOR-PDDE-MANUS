@@ -114,7 +114,7 @@ async function fetchSchool(inep: string, sme: string, runId: string): Promise<{ 
           rawHtmlKey: provenance.artifact?.rawHtmlKey,
           normalizedJsonKey: provenance.artifact?.normalizedJsonKey,
         }));
-        events.push(event(runId, "FIELD_VALIDATED", provenance.validationResults.includes("normalization-complete") ? "info" : "warning", inep, provenance.fieldId, `Validações registradas para ${provenance.fieldPath}.`, {
+        events.push(event(runId, "FIELD_VALIDATED", provenance.validationResults.some(result => result.level === "failed") ? "critical" : provenance.validationResults.some(result => result.level === "warning") ? "warning" : "info", inep, provenance.fieldId, `Validações registradas para ${provenance.fieldPath}.`, {
           validationResults: provenance.validationResults,
           state: provenance.state,
           artifact: provenance.artifact,

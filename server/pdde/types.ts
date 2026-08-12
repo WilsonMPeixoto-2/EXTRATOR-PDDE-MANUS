@@ -12,6 +12,12 @@ export type FieldState =
   | "CONSULTA_INCONCLUSIVA"
   | "REVISAO_NECESSARIA";
 
+export type FieldValidationResult = {
+  code: string;
+  level: "passed" | "warning" | "failed";
+  message: string;
+};
+
 /** Cadeia de custódia de um campo, do trecho bruto à representação normalizada. */
 export type FieldProvenance = {
   fieldId: string;
@@ -32,7 +38,7 @@ export type FieldProvenance = {
   parserVersion: string;
   extractionRule: string;
   selector: string;
-  validationResults: string[];
+  validationResults: FieldValidationResult[];
   state: FieldState | null;
 };
 

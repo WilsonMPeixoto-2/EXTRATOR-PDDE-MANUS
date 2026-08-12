@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { MASTER_SCHOOLS } from "./masterList";
 import { accountForExactProgram, parseSchoolPage } from "./parser";
 import { attachEvidenceArtifacts } from "./provenance";
+import { derivePaymentEvidenceState } from "./reconciliation";
 import { canReleaseDownload, validateExtraction } from "./workbook";
 import type { SchoolExtraction } from "./types";
 
@@ -42,7 +43,11 @@ describe("vinculação bancária por programa", () => {
       extractionRule: "brl-currency",
       state: "PAGAMENTO_INFORMADO_PDDEINFO",
     });
-    expect(paid?.validationResults).toEqual(expect.arrayContaining(["source-hash-present", "selector-present", "normalization-complete"]));
+    expect(paid?.validationResults).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "source-hash", level: "passed" }),
+      expect.objectContaining({ code: "source-selector", level: "passed" }),
+      expect.objectContaining({ code: "normalization", level: "passed" }),
+    ]));
     expect(account).toMatchObject({
       fieldId: "33069247:PDDEINFO:bank-account:PDDE QUALIDADE:account",
       rawValue: "0000546402",
@@ -82,5 +87,33 @@ describe("validações de regressão", () => {
   it("libera o download somente quando todos os controles forem aprovados", () => {
     expect(canReleaseDownload({ passed: false, uniqueIneps: 163, firstInstallmentPaid: 111, secondInstallmentExpected: 163, missingBasicAccounts: 47, errors: ["falha simulada"] })).toBe(false);
     expect(canReleaseDownload({ passed: true, uniqueIneps: 163, firstInstallmentPaid: 111, secondInstallmentExpected: 163, missingBasicAccounts: 47, errors: [] })).toBe(true);
+  });
+});
+
+describe("estados de evidência financeira", () => {
+  const baseSignals = {
+    pddeInfoPaymentRegistered: false,
+    sigefLiberationMatched: false,
+    sigefCreditMatched: false,
+    directBankStatementConfirmed: false,
+    reversalMatched: false,
+    divergent: false,
+    allRequiredSourcesCompleted: false,
+  };
+
+  it("não equipara ordem bancária a crédito efetivado", () => {
+    expect(derivePaymentEvidenceState({ ...baseSignals, pddeInfoPaymentRegistered: true })).toBe("PAGAMENTO_INFORMADO_PDDEINFO");
+    expect(derivePaymentEvidenceState({ ...baseSignals, pddeInfoPaymentRegistered: true, sigefLiberationMatched: true })).toBe("OB_CORROBORADA_CREDITO_NAO_LOCALIZADO");
+    expect(derivePaymentEvidenceState({ ...baseSignals, sigefCreditMatched: true })).toBe("CREDITO_LOCALIZADO_SIGEF");
+  });
+
+  it("prioriza estorno e divergência sobre confirmações anteriores", () => {
+    expect(derivePaymentEvidenceState({ ...baseSignals, sigefCreditMatched: true, divergent: true })).toBe("DIVERGENCIA_ENTRE_FONTES");
+    expect(derivePaymentEvidenceState({ ...baseSignals, directBankStatementConfirmed: true, reversalMatched: true })).toBe("CREDITO_ESTORNADO_OU_DEVOLVIDO");
+  });
+
+  it("só declara ausência de pagamento depois da conclusão das fontes obrigatórias", () => {
+    expect(derivePaymentEvidenceState({ ...baseSignals })).toBe("CONSULTA_INCONCLUSIVA");
+    expect(derivePaymentEvidenceState({ ...baseSignals, allRequiredSourcesCompleted: true })).toBe("SEM_PAGAMENTO_REGISTRADO_ATE_CONSULTA");
   });
 });

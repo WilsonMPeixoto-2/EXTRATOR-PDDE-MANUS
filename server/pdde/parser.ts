@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { derivePaymentEvidenceState } from "./reconciliation";
 import type { BankAccount, EvidenceSource, FieldProvenance, FieldState, PaymentLine, SchoolExtraction } from "./types";
 
 export const PDDEINFO_PARSER_VERSION = "2.3.0";
@@ -61,10 +62,26 @@ function capture(
     extractionRule,
     selector,
     validationResults: [
-      metadata.sourceHashSha256 ? "source-hash-present" : "source-hash-pending",
-      selector ? "selector-present" : "selector-missing",
-      rawValue === null || clean(rawValue) === "" ? "raw-value-empty" : "raw-value-present",
-      normalizedValue === null ? "normalization-null" : "normalization-complete",
+      {
+        code: "source-hash",
+        level: metadata.sourceHashSha256 ? "passed" : "warning",
+        message: metadata.sourceHashSha256 ? "Hash SHA-256 da fonte presente." : "Hash da fonte pendente de persistência.",
+      },
+      {
+        code: "source-selector",
+        level: selector ? "passed" : "failed",
+        message: selector ? "Seletor de origem identificado." : "Seletor de origem ausente.",
+      },
+      {
+        code: "raw-value",
+        level: rawValue === null || clean(rawValue) === "" ? "warning" : "passed",
+        message: rawValue === null || clean(rawValue) === "" ? "Campo de origem vazio." : "Valor bruto presente.",
+      },
+      {
+        code: "normalization",
+        level: normalizedValue === null ? "warning" : "passed",
+        message: normalizedValue === null ? "Normalização resultou em valor nulo." : "Normalização concluída.",
+      },
     ],
     state,
   };
@@ -180,7 +197,15 @@ function parsePaymentRows(
             cellSelector(tableIndex, rowOffset, 10),
             "brl-currency",
             `${paymentKey}:paid`,
-            paid > 0 ? "PAGAMENTO_INFORMADO_PDDEINFO" : null,
+            derivePaymentEvidenceState({
+              pddeInfoPaymentRegistered: paid > 0,
+              sigefLiberationMatched: false,
+              sigefCreditMatched: false,
+              directBankStatementConfirmed: false,
+              reversalMatched: false,
+              divergent: false,
+              allRequiredSourcesCompleted: false,
+            }),
           ),
           paymentDate: capture(metadata, sink, `${path}.paymentDate`, paymentDateRaw, paymentDate, cellSelector(tableIndex, rowOffset, 11), "br-date-to-iso", `${paymentKey}:payment-date`),
         },
