@@ -10,6 +10,7 @@ Aplicação institucional para coleta seletiva, validação, auditoria e concili
 | Excel V2 | Geração condicionada e analítica | O download só é liberado após validações obrigatórias; as abas são `Financeiro 4ª CRE V2` e `Validação V2`. A primeira prioriza PDDE Básico, parcelas e contas; a segunda concentra proveniência e validação. |
 | Conta PDDE Básico | Associação estrita | Agência e conta somente são preenchidas quando o rótulo bancário é exatamente `PDDE`. |
 | SIGEF | Integração restrita | Liberações permanece bloqueada por CAPTCHA; fontes em piloto não são usadas para completar dados. |
+| Consulta de Saldo das Entidades — PDDEInfo | Fonte complementar validada em teste pontual | Expõe, por CNPJ, mês e programa, contas PDDE e composição mensal de saldo; ainda não integra o fluxo de produção e nunca confirma crédito ou saldo atual. |
 | Dados Abertos FNDE | Controle secundário | Arquivo importado é versionado por hash, URL, datas, exercício, cobertura e completude; não substitui a fonte primária. |
 
 > **Semântica financeira:** “Pagamento registrado no PDDEInfo” não confirma crédito bancário. Crédito, estorno e divergência somente são classificados quando houver evidência compatível e documentada.
@@ -87,3 +88,4 @@ O único destino aprovado para este código é o repositório existente [`Wilson
 - `GUIA_CONTINUIDADE_PROJETO.md`: arquitetura, rotina operacional, decisões, manutenção e próximos cuidados.
 - `REVISAO_TECNICA_DEPENDENCIAS_2026_08_12.md`: inventário de dependências, atualizações aplicadas e riscos transitivos monitorados.
 - `PESQUISA_ALTERNATIVAS_DADOS_PDDE_2026_08_12.md`: avaliação de APIs, dados abertos, consultas públicas e ferramentas existentes para evolução futura.
+- `REGISTRO_TESTES_FONTES_PDDE_SIGEF_2026_08_12.md`: evidências da rodada controlada no SIGEF e em relatórios públicos correlatos, incluindo a validação do relatório mensal de saldo por CNPJ.

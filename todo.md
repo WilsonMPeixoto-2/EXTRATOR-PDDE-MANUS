@@ -98,3 +98,5 @@
 - [x] Atualizar a documentação do repositório com arquitetura, fluxos operacionais, decisões de rastreabilidade, execução aprovada e pendências não bloqueantes.
 - [x] Aplicar atualizações compatíveis de segurança, remover SDKs não utilizados e migrar as configurações de overrides do pnpm para o formato atual.
 - [x] Pesquisar APIs oficiais, arquivos públicos e facilitadores permitidos para dados do PDDE, avaliando cobertura, atualização, rastreabilidade e integração futura.
+- [x] Executar testes controlados adicionais no SIGEF e em portais oficiais correlatos do FNDE/PDDE, usando o conector Parallel quando pertinente, para buscar campos verificáveis ainda indisponíveis sem contornar CAPTCHA ou controles de acesso.
+- [x] Documentar a evidência, a cobertura, a chave de associação e as limitações de cada nova fonte testada antes de habilitar qualquer integração no fluxo de produção.
