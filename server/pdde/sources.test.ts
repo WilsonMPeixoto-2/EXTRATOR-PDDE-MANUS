@@ -21,4 +21,13 @@ describe("catálogo de automação por fonte", () => {
       "PDDEINFO", "DADOS_ABERTOS", "SIGEF_LIBERACAO", "SIGEF_CONTA_CORRENTE", "SIGEF_EXTRATO", "EXTRATO_BB",
     ]));
   });
+
+  it("classifica bloqueios externos e pilotos sem mascará-los como falha do PDDEInfo", () => {
+    const pending = sourceAutomationCatalog().filter(source => !source.autonomous);
+    expect(pending).toEqual(expect.arrayContaining([
+      expect.objectContaining({ source: "SIGEF_LIBERACAO", accessState: "CAPTCHA_REQUIRED" }),
+      expect.objectContaining({ source: "EXTRATO_BB", accessState: "AUTHORIZATION_REQUIRED" }),
+      expect.objectContaining({ source: "SIGEF_CONTA_CORRENTE", accessState: "PILOT_PENDING" }),
+    ]));
+  });
 });

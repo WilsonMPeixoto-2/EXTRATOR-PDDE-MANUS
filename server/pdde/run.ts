@@ -4,7 +4,7 @@ import { storagePut } from "../storage";
 import { MASTER_SCHOOLS } from "./masterList";
 import { PDDEINFO_PARSER_VERSION, parseSchoolPage } from "./parser";
 import { attachEvidenceArtifacts } from "./provenance";
-import { pddeInfoSchoolUrl } from "./sources";
+import { pddeInfoSchoolUrl, sourceAutomationCatalog } from "./sources";
 import type { AuditEvent, AuditEventType, AuditRecord, SchoolExtraction, ValidationSummary } from "./types";
 import { canReleaseDownload, createV2Workbook, validateExtraction } from "./workbook";
 
@@ -152,6 +152,22 @@ export async function runExtraction(onEvent: (event: ExtractionEvent) => void): 
     masterListUnique: master.unique,
     parserVersion: PDDEINFO_PARSER_VERSION,
   }));
+  for (const source of sourceAutomationCatalog().filter(item => !item.autonomous)) {
+    run.auditEvents.push(event(
+      runId,
+      "SOURCE_AUTOMATION_BLOCKED",
+      source.accessState === "CAPTCHA_REQUIRED" || source.accessState === "AUTHORIZATION_REQUIRED" ? "warning" : "info",
+      null,
+      null,
+      `${source.label}: ${source.detail}`,
+      {
+        source: source.source,
+        accessState: source.accessState,
+        collectionMethod: source.collectionMethod,
+        baseUrl: source.baseUrl,
+      },
+    ));
+  }
   await createAuditRun(runId, master.count, PDDEINFO_PARSER_VERSION);
   await appendAuditTrail(runId, "00000000", [], run.auditEvents);
   activeRuns.set(runId, run);
