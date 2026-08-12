@@ -32,6 +32,16 @@ type TimelineItem = {
   kind: "info" | "success" | "error";
 };
 
+type SourceAutomation = {
+  source: string;
+  label: string;
+  accessState: "AUTONOMOUS_AVAILABLE" | "AUTONOMOUS_COMPLETED" | "PILOT_PENDING" | "CAPTCHA_REQUIRED" | "AUTHORIZATION_REQUIRED" | "SOURCE_UNAVAILABLE" | "SCHEMA_CHANGED";
+  autonomous: boolean;
+  collectionMethod: string;
+  detail: string;
+  baseUrl: string;
+};
+
 const initialEvents: TimelineItem[] = [
   { timestamp: "PRONTO", message: "Lista-mestre embutida e validação preventiva disponível.", kind: "info" },
   { timestamp: "REGRA", message: "Conta do PDDE Básico só é aceita quando o rótulo bancário é exatamente PDDE.", kind: "info" },
@@ -76,12 +86,20 @@ export default function Home() {
   const [audits, setAudits] = useState<Audit[]>([]);
   const [events, setEvents] = useState<TimelineItem[]>(initialEvents);
   const [fatalError, setFatalError] = useState<string | null>(null);
+  const [sources, setSources] = useState<SourceAutomation[]>([]);
 
   useEffect(() => {
     fetch("/api/pdde/master-list")
       .then(response => response.json())
       .then(payload => setMaster(payload))
       .catch(() => setFatalError("Não foi possível validar a lista-mestre no servidor."));
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/pdde/sources")
+      .then(response => response.json())
+      .then(payload => setSources(payload.sources ?? []))
+      .catch(() => setSources([]));
   }, []);
 
   const progress = Math.round((completed / 163) * 100);
@@ -240,6 +258,15 @@ export default function Home() {
         <section className="audit-card" id="auditoria">
           <div className="panel-title"><div><span>REGISTRO DE CONSULTAS</span><h2>Ocorrências recentes</h2></div><div className="audit-meta"><FileSpreadsheet size={16} /> Excel: <strong>Validação V2</strong></div></div>
           <div className="audit-table-wrap"><table className="audit-table"><thead><tr><th>INEP</th><th>SME</th><th>STATUS</th><th>TENTATIVAS</th><th>PROGRAMAS IDENTIFICADOS</th><th>OCORRÊNCIA</th></tr></thead><tbody>{recentAudits.length ? recentAudits.map(audit => <tr key={`${audit.inep}-${audit.sme}`}><td className="mono">{audit.inep}</td><td className="mono">{audit.sme}</td><td><span className={`table-status ${audit.status === "SUCCESS" ? "table-ok" : "table-error"}`}>{audit.status === "SUCCESS" ? "SUCESSO" : "FALHA"}</span></td><td>{audit.attempts}</td><td>{audit.programsFound.join(" · ") || "—"}</td><td>{audit.exception ?? "Consulta registrada"}</td></tr>) : <tr><td colSpan={6} className="empty-audit"><UsersRound size={18} /> A auditoria por unidade aparecerá aqui durante a extração.</td></tr>}</tbody></table></div>
+        </section>
+
+        <section className="source-card" aria-labelledby="fontes-title">
+          <div className="panel-title"><div><span>FONTES E AUTONOMIA</span><h2 id="fontes-title">Situação de coleta</h2></div><p className="source-intro">Cada fonte informa se já é consultada automaticamente ou se depende de validação de acesso.</p></div>
+          <div className="source-table-wrap"><table className="source-table"><thead><tr><th>FONTE</th><th>MÉTODO</th><th>SITUAÇÃO</th><th>OBSERVAÇÃO OPERACIONAL</th></tr></thead><tbody>{sources.map(source => {
+            const stateLabel = source.accessState === "AUTONOMOUS_AVAILABLE" ? "AUTÔNOMA" : source.accessState === "CAPTCHA_REQUIRED" ? "CAPTCHA EXTERNO" : source.accessState === "AUTHORIZATION_REQUIRED" ? "AUTORIZAÇÃO EXIGIDA" : "PILOTO PENDENTE";
+            const stateClass = source.accessState === "AUTONOMOUS_AVAILABLE" ? "source-ready" : source.accessState === "CAPTCHA_REQUIRED" || source.accessState === "AUTHORIZATION_REQUIRED" ? "source-blocked" : "source-pilot";
+            return <tr key={source.source}><td><strong>{source.label}</strong></td><td className="source-method">{source.collectionMethod}</td><td><span className={`source-status ${stateClass}`}>{stateLabel}</span></td><td>{source.detail}</td></tr>;
+          })}{!sources.length && <tr><td colSpan={4} className="empty-audit">Nenhuma fonte disponível no momento.</td></tr>}</tbody></table></div>
         </section>
 
         <footer className="footer-line"><span>EXTRATOR FINANCEIRO PDDEINFO · 4ª CRE</span><span>ARQUIVO V2 · CONTAS COMO TEXTO · DATAS EM CALENDÁRIO</span></footer>

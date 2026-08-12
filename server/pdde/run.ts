@@ -4,11 +4,10 @@ import { storagePut } from "../storage";
 import { MASTER_SCHOOLS } from "./masterList";
 import { PDDEINFO_PARSER_VERSION, parseSchoolPage } from "./parser";
 import { attachEvidenceArtifacts } from "./provenance";
+import { pddeInfoSchoolUrl } from "./sources";
 import type { AuditEvent, AuditEventType, AuditRecord, SchoolExtraction, ValidationSummary } from "./types";
 import { canReleaseDownload, createV2Workbook, validateExtraction } from "./workbook";
 
-const FNDE_URL = (inep: string) =>
-  `https://www.fnde.gov.br/pddeinfo/pddeinfo/escola/consultar/ano/2026/co_escola/${inep}/cnpj//co_esfera_adm/2/sg_uf/RJ/co_municipio_fnde/330455/consultar/Consultar/page/1`;
 const delay = (milliseconds: number) => new Promise(resolve => setTimeout(resolve, milliseconds));
 
 export type ExtractionEvent =
@@ -45,7 +44,7 @@ function event(
 }
 
 async function fetchSchool(inep: string, sme: string, runId: string): Promise<{ record?: SchoolExtraction; audit: AuditRecord; events: AuditEvent[] }> {
-  const sourceUrl = FNDE_URL(inep);
+  const sourceUrl = pddeInfoSchoolUrl(inep);
   const audit: AuditRecord = {
     inep,
     sme,

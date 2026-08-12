@@ -1,6 +1,22 @@
-export type EvidenceSource = "PDDEINFO" | "SIGEF_LIBERACAO" | "SIGEF_EXTRATO" | "EXTRATO_BB" | "DADOS_ABERTOS";
-
 /** Estados que descrevem a evidência disponível, sem equiparar ordem bancária a crédito efetivado. */
+export type EvidenceSource =
+  | "PDDEINFO"
+  | "SIGEF_LIBERACAO"
+  | "SIGEF_CONTA_CORRENTE"
+  | "SIGEF_EXTRATO"
+  | "DADOS_ABERTOS"
+  | "EXTRATO_BB";
+
+/** Resultado operacional da tentativa de automação de uma fonte. */
+export type SourceAccessState =
+  | "AUTONOMOUS_AVAILABLE"
+  | "AUTONOMOUS_COMPLETED"
+  | "PILOT_PENDING"
+  | "CAPTCHA_REQUIRED"
+  | "AUTHORIZATION_REQUIRED"
+  | "SOURCE_UNAVAILABLE"
+  | "SCHEMA_CHANGED";
+
 export type FieldState =
   | "PAGAMENTO_INFORMADO_PDDEINFO"
   | "OB_CORROBORADA_CREDITO_NAO_LOCALIZADO"
@@ -45,6 +61,8 @@ export type FieldProvenance = {
 export type AuditEventType =
   | "RUN_STARTED"
   | "SOURCE_FETCHED"
+  | "SOURCE_AUTOMATION_BLOCKED"
+  | "SOURCE_SCHEMA_CHANGED"
   | "FIELD_PARSED"
   | "FIELD_VALIDATED"
   | "FIELD_RECONCILED"
@@ -63,6 +81,17 @@ export type AuditEvent = {
   fieldId: string | null;
   message: string;
   payload: Record<string, unknown>;
+};
+
+export type SourceCollectionAttempt = {
+  source: EvidenceSource;
+  accessState: SourceAccessState;
+  sourceUrl: string;
+  consultedAt: string;
+  parameters: Record<string, string>;
+  message: string;
+  artifactKey: string | null;
+  sourceHashSha256: string | null;
 };
 
 export type BankAccount = {

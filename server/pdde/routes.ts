@@ -1,5 +1,6 @@
 import type { Express, Response } from "express";
 import { getRun, masterListSummary, runExtraction } from "./run";
+import { sourceAutomationCatalog } from "./sources";
 
 function writeEvent(response: Response, payload: unknown) {
   response.write(`data: ${JSON.stringify(payload)}\n\n`);
@@ -8,6 +9,10 @@ function writeEvent(response: Response, payload: unknown) {
 export function registerPddeRoutes(app: Express) {
   app.get("/api/pdde/master-list", (_request, response) => {
     response.json(masterListSummary());
+  });
+
+  app.get("/api/pdde/sources", (_request, response) => {
+    response.json({ sources: sourceAutomationCatalog() });
   });
 
   app.get("/api/pdde/run", async (request, response) => {
