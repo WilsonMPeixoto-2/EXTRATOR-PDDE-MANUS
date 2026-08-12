@@ -52,6 +52,8 @@
 - [x] Publicar a versão validada no repositório GitHub selecionado, com README técnico e instruções de execução sem credenciais expostas.
 - [x] Criar repositório GitHub novo, privado e exclusivo para este projeto PDDE, sem reutilizar repositórios existentes.
 - [x] Atualizar a validação de aceitação e as instruções de publicação para apontar somente ao novo repositório exclusivo.
+- [x] Substituir o destino de publicação pelo repositório existente WilsonMPeixoto-2/EXTRATOR-PDDE-MANUS, indicado pelo usuário.
+- [x] Verificar o histórico do repositório existente antes de sincronizar, preservando quaisquer conteúdos já presentes.
 - [x] Aplicar a semântica “pagamento registrado no PDDEInfo” em toda a interface, auditoria e Excel visível ao usuário, revisando textos remanescentes.
 - [x] Implementar schema formal de validação do registro extraído e cobrir casos de estrutura inválida além das validações por campo.
 - [x] Aplicar autenticação e limite de requisição às rotas de status, lista-mestre, fontes e demais endpoints operacionais do módulo PDDE.

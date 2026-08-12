@@ -47,7 +47,7 @@ O repositório não deve conter credenciais, `.env`, evidências brutas, arquivo
 
 ## Repositório de publicação
 
-O único destino aprovado para este código é o repositório **privado e exclusivo** [`WilsonMPeixoto-2/extrator-pdde-4cre`](https://github.com/WilsonMPeixoto-2/extrator-pdde-4cre). Não reutilize nem envie este projeto a repositórios de outros sistemas. Antes de qualquer nova publicação, execute `pnpm test`, `pnpm check` e a revisão de arquivos rastreados prevista na seção anterior.
+O único destino aprovado para este código é o repositório existente [`WilsonMPeixoto-2/EXTRATOR-PDDE-MANUS`](https://github.com/WilsonMPeixoto-2/EXTRATOR-PDDE-MANUS). Não reutilize nem envie este projeto a repositórios de outros sistemas. Antes de qualquer nova publicação, execute `pnpm test`, `pnpm check` e a revisão de arquivos rastreados prevista na seção anterior.
 
 ## Documentos técnicos
 

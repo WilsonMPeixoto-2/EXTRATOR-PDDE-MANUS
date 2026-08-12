@@ -23,4 +23,4 @@ A suíte automatizada executou **56 testes aprovados** em 12 arquivos, e `pnpm c
 
 > A aprovação técnica não autoriza contornar CAPTCHA, vincular conta SIGEF sem chave documentada, interpretar ausência como “não pago”, nem publicar código antes da deliberação institucional da GAD/4ª CRE.
 
-Para publicar no GitHub, a decisão deve indicar o repositório privado e exclusivo `WilsonMPeixoto-2/extrator-pdde-4cre` como destino e confirmar que esta versão candidata foi aceita para compartilhamento de código, sem evidências brutas ou credenciais.
+Para publicar no GitHub, a decisão deve indicar o repositório existente `WilsonMPeixoto-2/EXTRATOR-PDDE-MANUS` como destino e confirmar que esta versão candidata foi aceita para compartilhamento de código, sem evidências brutas ou credenciais.
