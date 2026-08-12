@@ -62,8 +62,20 @@ describe("vinculação bancária por programa", () => {
     expect(record.fieldProvenance).toContainEqual(paid);
     expect(record.fieldProvenance).toContainEqual(account);
     expect(paymentEvidenceSummary(record)).toContain("1ª parcela: Pagamento registrado no PDDEInfo");
-    expect(paymentEvidenceSummary(record)).toContain("2ª parcela: Consulta inconclusiva para crédito bancário");
+    expect(paymentEvidenceSummary(record)).toContain("2ª parcela: ausência de pagamento registrado no PDDEInfo em 2026-08-11T12:00:00.000Z");
     expect(financialHeaders).toEqual(expect.arrayContaining(["Fonte da conta", "Estado de evidência"]));
+  });
+
+  it("registra ausência limitada ao PDDEInfo sem concluir que o pagamento não ocorreu", () => {
+    const zeroPaymentFixture = fixture.replace(/100,00<\/td><td>05\/08\/2026/, "0,00</td><td>");
+    const record = parseSchoolPage(zeroPaymentFixture, "33069247", "0410001", "https://fonte.test/33069247", "2026-08-11T12:00:00.000Z", "e".repeat(64));
+    const paid = record.payments[0]?.provenance.paid;
+
+    expect(paid?.state).toBe("CONSULTA_INCONCLUSIVA");
+    expect(paid?.validationResults).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "payment-absence-pddeinfo", level: "warning", message: expect.stringContaining("ausência não equivale a “não pago”") }),
+    ]));
+    expect(paymentEvidenceSummary(record)).toContain("SIGEF e extrato bancário não concluídos nesta execução");
   });
 
   it("registra falha por identificador ou data fora do formato esperado", () => {

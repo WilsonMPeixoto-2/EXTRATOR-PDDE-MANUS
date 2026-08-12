@@ -51,8 +51,12 @@ function paymentValues(record: SchoolExtraction, semanticKey: DestinationSemanti
 export function paymentEvidenceSummary(record: SchoolExtraction): string {
   const installments: Array<[string, DestinationSemanticKey]> = [["1ª parcela", "PDDE_BASIC_P1"], ["2ª parcela", "PDDE_BASIC_P2"]];
   return installments.map(([label, semanticKey]) => {
-    const state = paymentContaining(record, semanticKey)?.provenance.paid.state ?? "CONSULTA_INCONCLUSIVA";
-    return `${label}: ${evidenceStateLabels[state]}`;
+    const payment = paymentContaining(record, semanticKey);
+    if (!payment || payment.paid <= 0) {
+      return `${label}: ausência de pagamento registrado no PDDEInfo em ${record.consultedAt}; SIGEF e extrato bancário não concluídos nesta execução.`;
+    }
+    const state = payment.provenance.paid.state ?? "CONSULTA_INCONCLUSIVA";
+    return `${label}: ${evidenceStateLabels[state]} · PDDEInfo consultado em ${record.consultedAt}`;
   }).join(" | ");
 }
 

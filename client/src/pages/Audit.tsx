@@ -7,7 +7,7 @@ import { buildObservationComparisons, filterAuditObservations, filterAuditRuns, 
 type AuditRun = { id: string; status: "running" | "approved" | "blocked" | "failed"; masterCount: number; processedCount: number; parserVersion: string; startedAt: string; completedAt: string | null; validationJson: { passed?: boolean; errors?: string[] } };
 type School = { inep: string; sme: string; status: "success" | "failed"; consultedAt: string; programsJson: string[]; exception: string | null };
 type Finding = { id: number; severity: "info" | "warning" | "critical"; code: string; message: string; inep: string | null; previousValue: string | null; currentValue: string | null };
-type Observation = { id: number; fieldPath: string; logicalKey: string; source: string; rawValue: string | null; normalizedValueJson: { value?: string | number | null } | null; parserVersion: string; extractionRule: string; selector: string; evidenceSnippet: string | null; state: string | null; sourceHashSha256: string | null; rawHtmlKey: string | null; normalizedJsonKey: string | null; validationResultsJson: Array<{ code: string; level: string; message: string }> };
+type Observation = { id: number; fieldPath: string; logicalKey: string; source: string; sourceUrl: string; consultedAt: string; rawValue: string | null; normalizedValueJson: { value?: string | number | null } | null; parserVersion: string; extractionRule: string; selector: string; evidenceSnippet: string | null; state: string | null; sourceHashSha256: string | null; rawHtmlKey: string | null; normalizedJsonKey: string | null; validationResultsJson: Array<{ code: string; level: string; message: string }> };
 type Artifact = { id: number; kind: string; storageKey: string; sha256: string; contentType: string };
 type Dossier = { consultation: School | null; observations: Observation[]; events: Array<{ id: string; occurredAt: string; type: string; severity: string; message: string }>; findings: Finding[]; artifacts: Artifact[] };
 
@@ -43,7 +43,8 @@ function EvidenceActions({ dossier, observation, runId, onOpenArtifact }: { doss
   return <>
     <p><b>Valor bruto:</b> {observation.rawValue ?? "—"}</p>
     <p><b>Normalizado:</b> {String(observation.normalizedValueJson?.value ?? "—")}</p>
-    <p><b>Fonte:</b> {observation.source}</p>
+    <p><b>Fonte:</b> {observation.source} · {displayDate(observation.consultedAt)}</p>
+    <p><b>URL:</b> <code>{observation.sourceUrl}</code></p>
     <p><b>Estado:</b> {evidenceStateLabel(observation.state)}</p>
     <p><b>Trecho:</b> {observation.evidenceSnippet ?? "não disponível"}</p>
     <div className="audit-evidence-actions">

@@ -42,7 +42,7 @@
 - [x] Manter como núcleo as requisições e parsers próprios; admitir ferramentas externas apenas como camada opcional de leitura/navegação permitida, nunca como mecanismo de contorno de acesso.
 - [x] Substituir a apresentação promocional por uma interface institucional, sóbria e direta, orientada a execução, conferência, exceções e auditoria.
 - [x] Remover linguagem de autoafirmação e destaques visuais de marketing, preservando apenas indicadores operacionais e informações necessárias à rotina da GAD/4ª CRE.
-- [ ] Proibir o uso de “Não pago” como conclusão absoluta e registrar data/hora e fontes consultadas nas ausências de evidência.
+- [x] Proibir o uso de “Não pago” como conclusão absoluta e registrar data/hora e fontes consultadas nas ausências de evidência.
 - [ ] Associar conta SIGEF somente mediante correspondência documentada de CNPJ, exercício, programa, ação/parcela, valor, data, OB e conta destinatária, conforme disponibilidade.
 - [ ] Suportar conciliação de um pagamento contra múltiplas ordens bancárias, créditos, aplicações automáticas, estornos e devoluções.
 - [ ] Validar Dados Abertos do FNDE como controle secundário por arquivo, com data de atualização, exercício, cobertura e completude registrados.

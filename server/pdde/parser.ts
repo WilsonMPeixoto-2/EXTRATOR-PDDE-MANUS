@@ -241,6 +241,11 @@ function parsePaymentRows(
         derivePaymentEvidenceState({ pddeInfoPaymentRegistered: paid > 0, sigefLiberationMatched: false, sigefCreditMatched: false, directBankStatementConfirmed: false, reversalMatched: false, divergent: false, allRequiredSourcesCompleted: false }),
       );
       validate(paidProvenance, "paid-currency-format", isBrazilianCurrency(paidRaw), "Valor pago possui formato monetário brasileiro válido.");
+      if (paid <= 0) paidProvenance.validationResults.push({
+        code: "payment-absence-pddeinfo",
+        level: "warning",
+        message: `O PDDEInfo não apresentou pagamento registrado nesta linha em ${metadata.consultedAt}. SIGEF e extrato bancário não foram concluídos nesta execução; a ausência não equivale a “não pago”.`,
+      });
       const paymentDateProvenance = capture(metadata, sink, `${path}.paymentDate`, paymentDateRaw, paymentDate, cellSelector(tableIndex, rowOffset, 11), "br-date-to-iso", `${paymentKey}:payment-date`);
       validate(paymentDateProvenance, "payment-date-format", !paymentDateRaw || paymentDate !== null, "Data de pagamento vazia ou no formato DD/MM/AAAA.", true);
       payments.push({
