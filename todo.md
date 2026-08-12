@@ -24,13 +24,13 @@
 - [x] Proteger a operação com autenticação, limites de requisição e registro de operador.
 - [ ] Adicionar fixtures reais anonimizadas, dataset dourado e testes de schema, aritmética, alertas e histórico.
 - [ ] Validar tecnicamente as consultas públicas SIGEF de Liberação de Recursos, Conta Corrente e Movimentação Bancária, sem assumir disponibilidade ou chaves de ligação.
-- [ ] Modelar proveniência por campo e status de conciliação entre PDDEInfo, SIGEF e confirmação bancária.
-- [ ] Manter dados de fontes distintas separados, sem preenchimento silencioso de conta, pagamento ou crédito.
+- [x] Modelar proveniência por campo e status de conciliação entre PDDEInfo, SIGEF e confirmação bancária.
+- [x] Manter dados de fontes distintas separados, sem preenchimento silencioso de conta, pagamento ou crédito.
 - [ ] Integrar somente as rotas SIGEF comprovadamente acessíveis, com evidência, limites de consulta e tratamento de divergências.
 - [ ] Criar contrato de proveniência por campo, incluindo fonte, URL, evidência bruta, regra de parsing, transformação, hash, validações e nível de confirmação.
 - [x] Modelar eventos de auditoria imutáveis para coleta, parsing, normalização, validação, conciliação, exportação e intervenção humana.
 - [ ] Implementar interface de auditoria com busca por execução, escola, programa e campo; painel de evidência; linha do tempo; comparador histórico e fila de exceções.
-- [ ] Substituir estados genéricos por uma taxonomia que diferencie OB corroborada, crédito localizado no SIGEF, crédito confirmado em extrato BB, divergência, estorno e consulta inconclusiva.
+- [x] Substituir estados genéricos por uma taxonomia que diferencie OB corroborada, crédito localizado no SIGEF, crédito confirmado em extrato BB, divergência, estorno e consulta inconclusiva.
 - [ ] Referenciar, em cada observação de campo, o artefato bruto HTML/JSON persistido e o trecho de evidência navegável.
 - [ ] Popular resultados de validação e estado de evidência no pipeline de extração, refletindo-os na auditoria, interface e Excel.
 - [ ] Cobrir em testes o preenchimento real de proveniência, validações e estados, além da existência dos tipos.
@@ -48,6 +48,8 @@
 - [ ] Validar Dados Abertos do FNDE como controle secundário por arquivo, com data de atualização, exercício, cobertura e completude registrados.
 - [x] Consolidar os contratos de produção para coleta, evidência, validação, conciliação, eventos, bloqueios externos e liberação de exportação.
 - [ ] Executar uma rodada de implementação operacional por fase, com testes automatizados, migrações revisadas e checkpoints recuperáveis.
+- [ ] Preparar a publicação no GitHub após a validação de aceitação, com revisão de `.gitignore`, remoção de evidências brutas e confirmação de ausência de segredos.
+- [ ] Publicar a versão validada no repositório GitHub selecionado, com README técnico e instruções de execução sem credenciais expostas.
 - [x] Aplicar a semântica “pagamento registrado no PDDEInfo” em toda a interface, auditoria e Excel visível ao usuário, revisando textos remanescentes.
 - [x] Implementar schema formal de validação do registro extraído e cobrir casos de estrutura inválida além das validações por campo.
 - [x] Aplicar autenticação e limite de requisição às rotas de status, lista-mestre, fontes e demais endpoints operacionais do módulo PDDE.
