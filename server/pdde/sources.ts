@@ -44,10 +44,10 @@ const SOURCE_AUTOMATION_CATALOG: SourceAutomationDefinition[] = [
   {
     source: "SIGEF_CONTA_CORRENTE",
     label: "SIGEF — Conta Corrente",
-    accessState: "PILOT_PENDING",
+    accessState: "CAPTCHA_REQUIRED",
     autonomous: false,
-    collectionMethod: "browser-script",
-    detail: "Formulário público revalidado: exige mês/ano, CNPJ, banco e programa. Necessita de piloto para confirmar retorno, cobertura e estabilidade; não vincula conta sem chave documentada.",
+    collectionMethod: "institutional-channel",
+    detail: "Formulário público exige mês/ano, CNPJ, banco e programa e aciona reCAPTCHA ao preencher os campos obrigatórios. O sistema não tenta contornar esse controle; retorno, cobertura e chave de conciliação permanecem não comprovados.",
     baseUrl: "https://www.fnde.gov.br/sigefweb/default/conta-corrente/extrato-conta-corrente",
   },
   {

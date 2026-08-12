@@ -89,3 +89,4 @@
 - [x] Exibir na auditoria um dossiê financeiro navegável por escola, aberto pela linha/INEP, com valores extraídos, programas, contas, parcelas, evidências e links aos artefatos.
 - [x] Exibir de forma permanente na tela principal a última execução aprovada e um botão inequívoco para baixar o Excel correspondente.
 - [x] Distinguir uma execução persistida que foi interrompida por reinício do servidor de uma coleta ainda ativa, sem ocultar as consultas já registradas.
+- [x] Reclassificar o SIGEF Conta Corrente como bloqueado por reCAPTCHA após verificação controlada do formulário público.

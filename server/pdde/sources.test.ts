@@ -28,14 +28,14 @@ describe("catálogo de automação por fonte", () => {
     expect(pending).toEqual(expect.arrayContaining([
       expect.objectContaining({ source: "SIGEF_LIBERACAO", accessState: "CAPTCHA_REQUIRED" }),
       expect.objectContaining({ source: "EXTRATO_BB", accessState: "AUTHORIZATION_REQUIRED" }),
-      expect.objectContaining({ source: "SIGEF_CONTA_CORRENTE", accessState: "PILOT_PENDING" }),
+      expect.objectContaining({ source: "SIGEF_CONTA_CORRENTE", accessState: "CAPTCHA_REQUIRED" }),
     ]));
   });
 
-  it("mantém as consultas SIGEF em piloto nas URLs públicas revalidadas", () => {
+  it("mantém o SIGEF Conta Corrente bloqueado por CAPTCHA e o piloto de extrato com limitações explícitas", () => {
     const contaCorrente = sourceDefinition("SIGEF_CONTA_CORRENTE");
     const extrato = sourceDefinition("SIGEF_EXTRATO");
-    expect(contaCorrente).toMatchObject({ accessState: "PILOT_PENDING", autonomous: false });
+    expect(contaCorrente).toMatchObject({ accessState: "CAPTCHA_REQUIRED", autonomous: false, collectionMethod: "institutional-channel" });
     expect(contaCorrente.baseUrl).toContain("extrato-conta-corrente");
     expect(extrato).toMatchObject({ accessState: "PILOT_COMPLETED_WITH_LIMITATIONS", autonomous: false, collectionMethod: "file-import" });
     expect(extrato.detail).toContain("programa, parcela e conta destinatária");
