@@ -8,6 +8,7 @@ import { comparePaymentSnapshots, paymentSnapshotsFromRecords } from "./history"
 import { pddeInfoSchoolUrl, sourceAutomationCatalog } from "./sources";
 import type { AuditEvent, AuditEventType, AuditRecord, SchoolExtraction, ValidationSummary } from "./types";
 import { canReleaseDownload, createV2Workbook, validateExtraction } from "./workbook";
+import { persistOpenDataControl, type OpenDataControlInput, type OpenDataControlPersistence } from "./openDataControl";
 
 const delay = (milliseconds: number) => new Promise(resolve => setTimeout(resolve, milliseconds));
 
@@ -32,6 +33,25 @@ export type ExtractionRun = {
 
 const activeRuns = new Map<string, ExtractionRun>();
 export const getRun = (runId: string) => activeRuns.get(runId);
+
+export type SecondaryOpenDataInput = OpenDataControlInput & { fileName: string; contentType: string };
+
+/**
+ * Etapa operacional explícita para anexar um arquivo oficial de Dados Abertos a uma
+ * execução já criada. O arquivo atua exclusivamente como controle secundário e não
+ * altera campos extraídos do PDDEInfo nem inicia automação de fonte externa.
+ */
+export async function registerSecondaryOpenDataControl(
+  runId: string,
+  input: SecondaryOpenDataInput,
+  dependencies?: OpenDataControlPersistence,
+) {
+  const result = dependencies
+    ? await persistOpenDataControl(runId, input, dependencies)
+    : await persistOpenDataControl(runId, input);
+  activeRuns.get(runId)?.auditEvents.push(result.event);
+  return result;
+}
 
 function event(
   runId: string,

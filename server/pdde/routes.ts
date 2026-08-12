@@ -1,10 +1,10 @@
 import type { Express, Response } from "express";
 import type { Request as ExpressRequest, Response as ExpressResponse } from "express";
-import { getRun, masterListSummary, runExtraction } from "./run";
+import { getRun, masterListSummary, registerSecondaryOpenDataControl, runExtraction } from "./run";
 import { sourceAutomationCatalog } from "./sources";
 import { sdk } from "../_core/sdk";
 import { decidePddeAccess, type PddeResource } from "./access";
-import { getPersistedAuditRun, getRunArtifact, getSchoolAuditDossier, listPersistedAuditRuns, listRunFindings, listRunSchools } from "../db";
+import { getPersistedAuditRun, getPersistedRunAuditOverview, getRunArtifact, getSchoolAuditDossier, listPersistedAuditRuns, listRunFindings, listRunSchools } from "../db";
 import { storageGetSignedUrl } from "../storage";
 
 function writeEvent(response: Response, payload: unknown) {
@@ -67,9 +67,37 @@ export function registerPddeRoutes(app: Express) {
 
   app.get("/api/pdde/audit/run/:runId", async (request, response) => {
     if (!await authorize(request, response, "run-status")) return;
+    const overview = await getPersistedRunAuditOverview(request.params.runId);
+    if (!overview.run) return response.status(404).json({ message: "Execução auditável não encontrada." });
+    response.json(overview);
+  });
+
+  app.post("/api/pdde/audit/run/:runId/open-data", async (request, response) => {
+    if (!await authorize(request, response, "open-data-import")) return;
     const run = await getPersistedAuditRun(request.params.runId);
     if (!run) return response.status(404).json({ message: "Execução auditável não encontrada." });
-    response.json({ run });
+    const body = request.body as Record<string, unknown>;
+    const contentBase64 = typeof body.contentBase64 === "string" ? body.contentBase64 : "";
+    const columns = Array.isArray(body.columns) && body.columns.every(column => typeof column === "string") ? body.columns : [];
+    const bytes = Buffer.from(contentBase64, "base64");
+    if (!contentBase64 || bytes.length === 0 || bytes.length > 10 * 1024 * 1024) return response.status(400).json({ message: "Arquivo secundário inválido ou superior a 10 MB." });
+    try {
+      const result = await registerSecondaryOpenDataControl(request.params.runId, {
+        file: bytes,
+        fileName: typeof body.fileName === "string" ? body.fileName : "dados_abertos.csv",
+        contentType: typeof body.contentType === "string" ? body.contentType : "text/csv",
+        sourceUrl: typeof body.sourceUrl === "string" ? body.sourceUrl : "",
+        obtainedAt: typeof body.obtainedAt === "string" ? body.obtainedAt : "",
+        declaredUpdatedAt: typeof body.declaredUpdatedAt === "string" ? body.declaredUpdatedAt : "",
+        exercise: typeof body.exercise === "number" ? body.exercise : Number.NaN,
+        columns,
+        totalRows: typeof body.totalRows === "number" ? body.totalRows : Number.NaN,
+        matchedSchools: typeof body.matchedSchools === "number" ? body.matchedSchools : Number.NaN,
+      });
+      response.status(201).json({ validation: result.validation, artifact: { storageKey: result.artifact.key, sha256: result.validation.fileHashSha256 }, event: result.event });
+    } catch (error) {
+      response.status(400).json({ message: error instanceof Error ? error.message : "Não foi possível registrar o arquivo secundário." });
+    }
   });
 
   app.get("/api/pdde/audit/run/:runId/schools", async (request, response) => {

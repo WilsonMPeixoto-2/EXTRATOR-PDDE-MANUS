@@ -45,9 +45,9 @@
 - [x] Proibir o uso de “Não pago” como conclusão absoluta e registrar data/hora e fontes consultadas nas ausências de evidência.
 - [ ] Associar conta SIGEF somente mediante correspondência documentada de CNPJ, exercício, programa, ação/parcela, valor, data, OB e conta destinatária, conforme disponibilidade.
 - [x] Suportar conciliação de um pagamento contra múltiplas ordens bancárias, créditos, aplicações automáticas, estornos e devoluções.
-- [ ] Validar Dados Abertos do FNDE como controle secundário por arquivo, com data de atualização, exercício, cobertura e completude registrados.
+- [x] Validar Dados Abertos do FNDE como controle secundário por arquivo, com data de atualização, exercício, cobertura e completude registrados.
 - [x] Consolidar os contratos de produção para coleta, evidência, validação, conciliação, eventos, bloqueios externos e liberação de exportação.
-- [ ] Executar uma rodada de implementação operacional por fase, com testes automatizados, migrações revisadas e checkpoints recuperáveis.
+- [x] Executar uma rodada de implementação operacional por fase, com testes automatizados, migrações revisadas e checkpoints recuperáveis.
 - [ ] Preparar a publicação no GitHub após a validação de aceitação, com revisão de `.gitignore`, remoção de evidências brutas e confirmação de ausência de segredos.
 - [ ] Publicar a versão validada no repositório GitHub selecionado, com README técnico e instruções de execução sem credenciais expostas.
 - [x] Aplicar a semântica “pagamento registrado no PDDEInfo” em toda a interface, auditoria e Excel visível ao usuário, revisando textos remanescentes.
@@ -64,3 +64,9 @@
 - [x] Adicionar busca textual por escola, INEP e SME na auditoria, além da seleção por clique.
 - [x] Implementar comparador histórico explícito para confrontar observação de campo, valor anterior, valor atual e evidências das duas execuções.
 - [x] Adicionar busca ou filtro explícito por execução na auditoria, por identificador, data ou status, com teste automatizado.
+- [x] Integrar a validação de Dados Abertos ao pipeline operacional, persistindo hash, URL, datas, exercício, cobertura e completude do arquivo.
+- [x] Expor na auditoria ou nos eventos da execução o controle secundário por arquivo, incluindo validação e advertências.
+- [ ] Cobrir em teste a integração ponta a ponta do arquivo de Dados Abertos no fluxo de execução e auditoria.
+- [x] Integrar persistOpenDataControl ao fluxo operacional real de execução ou rota de importação autenticada, com entrada explícita do arquivo secundário.
+- [x] Recuperar artefato e metadados open_data_file na auditoria de execução, com exposição específica na API e interface.
+- [ ] Adicionar teste de integração do registro do arquivo secundário até sua recuperação na auditoria.

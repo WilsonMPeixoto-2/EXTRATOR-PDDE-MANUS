@@ -199,6 +199,18 @@ export async function persistSchoolCollection(runId: string, audit: AuditRecord,
   });
 }
 
+export async function persistRunArtifact(input: {
+  runId: string;
+  kind: "workbook" | "manifest" | "raw_html" | "normalized_json" | "open_data_file";
+  storageKey: string;
+  storageUrl: string;
+  contentType: string;
+  sha256: string;
+}) {
+  const db = await getAuditDbOrThrow();
+  await db.insert(runArtifacts).values(input);
+}
+
 export async function loadLatestApprovedPaymentSnapshots(excludeRunId: string): Promise<{ runId: string | null; snapshots: PaymentSnapshot[] }> {
   const db = await getAuditDbOrThrow();
   const baseline = await db.select({ id: extractionRuns.id })
@@ -239,6 +251,16 @@ export async function getPersistedAuditRun(runId: string) {
   const db = await getAuditDbOrThrow();
   const rows = await db.select().from(extractionRuns).where(eq(extractionRuns.id, runId)).limit(1);
   return rows[0] ?? null;
+}
+
+export async function getPersistedRunAuditOverview(runId: string) {
+  const db = await getAuditDbOrThrow();
+  const [runs, artifacts, events] = await Promise.all([
+    db.select().from(extractionRuns).where(eq(extractionRuns.id, runId)).limit(1),
+    db.select().from(runArtifacts).where(eq(runArtifacts.runId, runId)).orderBy(desc(runArtifacts.createdAt)),
+    db.select().from(runAuditEvents).where(eq(runAuditEvents.runId, runId)).orderBy(desc(runAuditEvents.occurredAt)),
+  ]);
+  return { run: runs[0] ?? null, artifacts, events };
 }
 
 export async function listRunSchools(runId: string) {

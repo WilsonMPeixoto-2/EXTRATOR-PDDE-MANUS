@@ -1,0 +1,1 @@
+ALTER TABLE `run_artifacts` MODIFY COLUMN `kind` enum('workbook','manifest','raw_html','normalized_json','open_data_file') NOT NULL;

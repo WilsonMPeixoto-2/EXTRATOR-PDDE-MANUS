@@ -9,6 +9,7 @@ vi.mock("../_core/sdk", () => ({
 vi.mock("./run", () => ({
   getRun: vi.fn(),
   masterListSummary: vi.fn(() => ({ count: 163, unique: 163, valid: true })),
+  registerSecondaryOpenDataControl: vi.fn(),
   runExtraction: vi.fn(async (onEvent: (event: unknown) => void) => {
     onEvent({ type: "complete", validation: { passed: false }, downloadUrl: null, completed: 0, errors: 0 });
     return { id: "run-test", status: "BLOCKED" };
@@ -17,6 +18,7 @@ vi.mock("./run", () => ({
 
 vi.mock("../db", () => ({
   getPersistedAuditRun: vi.fn(),
+  getPersistedRunAuditOverview: vi.fn(),
   getRunArtifact: vi.fn(),
   getSchoolAuditDossier: vi.fn(),
   listPersistedAuditRuns: vi.fn(),
@@ -27,14 +29,17 @@ vi.mock("../db", () => ({
 vi.mock("../storage", () => ({ storageGetSignedUrl: vi.fn() }));
 
 import { sdk } from "../_core/sdk";
-import { listPersistedAuditRuns } from "../db";
-import { getRun, runExtraction } from "./run";
+import { getPersistedAuditRun, getPersistedRunAuditOverview, listPersistedAuditRuns } from "../db";
+import { getRun, registerSecondaryOpenDataControl, runExtraction } from "./run";
 import { registerPddeRoutes } from "./routes";
 
 const authenticateRequest = vi.mocked(sdk.authenticateRequest);
 const mockedGetRun = vi.mocked(getRun);
 const mockedRunExtraction = vi.mocked(runExtraction);
 const mockedListPersistedAuditRuns = vi.mocked(listPersistedAuditRuns);
+const mockedGetPersistedAuditRun = vi.mocked(getPersistedAuditRun);
+const mockedGetPersistedRunAuditOverview = vi.mocked(getPersistedRunAuditOverview);
+const mockedRegisterSecondaryOpenDataControl = vi.mocked(registerSecondaryOpenDataControl);
 
 async function request(app: Express, path: string) {
   const server = await new Promise<ReturnType<Express["listen"]>>(resolve => {
@@ -49,8 +54,22 @@ async function request(app: Express, path: string) {
   }
 }
 
+async function requestJson(app: Express, path: string, body: unknown) {
+  const server = await new Promise<ReturnType<Express["listen"]>>(resolve => {
+    const instance = app.listen(0, () => resolve(instance));
+  });
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("Porta de teste indisponível");
+  try {
+    return await fetch(`http://127.0.0.1:${address.port}${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  } finally {
+    await new Promise<void>(resolve => server.close(() => resolve()));
+  }
+}
+
 function appForTest() {
   const app = express();
+  app.use(express.json({ limit: "11mb" }));
   registerPddeRoutes(app);
   return app;
 }
@@ -120,5 +139,24 @@ describe("rotas operacionais protegidas do PDDE", () => {
     const response = await request(appForTest(), "/api/pdde/audit/runs");
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ runs: [expect.objectContaining({ id: "run-existente", status: "approved" })] });
+  });
+
+  it("registra arquivo secundário autenticado e o recupera no detalhe auditável da execução", async () => {
+    authenticateRequest.mockResolvedValue(user);
+    mockedGetPersistedAuditRun.mockResolvedValue({ id: "run-existente", status: "approved" } as any);
+    mockedRegisterSecondaryOpenDataControl.mockResolvedValue({ validation: { passed: true, fileHashSha256: "a".repeat(64) }, artifact: { key: "evidence/run/dados-abertos/pdde.csv", url: "/manus-storage/pdde.csv" }, event: { type: "SOURCE_FETCHED" } } as any);
+    const importResponse = await requestJson(appForTest(), "/api/pdde/audit/run/run-existente/open-data", {
+      contentBase64: Buffer.from("INEP,VALOR\n00000001,100").toString("base64"), fileName: "pdde.csv", contentType: "text/csv",
+      sourceUrl: "https://dados.gov.br/fnde-pdde", obtainedAt: "2026-08-12T10:00:00.000Z", declaredUpdatedAt: "2026-08-11T00:00:00.000Z",
+      exercise: 2026, columns: ["INEP", "VALOR"], totalRows: 163, matchedSchools: 163,
+    });
+    expect(importResponse.status).toBe(201);
+    expect(mockedRegisterSecondaryOpenDataControl).toHaveBeenCalledWith("run-existente", expect.objectContaining({ fileName: "pdde.csv", exercise: 2026, matchedSchools: 163 }));
+
+    clearRunReservationForTest(user.id);
+    mockedGetPersistedRunAuditOverview.mockResolvedValue({ run: { id: "run-existente", status: "approved" }, artifacts: [{ id: 22, kind: "open_data_file", storageKey: "evidence/run/dados-abertos/pdde.csv" }], events: [{ id: "event-1", payloadJson: { source: "DADOS_ABERTOS" } }] } as any);
+    const overviewResponse = await request(appForTest(), "/api/pdde/audit/run/run-existente");
+    expect(overviewResponse.status).toBe(200);
+    expect(await overviewResponse.json()).toMatchObject({ artifacts: [expect.objectContaining({ kind: "open_data_file" })], events: [expect.objectContaining({ payloadJson: { source: "DADOS_ABERTOS" } })] });
   });
 });

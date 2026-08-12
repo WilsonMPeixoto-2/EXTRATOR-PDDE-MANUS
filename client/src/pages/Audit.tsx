@@ -8,7 +8,8 @@ type AuditRun = { id: string; status: "running" | "approved" | "blocked" | "fail
 type School = { inep: string; sme: string; status: "success" | "failed"; consultedAt: string; programsJson: string[]; exception: string | null };
 type Finding = { id: number; severity: "info" | "warning" | "critical"; code: string; message: string; inep: string | null; previousValue: string | null; currentValue: string | null };
 type Observation = { id: number; fieldPath: string; logicalKey: string; source: string; sourceUrl: string; consultedAt: string; rawValue: string | null; normalizedValueJson: { value?: string | number | null } | null; parserVersion: string; extractionRule: string; selector: string; evidenceSnippet: string | null; state: string | null; sourceHashSha256: string | null; rawHtmlKey: string | null; normalizedJsonKey: string | null; validationResultsJson: Array<{ code: string; level: string; message: string }> };
-type Artifact = { id: number; kind: string; storageKey: string; sha256: string; contentType: string };
+type Artifact = { id: number; kind: string; storageKey: string; sha256: string; contentType: string; createdAt?: string };
+type RunAuditEvent = { id: string; occurredAt: string; type: string; severity: string; message: string; payloadJson?: { source?: string; exercise?: number; matchedSchools?: number; warnings?: string[] } };
 type Dossier = { consultation: School | null; observations: Observation[]; events: Array<{ id: string; occurredAt: string; type: string; severity: string; message: string }>; findings: Finding[]; artifacts: Artifact[] };
 
 function displayDate(value: string | null | undefined) {
@@ -62,6 +63,8 @@ export default function Audit() {
   const [runFilter, setRunFilter] = useState("");
   const [schools, setSchools] = useState<School[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
+  const [runArtifacts, setRunArtifacts] = useState<Artifact[]>([]);
+  const [runEvents, setRunEvents] = useState<RunAuditEvent[]>([]);
   const [dossier, setDossier] = useState<Dossier | null>(null);
   const [selectedInep, setSelectedInep] = useState<string | null>(null);
   const [programFilter, setProgramFilter] = useState("");
@@ -89,17 +92,21 @@ export default function Audit() {
   useEffect(() => { void loadRuns(); }, [isAuthenticated]);
 
   useEffect(() => {
-    if (!selectedRunId || !isAuthenticated) { setSchools([]); setFindings([]); setDossier(null); return; }
+    if (!selectedRunId || !isAuthenticated) { setSchools([]); setFindings([]); setRunArtifacts([]); setRunEvents([]); setDossier(null); return; }
     const loadRunDetails = async () => {
       setLoading(true); setError(null); setSelectedInep(null); setDossier(null); setComparisonDossier(null);
       try {
-        const [schoolResponse, findingResponse] = await Promise.all([
+        const [schoolResponse, findingResponse, overviewResponse] = await Promise.all([
           fetch(`/api/pdde/audit/run/${selectedRunId}/schools`),
           fetch(`/api/pdde/audit/run/${selectedRunId}/findings`),
+          fetch(`/api/pdde/audit/run/${selectedRunId}`),
         ]);
-        if (!schoolResponse.ok || !findingResponse.ok) throw new Error("Não foi possível carregar os detalhes da execução selecionada.");
+        if (!schoolResponse.ok || !findingResponse.ok || !overviewResponse.ok) throw new Error("Não foi possível carregar os detalhes da execução selecionada.");
         setSchools((await schoolResponse.json() as { schools: School[] }).schools);
         setFindings((await findingResponse.json() as { findings: Finding[] }).findings);
+        const overview = await overviewResponse.json() as { artifacts: Artifact[]; events: RunAuditEvent[] };
+        setRunArtifacts(overview.artifacts);
+        setRunEvents(overview.events);
       } catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao carregar detalhes."); }
       finally { setLoading(false); }
     };
@@ -155,6 +162,8 @@ export default function Audit() {
   const filteredObservations = useMemo(() => dossier ? filterAuditObservations(dossier.observations, fieldFilter) : [], [dossier, fieldFilter]);
   const observationComparisons = useMemo(() => dossier && comparisonDossier ? buildObservationComparisons(dossier.observations, comparisonDossier.observations) : [], [dossier, comparisonDossier]);
   const changedComparisonCount = observationComparisons.filter(item => item.status !== "unchanged").length;
+  const openDataArtifacts = runArtifacts.filter(artifact => artifact.kind === "open_data_file");
+  const openDataEvents = runEvents.filter(event => event.payloadJson?.source === "DADOS_ABERTOS");
 
   return (
     <div className="audit-page">
@@ -171,6 +180,8 @@ export default function Audit() {
         <div className="audit-summary"><span>ACHADOS</span><strong>{findings.length}</strong><small>registros de exceção e regressão</small></div>
         <div className="audit-summary"><span>ESTADO</span><strong>{selectedRun?.status?.toUpperCase() ?? "—"}</strong><small>nunca infere crédito bancário</small></div>
       </section>
+
+      <section className="audit-panel audit-open-data"><div className="audit-panel-heading"><ShieldCheck size={17} /><h2>Controle secundário · Dados Abertos FNDE</h2><span>{openDataArtifacts.length ? `${openDataArtifacts.length} arquivo(s)` : "não registrado"}</span></div>{openDataArtifacts.length ? <div className="audit-finding-list">{openDataArtifacts.map(artifact => <article key={artifact.id} className="audit-finding"><span className={badgeClass("info")}>secundário</span><strong>{artifact.storageKey.split("/").at(-1)}</strong><p>Arquivo versionado; não substitui PDDEInfo, SIGEF ou extrato bancário.</p><small>Hash: <code>{artifact.sha256.slice(0, 18)}</code> · {artifact.contentType}</small><button className="audit-evidence-button" onClick={() => void openArtifact(selectedRunId!, artifact.id)}>Abrir arquivo registrado</button></article>)}</div> : <p className="audit-empty">Nenhum arquivo secundário foi registrado nesta execução.</p>}{openDataEvents.map(event => <p key={event.id} className="audit-comparison-caption">{displayDate(event.occurredAt)} · {event.message}{event.payloadJson?.warnings?.length ? ` Advertências: ${event.payloadJson.warnings.join(" ")}` : ""}</p>)}</section>
 
       <section className="audit-workspace">
         <aside className="audit-panel audit-runs"><div className="audit-panel-heading"><History size={17} /><h2>Execuções</h2><span>{runs.length ? `${filteredRuns.length}/${runs.length}` : ""}</span></div>{runs.length ? <><input className="audit-filter" value={runFilter} onChange={event => setRunFilter(event.target.value)} placeholder="Buscar ID, data ou estado" aria-label="Buscar execução por identificador, data ou estado" /><div className="audit-run-list">{filteredRuns.map(run => <button key={run.id} onClick={() => setSelectedRunId(run.id)} className={`audit-run ${run.id === selectedRunId ? "audit-run-active" : ""}`}><span className={badgeClass(run.status)}>{run.status}</span><strong>{displayDate(run.completedAt ?? run.startedAt)}</strong><small>{run.processedCount}/{run.masterCount} · parser {run.parserVersion}</small><code>{run.id.slice(0, 12)}</code></button>)}</div></> : <p className="audit-empty">Nenhuma execução persistida ainda.</p>}</aside>
