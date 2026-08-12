@@ -109,3 +109,4 @@
 - [x] Remover o painel visível de histórico de execuções da auditoria e redistribuir o espaço para a lista de unidades e o resumo financeiro, mantendo a rastreabilidade apenas na camada secundária.
 - [x] Remover o comparador histórico por campo da leitura principal da auditoria, preservando somente os dados financeiros e a rastreabilidade sob demanda.
 - [x] Revalidar visualmente a auditoria sem qualquer bloco histórico exposto, confirmando o aproveitamento do espaço pela lista de unidades e pelo resumo financeiro.
+- [x] Refinar tipografia, espaçamento e cores institucionais do resumo financeiro e da lista de unidades para distinguir identificação, contas, parcelas e estados sem aumentar a complexidade visual.

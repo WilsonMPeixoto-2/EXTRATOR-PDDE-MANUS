@@ -186,19 +186,19 @@ export default function Audit() {
         <div className="audit-panel-heading"><FileSearch size={17} /><h2>Resumo financeiro da unidade</h2><span>{selectedInep ? `INEP ${selectedInep}` : "selecione uma unidade acima"}</span></div>
         {dossier && financialDossier ? <div className="financial-dossier-content">
           <div className="financial-identity">
-            <div><span>UNIDADE EXECUTORA</span><strong>{financialDossier.schoolName ?? "Nome não informado pela fonte"}</strong></div>
+            <div className="financial-identity-primary"><span>UNIDADE EXECUTORA</span><strong>{financialDossier.schoolName ?? "Nome não informado pela fonte"}</strong></div>
             <div><span>UEx</span><strong>{financialDossier.uex ?? "—"}</strong></div>
             <div><span>CNPJ</span><strong>{financialDossier.cnpj ?? "—"}</strong></div>
             <div><span>CONSULTA</span><strong>{displayDate(dossier.consultation?.consultedAt)}</strong></div>
           </div>
           <div className="financial-sections">
-            <article>
+            <article className="financial-accounts-panel">
               <header><h3>Contas informadas no PDDEInfo</h3><small>A conta do PDDE Básico somente aparece quando o rótulo é exatamente PDDE.</small></header>
-              {financialDossier.accounts.length ? <div className="financial-table-scroll"><table className="financial-data-table"><thead><tr><th>Programa</th><th>Banco</th><th>Agência</th><th>Conta</th><th>Saldo</th></tr></thead><tbody>{financialDossier.accounts.map(account => <tr key={account.index}><td>{account.program ?? "—"}</td><td>{account.bank ?? "—"}</td><td>{account.agency ?? "—"}</td><td className="financial-code">{account.account ?? "não informado"}</td><td>{account.balance ?? "—"}</td></tr>)}</tbody></table></div> : <p className="audit-empty">Nenhuma conta bancária foi exibida na página consultada.</p>}
+              {financialDossier.accounts.length ? <div className="financial-table-scroll"><table className="financial-data-table"><thead><tr><th>Programa</th><th>Banco</th><th>Agência</th><th>Conta</th><th>Saldo</th></tr></thead><tbody>{financialDossier.accounts.map(account => <tr key={account.index}><td><span className={`financial-program ${account.program === "PDDE" ? "financial-program-basic" : ""}`}>{account.program ?? "—"}</span></td><td>{account.bank ?? "—"}</td><td>{account.agency ?? "—"}</td><td className="financial-code">{account.account ?? "não informado"}</td><td className="financial-amount">{account.balance ?? "—"}</td></tr>)}</tbody></table></div> : <p className="audit-empty">Nenhuma conta bancária foi exibida na página consultada.</p>}
             </article>
-            <article>
+            <article className="financial-payments-panel">
               <header><h3>Parcelas e valores registrados</h3><small>“Valor pago” significa pagamento registrado no PDDEInfo; não confirma crédito bancário.</small></header>
-              {financialDossier.payments.length ? <div className="financial-table-scroll"><table className="financial-data-table"><thead><tr><th>Destinação</th><th>Previsto</th><th>Pago registrado</th><th>Data da ordem</th><th>Estado</th></tr></thead><tbody>{financialDossier.payments.map(payment => <tr key={payment.index}><td>{payment.destination ?? "—"}</td><td>{payment.expected ?? "—"}</td><td>{payment.paid ?? "—"}</td><td>{payment.paymentDate ?? "—"}</td><td>{evidenceStateLabel(payment.state)}</td></tr>)}</tbody></table></div> : <p className="audit-empty">Nenhuma parcela foi exibida na página consultada.</p>}
+              {financialDossier.payments.length ? <div className="financial-table-scroll"><table className="financial-data-table"><thead><tr><th>Destinação</th><th>Previsto</th><th>Pago registrado</th><th>Data da ordem</th><th>Estado</th></tr></thead><tbody>{financialDossier.payments.map(payment => <tr key={payment.index}><td className="financial-destination">{payment.destination ?? "—"}</td><td className="financial-amount">{payment.expected ?? "—"}</td><td className="financial-amount financial-paid">{payment.paid ?? "—"}</td><td>{payment.paymentDate ?? "—"}</td><td><span className={`financial-evidence-state ${payment.state === "PAGAMENTO_INFORMADO_PDDEINFO" ? "financial-evidence-confirmed" : ""}`}>{evidenceStateLabel(payment.state)}</span></td></tr>)}</tbody></table></div> : <p className="audit-empty">Nenhuma parcela foi exibida na página consultada.</p>}
             </article>
           </div>
         </div> : <p className="audit-empty">Selecione uma unidade na tabela acima. O resumo financeiro mostrará contas, parcelas e valores efetivamente extraídos.</p>}
