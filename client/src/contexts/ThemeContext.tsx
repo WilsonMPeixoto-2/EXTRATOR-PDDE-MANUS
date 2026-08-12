@@ -6,6 +6,8 @@ interface ThemeContextType {
   theme: Theme;
   toggleTheme?: () => void;
   switchable: boolean;
+  highContrast: boolean;
+  toggleHighContrast: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -28,6 +30,7 @@ export function ThemeProvider({
     }
     return defaultTheme;
   });
+  const [highContrast, setHighContrast] = useState(() => localStorage.getItem("pddeinfo-4cre:high-contrast") === "true");
 
   useEffect(() => {
     const root = document.documentElement;
@@ -42,6 +45,11 @@ export function ThemeProvider({
     }
   }, [theme, switchable]);
 
+  useEffect(() => {
+    document.documentElement.classList.toggle("high-contrast", highContrast);
+    localStorage.setItem("pddeinfo-4cre:high-contrast", String(highContrast));
+  }, [highContrast]);
+
   const toggleTheme = switchable
     ? () => {
         setTheme(prev => (prev === "light" ? "dark" : "light"));
@@ -49,7 +57,7 @@ export function ThemeProvider({
     : undefined;
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, switchable }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, switchable, highContrast, toggleHighContrast: () => setHighContrast(current => !current) }}>
       {children}
     </ThemeContext.Provider>
   );

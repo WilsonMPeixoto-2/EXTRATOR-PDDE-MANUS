@@ -112,6 +112,6 @@
 - [x] Refinar tipografia, espaçamento e cores institucionais do resumo financeiro e da lista de unidades para distinguir identificação, contas, parcelas e estados sem aumentar a complexidade visual.
 - [x] Adicionar tooltips acessíveis aos estados de evidência da auditoria, com explicação operacional ao passar o mouse ou navegar por teclado.
 - [x] Realizar acabamento editorial de alto nível na interface institucional, refinando tipografia, alinhamento, espaçamento, legibilidade, cores, ícones, botões e encontrabilidade sem alterar os fluxos ou dados financeiros.
-- [ ] Implementar tema de alto contraste acessível com alternância explícita, persistência da escolha e cobertura visual da execução e da auditoria.
+- [x] Implementar tema de alto contraste acessível com alternância explícita, persistência da escolha e cobertura visual da execução e da auditoria.
 - [x] Frente de notificações personalizadas descartada por solicitação do usuário antes da implementação; o foco permanece em layout, design, tipografia, cores, legibilidade e encontrabilidade.
 - [x] Reforçar a identidade institucional e a consistência entre execução e auditoria, aprimorando o cabeçalho da auditoria e a leitura de seus indicadores sem alterar conteúdos ou fluxos.

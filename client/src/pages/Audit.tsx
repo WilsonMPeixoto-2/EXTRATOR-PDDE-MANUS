@@ -1,5 +1,6 @@
 import { useAuth } from "../_core/hooks/useAuth";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { HighContrastToggle } from "@/components/HighContrastToggle";
 import { AlertTriangle, ArrowLeft, FileSearch, RefreshCw, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
@@ -173,7 +174,7 @@ export default function Audit() {
     <div className="audit-page">
       <header className="audit-topbar">
         <div className="audit-title-group"><div className="audit-title-mark" aria-hidden="true"><span>4</span><sup>ª</sup></div><div><span className="audit-kicker">4ª CRE · GAD · USO INTERNO</span><h1>Auditoria das escolas</h1><p>Escolha uma execução e uma unidade para consultar contas, parcelas, valores e, quando necessário, a respectiva evidência.</p></div></div>
-        <div className="audit-actions"><button onClick={() => void loadRuns()} disabled={loading || authLoading} className="audit-button"><RefreshCw size={16} className={loading ? "animate-spin" : ""} /> Atualizar</button><Link href="/" className="audit-back"><ArrowLeft size={16} /> Execução</Link></div>
+        <div className="audit-actions"><HighContrastToggle /><button onClick={() => void loadRuns()} disabled={loading || authLoading} className="audit-button"><RefreshCw size={16} className={loading ? "animate-spin" : ""} /> Atualizar</button><Link href="/" className="audit-back"><ArrowLeft size={16} /> Execução</Link></div>
       </header>
 
       {error && <div className="audit-error"><AlertTriangle size={17} /> {error}</div>}

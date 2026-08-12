@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { HighContrastToggle } from "@/components/HighContrastToggle";
 import {
   Activity, CheckCircle2, CircleAlert, CloudDownload,
   FileSpreadsheet, Gauge, LockKeyhole, Play, RefreshCw,
@@ -261,7 +262,7 @@ export default function Home() {
       <main className="command-center" id="operacao">
         <header className="topbar">
           <div className="breadcrumb">EXTRATOR FINANCEIRO PDDEINFO <span>/</span> 4ª CRE <span>/</span> EXERCÍCIO 2026</div>
-          <div className="top-status"><span className="status-dot" />SERVIÇO DISPONÍVEL <span className="top-divider" /> USO INTERNO</div>
+          <div className="topbar-controls"><HighContrastToggle /><div className="top-status"><span className="status-dot" />SERVIÇO DISPONÍVEL <span className="top-divider" /> USO INTERNO</div></div>
         </header>
 
         <section className="hero-grid">
