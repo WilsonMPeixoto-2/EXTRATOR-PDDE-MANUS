@@ -37,8 +37,8 @@ describe("catálogo de automação por fonte", () => {
     const extrato = sourceDefinition("SIGEF_EXTRATO");
     expect(contaCorrente).toMatchObject({ accessState: "PILOT_PENDING", autonomous: false });
     expect(contaCorrente.baseUrl).toContain("extrato-conta-corrente");
-    expect(extrato).toMatchObject({ accessState: "PILOT_PENDING", autonomous: false });
-    expect(extrato.detail).toContain("sem chave escolar/CNPJ visível");
+    expect(extrato).toMatchObject({ accessState: "PILOT_COMPLETED_WITH_LIMITATIONS", autonomous: false, collectionMethod: "file-import" });
+    expect(extrato.detail).toContain("programa, parcela e conta destinatária");
   });
 
   it("versiona o roteiro autônomo do PDDEInfo com retentativas e bloqueia fontes não autorizadas", () => {

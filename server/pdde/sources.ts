@@ -53,10 +53,10 @@ const SOURCE_AUTOMATION_CATALOG: SourceAutomationDefinition[] = [
   {
     source: "SIGEF_EXTRATO",
     label: "SIGEF — Movimentação Bancária",
-    accessState: "PILOT_PENDING",
+    accessState: "PILOT_COMPLETED_WITH_LIMITATIONS",
     autonomous: false,
-    collectionMethod: "browser-script",
-    detail: "Formulário público revalidado: exige exercício, programa e período, sem chave escolar/CNPJ visível no formulário inicial. Necessita de piloto para comprovar vínculo de conta, paginação e estornos.",
+    collectionMethod: "file-import",
+    detail: "Piloto de PDF autorizado concluído: armazenamento, hash, extração e recuperação auditáveis comprovados. O arquivo identificou créditos FNDE, mas não traz programa, parcela e conta destinatária suficientes para associação estrita. A automação do formulário público continua em piloto e não é habilitada.",
     baseUrl: "https://www.fnde.gov.br/sigefweb/index.php/extratos",
   },
   {
