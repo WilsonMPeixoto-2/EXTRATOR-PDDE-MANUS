@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildFinancialSchoolDossier, buildObservationComparisons, filterAuditObservations, filterAuditRuns, filterAuditSchools } from "./auditFilters";
+import { buildFinancialSchoolDossier, buildObservationComparisons, filterAuditObservations, filterAuditRuns, filterAuditSchools, operationalConsultationStatus, operationalRunStatus } from "./auditFilters";
 
 describe("filtros da auditoria", () => {
   it("filtra escolas pelo programa identificado na execução", () => {
@@ -12,6 +12,19 @@ describe("filtros da auditoria", () => {
     expect(filterAuditSchools(schools, "", "0410002")).toEqual([schools[1]]);
     expect(filterAuditSchools(schools, "básico", "33069247")).toEqual([schools[0]]);
     expect(filterAuditSchools(schools, "pnae", "33069247")).toEqual([]);
+  });
+
+  it("encontra a unidade pelo nome operacional sem perder os filtros de programa", () => {
+    const schools = [{ inep: "33069247", sme: "0410001", schoolName: "EM EMA NEGRAO DE LIMA", programsJson: ["PDDE"] }, { inep: "33069248", sme: "0410002", schoolName: "EM ALBINO SOUZA CRUZ", programsJson: ["PNAE"] }];
+    expect(filterAuditSchools(schools, "", "albino")).toEqual([schools[1]]);
+    expect(filterAuditSchools(schools, "pdde", "ema")).toEqual([schools[0]]);
+  });
+
+  it("traduz estados técnicos para a linguagem operacional da auditoria", () => {
+    expect(operationalRunStatus("approved")).toBe("Aprovada");
+    expect(operationalRunStatus("blocked")).toBe("Bloqueada");
+    expect(operationalConsultationStatus("success")).toBe("Dados extraídos");
+    expect(operationalConsultationStatus("failed")).toBe("Consulta sem dados");
   });
 
   it("filtra execuções por identificador, data ISO ou estado", () => {

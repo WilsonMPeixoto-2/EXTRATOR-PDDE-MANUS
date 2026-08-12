@@ -275,8 +275,8 @@ export default function Home() {
               </Button>
               {downloadUrl && validation?.passed ? (
                 <div className="download-actions">
-                  <a href={downloadUrl} className="download-link download-direct" download><FileSpreadsheet size={17} /> Baixar Excel V2 aprovado</a>
-                  <a href={downloadUrl} className="download-link" target="_blank" rel="noreferrer"><CloudDownload size={17} /> Abrir cópia persistente</a>
+                  <a href={downloadUrl} className="download-link download-direct" download><FileSpreadsheet size={17} /> Baixar planilha financeira</a>
+                  <a href={downloadUrl} className="download-link" target="_blank" rel="noreferrer"><CloudDownload size={17} /> Consultar cópia para auditoria</a>
                 </div>
               ) : <span className="download-locked"><LockKeyhole size={15} /> Download condicionado à validação</span>}
             </div>

@@ -101,3 +101,8 @@
 - [x] Executar testes controlados adicionais no SIGEF e em portais oficiais correlatos do FNDE/PDDE, usando o conector Parallel quando pertinente, para buscar campos verificáveis ainda indisponíveis sem contornar CAPTCHA ou controles de acesso.
 - [x] Documentar a evidência, a cobertura, a chave de associação e as limitações de cada nova fonte testada antes de habilitar qualquer integração no fluxo de produção.
 - [x] Atualizar o catálogo e os testes do SIGEF para registrar que a rota pública de Extratos exige reCAPTCHA, preservando o piloto por PDF autorizado como fonte separada e limitada.
+- [x] Renomear os acessos ao arquivo aprovado para distinguir claramente o download operacional da abertura da cópia de auditoria.
+- [x] Reorganizar a auditoria para priorizar nome da escola, INEP, situação financeira, contas e parcelas, retirando status técnicos como `success` da leitura principal.
+- [x] Tornar o dossiê financeiro da unidade selecionada imediatamente visível e identificável, com navegação clara entre lista, detalhe e rastreabilidade técnica.
+- [x] Relegar metadados de parsing, hashes, URLs, nomes internos de campo e eventos técnicos a uma área secundária expansível, preservando a auditoria sem poluir a operação.
+- [x] Revisar tipografia, cores, contraste, espaçamento e rótulos da auditoria para melhorar hierarquia, semântica e encontrabilidade.

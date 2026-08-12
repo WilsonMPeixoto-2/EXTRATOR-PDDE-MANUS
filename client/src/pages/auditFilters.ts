@@ -1,4 +1,4 @@
-export type AuditSchoolFilterItem = { inep: string; sme?: string | null; programsJson?: string[] | null };
+export type AuditSchoolFilterItem = { inep: string; sme?: string | null; schoolName?: string | null; programsJson?: string[] | null };
 export type AuditRunFilterItem = { id: string; status: string; startedAt?: string | null; completedAt?: string | null };
 export type AuditObservationFilterItem = {
   fieldPath: string;
@@ -38,9 +38,17 @@ export function filterAuditSchools<T extends AuditSchoolFilterItem>(schools: T[]
   if (!normalizedProgramQuery && !normalizedSchoolQuery) return schools;
   return schools.filter(school => {
     const matchesProgram = !normalizedProgramQuery || (school.programsJson ?? []).some(program => includesNormalized(program, normalizedProgramQuery));
-    const matchesSchool = !normalizedSchoolQuery || [school.inep, school.sme ?? ""].some(value => includesNormalized(value, normalizedSchoolQuery));
+    const matchesSchool = !normalizedSchoolQuery || [school.inep, school.sme ?? "", school.schoolName ?? ""].some(value => includesNormalized(value, normalizedSchoolQuery));
     return matchesProgram && matchesSchool;
   });
+}
+
+export function operationalRunStatus(status: string): string {
+  return ({ approved: "Aprovada", partial: "Parcial", blocked: "Bloqueada", failed: "Com falha", running: "Em andamento" } as Record<string, string>)[status] ?? status;
+}
+
+export function operationalConsultationStatus(status: string): string {
+  return status === "success" ? "Dados extraídos" : status === "failed" ? "Consulta sem dados" : status;
 }
 
 export function filterAuditObservations<T extends AuditObservationFilterItem>(observations: T[], fieldQuery: string): T[] {

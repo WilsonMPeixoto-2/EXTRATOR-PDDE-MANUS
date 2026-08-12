@@ -271,7 +271,18 @@ export async function getPersistedRunAuditOverview(runId: string) {
 
 export async function listRunSchools(runId: string) {
   const db = await getAuditDbOrThrow();
-  return db.select().from(schoolConsultations).where(eq(schoolConsultations.runId, runId)).orderBy(schoolConsultations.inep);
+  const [schools, schoolNames] = await Promise.all([
+    db.select().from(schoolConsultations).where(eq(schoolConsultations.runId, runId)).orderBy(schoolConsultations.inep),
+    db.select({ inep: fieldObservations.inep, rawValue: fieldObservations.rawValue, normalizedValueJson: fieldObservations.normalizedValueJson })
+      .from(fieldObservations)
+      .where(and(eq(fieldObservations.runId, runId), eq(fieldObservations.fieldPath, "schoolName"))),
+  ]);
+  const nameByInep = new Map(schoolNames.map(item => {
+    const normalized = item.normalizedValueJson as { value?: unknown } | null;
+    const schoolName = item.rawValue ?? (typeof normalized?.value === "string" ? normalized.value : null);
+    return [item.inep, schoolName];
+  }));
+  return schools.map(school => ({ ...school, schoolName: nameByInep.get(school.inep) ?? null }));
 }
 
 export async function getSchoolAuditDossier(runId: string, inep: string) {

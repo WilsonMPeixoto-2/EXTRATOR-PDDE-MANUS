@@ -161,6 +161,14 @@ describe("rotas operacionais protegidas do PDDE", () => {
     expect(await response.json()).toMatchObject({ runs: [expect.objectContaining({ id: "run-existente", status: "approved" })] });
   });
 
+  it("retorna nome da unidade na lista operacional da auditoria", async () => {
+    authenticateRequest.mockResolvedValue(user);
+    mockedListRunSchools.mockResolvedValue([{ inep: "33069247", sme: "0410001", schoolName: "EM EMA NEGRAO DE LIMA", status: "success", programsJson: ["PDDE"] }] as any);
+    const response = await request(appForTest(), "/api/pdde/audit/run/run-existente/schools");
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ schools: [expect.objectContaining({ inep: "33069247", schoolName: "EM EMA NEGRAO DE LIMA" })] });
+  });
+
   it("recupera a última execução aprovada com o link persistido do Excel", async () => {
     authenticateRequest.mockResolvedValue(user);
     mockedListPersistedAuditRuns.mockResolvedValue([{ id: "run-aprovada", status: "approved", masterCount: 163, processedCount: 163 }] as any);
