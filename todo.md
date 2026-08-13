@@ -115,3 +115,4 @@
 - [x] Implementar tema de alto contraste acessível com alternância explícita, persistência da escolha e cobertura visual da execução e da auditoria.
 - [x] Frente de notificações personalizadas descartada por solicitação do usuário antes da implementação; o foco permanece em layout, design, tipografia, cores, legibilidade e encontrabilidade.
 - [x] Reforçar a identidade institucional e a consistência entre execução e auditoria, aprimorando o cabeçalho da auditoria e a leitura de seus indicadores sem alterar conteúdos ou fluxos.
+- [x] Refinar tipografia, espaçamento, alinhamento e leitura visual das tabelas da execução e da auditoria, preservando integralmente os dados exibidos.
