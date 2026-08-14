@@ -42,6 +42,33 @@ describe("piloto SIGEF de extrato direto", () => {
     expect(selectSigefDirectExtractTargets(Array.from({ length: 6 }, (_, index) => record(`330687${index}`)))).toHaveLength(5);
   });
 
+  it("processa até quinze UEx em grupos de no máximo três e permite excluir escolas já consultadas", async () => {
+    const parsed = parseSigefDirectExtractHtml(html);
+    const collectInputs: Array<{ cnpj: string; period: string }> = [];
+    let active = 0;
+    let maximumActive = 0;
+    const records = Array.from({ length: 20 }, (_, index) => record(`33068${String(700 + index).padStart(3, "0")}`));
+    const result = await registerSigefDirectExtractPilot("run-expanded", records, {
+      collect: async input => {
+        collectInputs.push({ cnpj: input.cnpj, period: input.period });
+        active += 1;
+        maximumActive = Math.max(maximumActive, active);
+        await Promise.resolve();
+        active -= 1;
+        return { sourceUrl: "https://sigef.test", consultedAt: "2026-05-03T12:00:00.000Z", httpStatus: 200, attempts: 1, sourceHashSha256: "d".repeat(64), rawHtml: html, query: input, ...parsed };
+      },
+      store: async key => ({ key, url: `/manus-storage/${key}` }),
+      persistArtifact: async () => undefined,
+      appendTrail: async () => undefined,
+      wait: async () => undefined,
+      now: () => new Date("2026-05-03T12:00:00.000Z"),
+    }, { excludedIneps: [records[0]!.inep, records[1]!.inep] });
+    expect(result).toMatchObject({ attempted: 15, fetched: 15, failures: 0 });
+    expect(collectInputs).toHaveLength(15);
+    expect(collectInputs.every(input => input.period === "2026-01")).toBe(true);
+    expect(maximumActive).toBe(3);
+  });
+
   it("preserva página parcial como evidência incompleta sem conciliar crédito", async () => {
     const calls: Array<{ name: string; value: unknown }> = [];
     const partialHtml = html.replace("Exibindo de 1 até 1 de 1", "Exibindo de 1 até 1 de 147");

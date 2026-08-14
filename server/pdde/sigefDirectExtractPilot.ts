@@ -17,6 +17,14 @@ import type { AuditEvent, FieldProvenance, SchoolExtraction } from "./types";
 
 const pause = (milliseconds: number) => new Promise<void>(resolve => setTimeout(resolve, milliseconds));
 type StoredArtifact = { key: string; url: string };
+export const SIGEF_DIRECT_EXTRACT_BATCH_SIZE = 15;
+export const SIGEF_DIRECT_EXTRACT_CONCURRENCY = 3;
+
+export type SigefDirectExtractPilotOptions = {
+  limit?: number;
+  concurrency?: number;
+  excludedIneps?: readonly string[];
+};
 
 export type SigefDirectExtractPilotDependencies = {
   collect: (input: { bank: string; agency: string; account: string; cnpj: string; program: string; period: string }) => Promise<SigefDirectExtractCollection | SigefDirectExtractFullCollection>;
@@ -160,8 +168,12 @@ export async function registerSigefDirectExtractPilot(
   runId: string,
   records: SchoolExtraction[],
   dependencies: SigefDirectExtractPilotDependencies = productionDependencies,
+  options: SigefDirectExtractPilotOptions = {},
 ): Promise<SigefDirectExtractPilotResult> {
-  const targets = selectSigefDirectExtractTargets(records, 5);
+  const limit = Math.max(1, Math.min(options.limit ?? SIGEF_DIRECT_EXTRACT_BATCH_SIZE, SIGEF_DIRECT_EXTRACT_BATCH_SIZE));
+  const concurrency = Math.max(1, Math.min(options.concurrency ?? SIGEF_DIRECT_EXTRACT_CONCURRENCY, SIGEF_DIRECT_EXTRACT_CONCURRENCY));
+  const excludedIneps = new Set(options.excludedIneps ?? []);
+  const targets = selectSigefDirectExtractTargets(records.filter(record => !excludedIneps.has(record.inep)), limit);
   const events: AuditEvent[] = [];
   let fetched = 0;
   let movementsPreserved = 0;
@@ -172,8 +184,7 @@ export async function registerSigefDirectExtractPilot(
   let paginationLimited = 0;
   let failures = 0;
 
-  for (let index = 0; index < targets.length; index += 1) {
-    const target = targets[index]!;
+  const processTarget = async (target: SigefDirectExtractTarget) => {
     try {
       const collection = await dependencies.collect({
         bank: target.bankCode,
@@ -234,7 +245,8 @@ export async function registerSigefDirectExtractPilot(
           program: "02",
           requestedPeriod: collection.query.period,
           allowedYears: "2025-2026",
-          pilotLimit: 5,
+          pilotLimit: limit,
+          concurrency,
           returnedRows: collection.transactions.length,
           rawTransactionRows: collection.rawTransactionRows,
           movementsPreserved: movements.length,
@@ -287,12 +299,15 @@ export async function registerSigefDirectExtractPilot(
         inep: target.record.inep,
         fieldId: null,
         message: "Detalhamento SIGEF não concluído para a UEx selecionada; o PDDEInfo e o Excel permanecem inalterados.",
-        payload: { source: "SIGEF_EXTRATO", program: "02", pilotLimit: 5, exception: error instanceof Error ? error.message : "Falha desconhecida" },
+        payload: { source: "SIGEF_EXTRATO", program: "02", pilotLimit: limit, concurrency, exception: error instanceof Error ? error.message : "Falha desconhecida" },
       };
       events.push(failure);
       await dependencies.appendTrail(runId, target.record.inep, [], [failure]);
     }
-    if (index + 1 < targets.length) await dependencies.wait(900);
+  };
+  for (let start = 0; start < targets.length; start += concurrency) {
+    await Promise.all(targets.slice(start, start + concurrency).map(processTarget));
+    if (start + concurrency < targets.length) await dependencies.wait(1_200);
   }
   return { attempted: targets.length, fetched, movementsPreserved, duplicateMovementsCollapsed, locatedCredits, divergentPayments, inconclusivePayments, paginationLimited, failures, events };
 }

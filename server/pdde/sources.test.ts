@@ -38,7 +38,7 @@ describe("catálogo de automação por fonte", () => {
     expect(contaCorrente.baseUrl).toContain("extrato-conta-corrente");
     expect(extrato).toMatchObject({ accessState: "AUTONOMOUS_AVAILABLE", autonomous: true, collectionMethod: "http" });
     expect(extrato.detail).toContain("programa 02");
-    expect(extrato.detail).toContain("cinco UEx");
+    expect(extrato.detail).toContain("quinze UEx");
     expect(extrato.detail).toContain("2026");
   });
 

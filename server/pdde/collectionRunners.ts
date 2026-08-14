@@ -34,7 +34,7 @@ export function sourceCollectionPlan(source: EvidenceSource): SourceCollectionPl
       allowed: true,
       maxAttempts: 2,
       retryBackoffMs: 1_200,
-      reason: "Detalhamento público SIGEF comprovado em piloto para contas PDDE Básico explicitamente declaradas, Banco do Brasil e programa 02; a coleta é limitada aos exercícios de 2025 e 2026, preserva HTML, paginação e evidência por consulta.",
+      reason: "Detalhamento público SIGEF comprovado em piloto para contas PDDE Básico explicitamente declaradas, Banco do Brasil e programa 02; a coleta é limitada aos exercícios de 2025 e 2026, processa até 15 UEx em grupos de três consultas simultâneas e preserva HTML, paginação e evidência por consulta.",
     };
   }
   return {
