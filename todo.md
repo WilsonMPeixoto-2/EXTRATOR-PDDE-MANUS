@@ -117,3 +117,4 @@
 - [x] Reforçar a identidade institucional e a consistência entre execução e auditoria, aprimorando o cabeçalho da auditoria e a leitura de seus indicadores sem alterar conteúdos ou fluxos.
 - [x] Refinar tipografia, espaçamento, alinhamento e leitura visual das tabelas da execução e da auditoria, preservando integralmente os dados exibidos.
 - [x] Padronizar e modernizar ícones, botões e seus estados de interação em toda a interface, com consistência de proporção, contraste, foco e uso em telas compactas.
+- [x] Analisar individualmente as fontes oficiais de dados do PDDE indicadas no relatório, validar cobertura, acesso permitido, chave de associação, rastreabilidade e viabilidade de integração ao Extrator da 4ª CRE.
