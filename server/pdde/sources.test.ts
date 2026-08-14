@@ -10,11 +10,11 @@ describe("catálogo de automação por fonte", () => {
     expect(pddeInfoSchoolUrl("33069247")).toContain("co_escola/33069247");
   });
 
-  it("não apresenta a consulta SIGEF protegida por CAPTCHA como autônoma", () => {
+  it("habilita apenas a rota SIGEF legada de Liberações comprovada, sem reclassificar a interface moderna com CAPTCHA", () => {
     const liberacoes = sourceDefinition("SIGEF_LIBERACAO");
-    expect(liberacoes.autonomous).toBe(false);
-    expect(liberacoes.accessState).toBe("CAPTCHA_REQUIRED");
-    expect(liberacoes.collectionMethod).toBe("institutional-channel");
+    expect(liberacoes).toMatchObject({ autonomous: true, accessState: "AUTONOMOUS_AVAILABLE", collectionMethod: "http" });
+    expect(liberacoes.baseUrl).toContain("internet_fnde.liberacoes_01_pc");
+    expect(liberacoes.detail).toContain("CAPTCHA");
   });
 
   it("exibe todas as fontes previstas sem depender de serviço externo", () => {
@@ -26,7 +26,6 @@ describe("catálogo de automação por fonte", () => {
   it("classifica bloqueios externos e pilotos sem mascará-los como falha do PDDEInfo", () => {
     const pending = sourceAutomationCatalog().filter(source => !source.autonomous);
     expect(pending).toEqual(expect.arrayContaining([
-      expect.objectContaining({ source: "SIGEF_LIBERACAO", accessState: "CAPTCHA_REQUIRED" }),
       expect.objectContaining({ source: "EXTRATO_BB", accessState: "AUTHORIZATION_REQUIRED" }),
       expect.objectContaining({ source: "SIGEF_CONTA_CORRENTE", accessState: "CAPTCHA_REQUIRED" }),
     ]));
@@ -42,9 +41,9 @@ describe("catálogo de automação por fonte", () => {
     expect(extrato.detail).toContain("reCAPTCHA");
   });
 
-  it("versiona o roteiro autônomo do PDDEInfo com retentativas e bloqueia fontes não autorizadas", () => {
+  it("versiona os roteiros autônomos comprovados e mantém bloqueadas as fontes não autorizadas", () => {
     expect(sourceCollectionPlan("PDDEINFO")).toMatchObject({ allowed: true, version: "PDDEINFO_HTTP_RUNNER_V1", maxAttempts: 3, retryBackoffMs: 900 });
-    expect(() => assertSourceCollectionPermitted("SIGEF_LIBERACAO")).toThrow("CAPTCHA_REQUIRED");
+    expect(assertSourceCollectionPermitted("SIGEF_LIBERACAO")).toMatchObject({ allowed: true, version: "SIGEF_LEGACY_LIBERACAO_HTTP_V1", maxAttempts: 2, retryBackoffMs: 1_200 });
     expect(sourceCollectionPlan("SIGEF_CONTA_CORRENTE")).toMatchObject({ allowed: false, maxAttempts: 0, version: "SOURCE_RUNNER_BLOCKED_V1" });
   });
 });

@@ -34,12 +34,12 @@ const SOURCE_AUTOMATION_CATALOG: SourceAutomationDefinition[] = [
   },
   {
     source: "SIGEF_LIBERACAO",
-    label: "SIGEF — Liberação de Recursos",
-    accessState: "CAPTCHA_REQUIRED",
-    autonomous: false,
-    collectionMethod: "institutional-channel",
-    detail: "A tela pública exige CAPTCHA; o sistema não tenta contornar esse controle de acesso.",
-    baseUrl: "https://www.fnde.gov.br/sigefweb/index.php/liberacoes",
+    label: "SIGEF — Liberações (rota legada pública)",
+    accessState: "AUTONOMOUS_AVAILABLE",
+    autonomous: true,
+    collectionMethod: "http",
+    detail: "Apenas a rota legada pública de Liberações foi comprovada em piloto controlado. A interface SIGEF moderna continua protegida por CAPTCHA e não é automatizada.",
+    baseUrl: "https://www.fnde.gov.br/pls/simad/internet_fnde.liberacoes_01_pc",
   },
   {
     source: "SIGEF_CONTA_CORRENTE",

@@ -17,6 +17,16 @@ export type SourceCollectionPlan = {
 export function sourceCollectionPlan(source: EvidenceSource): SourceCollectionPlan {
   const definition = sourceDefinition(source);
   const allowed = definition.autonomous && definition.accessState === "AUTONOMOUS_AVAILABLE";
+  if (source === "SIGEF_LIBERACAO" && allowed) {
+    return {
+      source,
+      version: "SIGEF_LEGACY_LIBERACAO_HTTP_V1",
+      allowed: true,
+      maxAttempts: 2,
+      retryBackoffMs: 1_200,
+      reason: "Rota SIGEF legada pública comprovada em piloto; a coleta é limitada a CNPJs UEx confirmados e preserva a resposta HTML por consulta.",
+    };
+  }
   return {
     source,
     version: source === "PDDEINFO" ? "PDDEINFO_HTTP_RUNNER_V1" : "SOURCE_RUNNER_BLOCKED_V1",

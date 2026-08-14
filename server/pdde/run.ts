@@ -10,6 +10,7 @@ import { assertSourceCollectionPermitted } from "./collectionRunners";
 import type { AuditEvent, AuditEventType, AuditRecord, SchoolExtraction, ValidationSummary } from "./types";
 import { canReleaseDownload, createV2Workbook, validateExtraction } from "./workbook";
 import { persistOpenDataControl, type OpenDataControlInput, type OpenDataControlPersistence } from "./openDataControl";
+import { registerSigefLegacyLiberationPilot } from "./sigefLiberationPilot";
 
 const delay = (milliseconds: number) => new Promise(resolve => setTimeout(resolve, milliseconds));
 
@@ -268,6 +269,11 @@ export async function runExtraction(onEvent: (event: ExtractionEvent) => void, c
     await updateAuditRunProgress(runId, effectiveAuditsForValidation(run.audits).length);
     await appendAuditTrail(runId, recovered.audit.inep, recovered.record?.fieldProvenance ?? [], recovered.events);
   }
+
+  // Piloto complementar e limitado: não bloqueia a execução nem preenche campos
+  // primários do PDDEInfo. As observações SIGEF ficam anexadas à trilha da mesma execução.
+  const sigefPilot = await registerSigefLegacyLiberationPilot(runId, run.records);
+  run.auditEvents.push(...sigefPilot.events);
 
   const baseline = await loadLatestApprovedPaymentSnapshots(runId);
   const historicalFindings = baseline.runId

@@ -65,7 +65,7 @@ Nunca versione `.env`, arquivos de evidência bruta, exportações operacionais,
 
 ## 7. Fontes complementares e limites
 
-O piloto de movimentação SIGEF por PDF autorizado foi processado como evidência parcial. Os formulários públicos SIGEF Liberação e Conta Corrente exigem reCAPTCHA após o preenchimento; continuam classificados como bloqueios externos. O projeto não contorna CAPTCHA, não solicita trabalho manual ao operador para fabricar chaves de conciliação e não infere conta, crédito ou parcela ausente.
+O piloto de movimentação SIGEF por PDF autorizado foi processado como evidência parcial. A rota **legada** de Liberações SIGEF foi habilitada como piloto operacional limitado: em cada execução, consulta até cinco UEx com CNPJ confirmado e pagamento básico registrado, guarda HTML/JSON/hash e só produz a evidência `OB_CORROBORADA_CREDITO_NAO_LOCALIZADO` quando CNPJ, parcela, data e valor coincidem com o PDDEInfo. OB, banco, agência e conta permanecem atributos da fonte SIGEF; não preenchem `Dados Bancários` do PDDEInfo. Valor, OB ou identidade bancária conflitantes geram `DIVERGENCIA_ENTRE_FONTES` e bloqueiam a associação. As interfaces SIGEF modernas de Liberações, Conta Corrente e Extratos continuam sujeitas a reCAPTCHA e não são automatizadas.
 
 O backlog futuro de fontes externas é não bloqueante. A operação PDDEInfo, o Excel e a auditoria devem continuar disponíveis independentemente de SIGEF.
 

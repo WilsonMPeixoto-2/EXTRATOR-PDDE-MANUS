@@ -26,7 +26,7 @@
 - [x] Validar tecnicamente as consultas públicas SIGEF de Liberação de Recursos, Conta Corrente e Movimentação Bancária, sem assumir disponibilidade ou chaves de ligação.
 - [x] Modelar proveniência por campo e status de conciliação entre PDDEInfo, SIGEF e confirmação bancária.
 - [x] Manter dados de fontes distintas separados, sem preenchimento silencioso de conta, pagamento ou crédito.
-- [ ] Integrar somente as rotas SIGEF comprovadamente acessíveis, com evidência, limites de consulta e tratamento de divergências. SIGEF_EXTRATO permanece integrado somente por arquivo autorizado; SIGEF_LIBERACAO e SIGEF_CONTA_CORRENTE estão registrados como CAPTCHA_REQUIRED e aguardam uma rota pública utilizável ou canal autorizado.
+- [x] Integrar somente as rotas SIGEF comprovadamente acessíveis, com evidência, limites de consulta e tratamento de divergências. SIGEF_EXTRATO permanece integrado somente por arquivo autorizado; a rota legada pública de SIGEF_LIBERACAO foi habilitada como piloto limitado e auditável; a interface moderna e SIGEF_CONTA_CORRENTE permanecem CAPTCHA_REQUIRED.
 - [x] Criar contrato de proveniência por campo, incluindo fonte, URL, evidência bruta, regra de parsing, transformação, hash, validações e nível de confirmação.
 - [x] Modelar eventos de auditoria imutáveis para coleta, parsing, normalização, validação, conciliação, exportação e intervenção humana.
 - [x] Implementar interface de auditoria com busca por execução, escola, programa e campo; painel de evidência; linha do tempo; comparador histórico e fila de exceções.
@@ -35,7 +35,7 @@
 - [x] Popular resultados de validação e estado de evidência no pipeline de extração, refletindo-os na auditoria, interface e Excel.
 - [x] Cobrir em testes o preenchimento real de proveniência, validações e estados, além da existência dos tipos.
 - [x] Produzir matriz de viabilidade técnica por fonte, distinguindo capacidade já comprovada, integração possível mediante piloto e dependências institucionais de acesso/autorização.
-- [ ] Executar piloto controlado de navegação, consulta, extração, armazenamento e recuperação de evidências antes de habilitar cada fonte em produção. SIGEF_EXTRATO por arquivo teve piloto completo; SIGEF_LIBERACAO e SIGEF_CONTA_CORRENTE aguardam canal acessível/autorizado antes de piloto completo.
+- [ ] Executar piloto controlado de navegação, consulta, extração, armazenamento e recuperação de evidências antes de habilitar cada fonte em produção. SIGEF_EXTRATO por arquivo e SIGEF_LIBERACAO pela rota legada pública tiveram piloto completo; SIGEF_CONTA_CORRENTE permanece dependente de canal acessível/autorizado.
 - [x] Implementar uma camada autônoma de coleta por fonte, com roteiros determinísticos, parâmetros versionados, retentativas, limites e registro de cada navegação permitida.
 - [x] Exibir no sistema bloqueios externos de acesso, como CAPTCHA, como estado operacional pendente de canal autorizado — nunca como falha silenciosa ou ausência de informação.
 - [x] Comparar ferramentas de coleta e automação por aderência ao PDDEInfo/SIGEF, licenças, custo operacional, determinismo, evidência preservada e respeito a CAPTCHA.
@@ -119,3 +119,5 @@
 - [x] Padronizar e modernizar ícones, botões e seus estados de interação em toda a interface, com consistência de proporção, contraste, foco e uso em telas compactas.
 - [x] Analisar individualmente as fontes oficiais de dados do PDDE indicadas no relatório, validar cobertura, acesso permitido, chave de associação, rastreabilidade e viabilidade de integração ao Extrator da 4ª CRE.
 - [x] Investigar experimentalmente, fonte por fonte, as possibilidades de conexão, consulta e extração permitida de dados oficiais do PDDE, classificando integrações por evidência técnica real antes de qualquer implementação produtiva.
+- [x] Implementar piloto restrito da rota legada pública de Liberações SIGEF, limitado a CNPJs UEx confirmados, com coleta em ritmo controlado, HTML/hash por resposta e conciliação por CNPJ, programa, data e valor, preservando OB e conta como evidência externa sem preencher silenciosamente o PDDEInfo.
+- [x] Registrar e testar divergências explícitas de SIGEF_LIBERACAO quando CNPJ/parcela/data coincidirem, mas valor, OB ou dados bancários da evidência divergirem, sem preencher campos do PDDEInfo.
