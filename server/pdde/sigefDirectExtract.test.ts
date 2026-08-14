@@ -5,6 +5,7 @@ import {
   normalizeSigefDirectExtractQuery,
   parseSigefDirectExtractHtml,
   selectSigefDirectExtractTargets,
+  sigefDirectExtractMovementDeduplicationKey,
   sigefDirectExtractUrl,
 } from "./sigefDirectExtract";
 import type { SchoolExtraction } from "./types";
@@ -41,6 +42,25 @@ describe("SIGEF — detalhamento público de extrato", () => {
     expect(parsed.header).toMatchObject({ cnpj: "02.016.546/0001-66", bankCode: "001", agency: "0249", account: "000054966X", programCode: "02" });
     expect(parsed.transactions).toEqual(expect.arrayContaining([expect.objectContaining({ date: "2026-05-03", credit: 5305, document: "1974995000840", historic: "ORDEM BANCARIA" })]));
     expect(parsed.reportedTotal).toBe(119);
+    expect(parsed.transactions[0]?.deduplicationKey).toHaveLength(64);
+  });
+
+  it("colapsa somente linhas idênticas por chave auxiliar, sem colidir documento com direção distinta", () => {
+    const duplicateRow = `<tr><td>03/05/2026</td><td>5.305,00</td><td>0</td><td>1974995000840</td><td>ORDEM BANCARIA</td><td>00.378.257/0001-81</td><td>FUNDO NACIONAL DE DESENVOLVIMENTO DA EDUCACAO</td><td>001</td><td>1607</td><td>0997380845</td></tr>`;
+    const parsed = parseSigefDirectExtractHtml(html.replace("</table>", `${duplicateRow}</table>`));
+    expect(parsed).toMatchObject({ rawTransactionRows: 3 });
+    expect(parsed.transactions).toHaveLength(2);
+    expect(parsed.duplicateRows).toHaveLength(1);
+    const credit = parsed.transactions.find(transaction => transaction.credit > 0)!;
+    const sameTransactionWithFormattingNoise = {
+      ...credit,
+      document: "1.974.995.000.840",
+      historic: " ordem   bancária ",
+      selector: "tr:nth-of-type(99)",
+    };
+    const debitWithSameDocument = { ...credit, credit: 0, debit: credit.credit };
+    expect(sigefDirectExtractMovementDeduplicationKey(parsed.header, credit)).toBe(sigefDirectExtractMovementDeduplicationKey(parsed.header, sameTransactionWithFormattingNoise));
+    expect(sigefDirectExtractMovementDeduplicationKey(parsed.header, credit)).not.toBe(sigefDirectExtractMovementDeduplicationKey(parsed.header, debitWithSameDocument));
   });
 
   it("não concilia crédito quando o extrato declara paginação parcial", () => {

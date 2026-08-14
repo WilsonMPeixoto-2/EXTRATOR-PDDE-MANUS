@@ -142,3 +142,6 @@
 - [x] Corrigir o adaptador SIGEF após comprovar, em URL já preservada, que o extrato pode informar `Exibindo de 1 até 10 de 147`; movimentos de página parcial não podem ser apresentados como livro-razão completo nem alimentar conciliação de crédito.
 - [x] Confrontar os novos relatórios e códigos de auditoria de 10 escolas com os artefatos e limitações do projeto, verificando especialmente paginação, mapeamento de programas, contas e classificações apresentadas como conclusivas.
 - [x] Documentar quais práticas dos novos materiais podem orientar pilotos futuros e quais permanecem rejeitadas por inferência contábil, falta de cobertura completa ou ausência de chave de vínculo comprovada.
+- [x] Criar chave auxiliar determinística de movimentação SIGEF a partir de conta, programa, CNPJ, data, direção, documento, valor e histórico normalizado, preservando o hash bruto e a evidência original.
+- [x] Deduplicar somente linhas idênticas dentro da mesma resposta ou de reconsultas equivalentes, sem apagar fatos históricos, ocultar divergências ou mesclar movimentos distintos com o mesmo documento.
+- [x] Cobrir a chave e a deduplicação com testes de normalização, repetição idêntica, documento repetido com valor/direção distintos e preservação de evidência.

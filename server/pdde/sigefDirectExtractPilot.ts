@@ -37,6 +37,7 @@ export type SigefDirectExtractPilotResult = {
   attempted: number;
   fetched: number;
   movementsPreserved: number;
+  duplicateMovementsCollapsed: number;
   locatedCredits: number;
   divergentPayments: number;
   inconclusivePayments: number;
@@ -113,13 +114,13 @@ function movementFields(input: {
   const paginationNotice = partialPage
     ? `Página parcial SIGEF: ${input.collection.transactions.length} de ${input.collection.reportedTotal} movimentações declaradas. `
     : "";
-  return input.collection.transactions.map((transaction, index) => {
-    const logicalKey = `sigefExtrato:movement:${transaction.date}:${transaction.document}:${index}`;
+  return input.collection.transactions.map(transaction => {
+    const logicalKey = `sigefExtrato:movement:${transaction.deduplicationKey}`;
     const direction = transaction.credit > 0 ? "crédito" : "débito";
     const amount = transaction.credit > 0 ? transaction.credit : transaction.debit;
     return {
       fieldId: `${input.target.record.inep}:SIGEF_EXTRATO:${logicalKey}`,
-      fieldPath: `sigefExtrato.movements[${index}]`,
+      fieldPath: `sigefExtrato.movements.${transaction.deduplicationKey}`,
       logicalKey,
       source: "SIGEF_EXTRATO" as const,
       sourceUrl: input.collection.sourceUrl,
@@ -132,13 +133,14 @@ function movementFields(input: {
         normalizedJsonUrl: input.normalizedArtifact.url,
       },
       rawValue: JSON.stringify(transaction),
-      normalizedValue: transaction.document,
+      normalizedValue: transaction.deduplicationKey,
       parserVersion: SIGEF_DIRECT_EXTRACT_PARSER_VERSION,
       extractionRule: "sigef-direct-extract-program-02-movement-row",
       selector: transaction.selector,
-      evidenceSnippet: `${paginationNotice}SIGEF extrato: ${direction} de ${amount.toFixed(2)} em ${transaction.date}; documento ${transaction.document}; histórico ${transaction.historic}; favorecido ${transaction.beneficiaryName ?? "não informado"} (${transaction.beneficiaryCnpj ?? "não informado"}).`,
+      evidenceSnippet: `${paginationNotice}SIGEF extrato: ${direction} de ${amount.toFixed(2)} em ${transaction.date}; documento ${transaction.document}; histórico ${transaction.historic}; favorecido ${transaction.beneficiaryName ?? "não informado"} (${transaction.beneficiaryCnpj ?? "não informado"}); chave auxiliar ${transaction.deduplicationKey.slice(0, 16)}.`,
       validationResults: [
         { code: "source-hash", level: "passed", message: "Hash SHA-256 da resposta SIGEF de extrato presente." },
+        { code: "deduplication-key", level: "passed", message: "Chave auxiliar determinística calculada a partir da identidade da conta e dos atributos estáveis da movimentação." },
         ...(partialPage ? [{ code: "pagination-partial", level: "warning" as const, message: `A rota declarou ${input.collection.reportedTotal} movimentações, mas retornou ${input.collection.transactions.length}; esta linha não representa livro-razão completo.` }] : []),
         { code: "movement-semantics", level: "warning", message: "Movimentação preservada como fato do extrato; não classifica despesa, saldo real, prestação de contas ou regularidade." },
       ],
@@ -160,6 +162,7 @@ export async function registerSigefDirectExtractPilot(
   const events: AuditEvent[] = [];
   let fetched = 0;
   let movementsPreserved = 0;
+  let duplicateMovementsCollapsed = 0;
   let locatedCredits = 0;
   let divergentPayments = 0;
   let inconclusivePayments = 0;
@@ -198,6 +201,7 @@ export async function registerSigefDirectExtractPilot(
       const limited = collection.reportedTotal !== null && collection.reportedTotal > collection.transactions.length;
       locatedCredits += located;
       movementsPreserved += movements.length;
+      duplicateMovementsCollapsed += collection.duplicateRows.length;
       divergentPayments += divergent;
       inconclusivePayments += inconclusive;
       if (limited) paginationLimited += 1;
@@ -227,7 +231,9 @@ export async function registerSigefDirectExtractPilot(
           program: "02",
           pilotLimit: 5,
           returnedRows: collection.transactions.length,
+          rawTransactionRows: collection.rawTransactionRows,
           movementsPreserved: movements.length,
+          duplicateMovementsCollapsed: collection.duplicateRows.length,
           reportedTotal: collection.reportedTotal,
           paginationLimited: limited,
           locatedCredits: located,
@@ -258,8 +264,8 @@ export async function registerSigefDirectExtractPilot(
         fieldId: null,
         message: limited
           ? `${movements.length} movimentação(ões) da página parcial SIGEF foram preservadas como evidência incompleta; não representam livro-razão total nem conciliação de crédito.`
-          : `${movements.length} movimentação(ões) de crédito e débito do extrato SIGEF foram preservadas como evidência, sem classificação contábil automática.`,
-        payload: { source: "SIGEF_EXTRATO", program: "02", movementCount: movements.length, reportedTotal: collection.reportedTotal, paginationLimited: limited, artifact: rawArtifact.key },
+          : `${movements.length} movimentação(ões) de crédito e débito do extrato SIGEF foram preservadas como evidência, sem classificação contábil automática.${collection.duplicateRows.length > 0 ? ` ${collection.duplicateRows.length} linha(s) idêntica(s) foram colapsadas pela chave auxiliar, com a resposta bruta preservada.` : ""}`,
+        payload: { source: "SIGEF_EXTRATO", program: "02", movementCount: movements.length, rawTransactionRows: collection.rawTransactionRows, duplicateMovementsCollapsed: collection.duplicateRows.length, reportedTotal: collection.reportedTotal, paginationLimited: limited, artifact: rawArtifact.key },
       };
       const trailEvents = movementEvent ? [fetchedEvent, ...reconciliationEvents, movementEvent] : [fetchedEvent, ...reconciliationEvents];
       events.push(...trailEvents);
@@ -283,5 +289,5 @@ export async function registerSigefDirectExtractPilot(
     }
     if (index + 1 < targets.length) await dependencies.wait(900);
   }
-  return { attempted: targets.length, fetched, movementsPreserved, locatedCredits, divergentPayments, inconclusivePayments, paginationLimited, failures, events };
+  return { attempted: targets.length, fetched, movementsPreserved, duplicateMovementsCollapsed, locatedCredits, divergentPayments, inconclusivePayments, paginationLimited, failures, events };
 }

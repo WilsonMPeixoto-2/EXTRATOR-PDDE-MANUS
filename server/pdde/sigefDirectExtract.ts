@@ -101,14 +101,73 @@ export type SigefDirectExtractTransaction = {
   beneficiaryAgency?: string;
   beneficiaryAccount?: string;
   selector: string;
+  deduplicationKey: string;
+};
+
+type SigefDirectExtractTransactionInput = Omit<SigefDirectExtractTransaction, "deduplicationKey">;
+
+export type SigefDirectExtractDuplicateRow = {
+  deduplicationKey: string;
+  retainedSelector: string;
+  duplicateSelector: string;
 };
 
 export type SigefDirectExtractParsed = {
   header: SigefDirectExtractHeader;
   transactions: SigefDirectExtractTransaction[];
+  rawTransactionRows: number;
+  duplicateRows: SigefDirectExtractDuplicateRow[];
   reportedTotal: number | null;
   ignoredRows: number;
 };
+
+/**
+ * Identifica uma linha de extrato sem usar índice ou seletor HTML. A chave é auxiliar:
+ * não substitui a resposta bruta, o hash da fonte nem a evidência navegável da linha.
+ */
+export function sigefDirectExtractMovementDeduplicationKey(
+  header: SigefDirectExtractHeader,
+  transaction: SigefDirectExtractTransactionInput | SigefDirectExtractTransaction,
+): string {
+  const direction = transaction.credit > 0 ? "CREDIT" : transaction.debit > 0 ? "DEBIT" : "ZERO";
+  const amountInCents = Math.round((transaction.credit > 0 ? transaction.credit : transaction.debit) * 100);
+  const canonicalAccount = clean(header.account).replace(/[^\dA-Za-z]/g, "").toUpperCase();
+  const identity = [
+    "SIGEF_MOVEMENT_V1",
+    digits(header.cnpj),
+    header.bankCode ?? normalize(header.bank),
+    digits(header.agency),
+    canonicalAccount,
+    header.programCode ?? normalize(header.program),
+    transaction.date,
+    direction,
+    String(amountInCents),
+    digits(transaction.document) || normalize(transaction.document),
+    normalize(transaction.historic),
+  ].join("|");
+  return createHash("sha256").update(identity, "utf8").digest("hex");
+}
+
+function deduplicateSigefDirectExtractTransactions(
+  header: SigefDirectExtractHeader,
+  input: SigefDirectExtractTransactionInput[],
+): { transactions: SigefDirectExtractTransaction[]; duplicateRows: SigefDirectExtractDuplicateRow[] } {
+  const transactions: SigefDirectExtractTransaction[] = [];
+  const retainedByKey = new Map<string, SigefDirectExtractTransaction>();
+  const duplicateRows: SigefDirectExtractDuplicateRow[] = [];
+  for (const row of input) {
+    const deduplicationKey = sigefDirectExtractMovementDeduplicationKey(header, row);
+    const transaction = { ...row, deduplicationKey };
+    const retained = retainedByKey.get(deduplicationKey);
+    if (retained) {
+      duplicateRows.push({ deduplicationKey, retainedSelector: retained.selector, duplicateSelector: transaction.selector });
+      continue;
+    }
+    retainedByKey.set(deduplicationKey, transaction);
+    transactions.push(transaction);
+  }
+  return { transactions, duplicateRows };
+}
 
 function headerValue(text: string, label: string, nextLabel: string): string | null {
   const expression = new RegExp(`${label}:\\s*(.*?)\\s+${nextLabel}:`, "i");
@@ -126,7 +185,7 @@ export function parseSigefDirectExtractHtml(html: string): SigefDirectExtractPar
   const program = headerValue(text, "Programa", "M[êe]s/Ano In[ií]cio");
   const period = nullableValue(text.match(/M[êe]s\/Ano In[ií]cio:\s*(\d{2}\/\d{4})/i)?.[1]) ?? null;
   const accountHolderName = headerValue(text, "Raz[ãa]o Social", "Banco");
-  const transactions: SigefDirectExtractTransaction[] = [];
+  const rawTransactions: SigefDirectExtractTransactionInput[] = [];
   let ignoredRows = 0;
 
   $("tr").each((rowIndex, tr) => {
@@ -139,7 +198,7 @@ export function parseSigefDirectExtractHtml(html: string): SigefDirectExtractPar
       ignoredRows += 1;
       return;
     }
-    transactions.push({
+    rawTransactions.push({
       date,
       credit,
       debit,
@@ -153,20 +212,24 @@ export function parseSigefDirectExtractHtml(html: string): SigefDirectExtractPar
       selector: `tr:nth-of-type(${rowIndex + 1})`,
     });
   });
+  const header: SigefDirectExtractHeader = {
+    cnpj,
+    accountHolderName,
+    bank,
+    bankCode: bank ? sigefBankCode(bank) : null,
+    agency,
+    account,
+    program,
+    programCode: program?.match(/^\s*([A-Z0-9]{2})\b/i)?.[1]?.toUpperCase() ?? null,
+    period,
+  };
+  const { transactions, duplicateRows } = deduplicateSigefDirectExtractTransactions(header, rawTransactions);
   const reportedTotal = Number(text.match(/Exibindo de\s+\d+\s+at[ée]\s+\d+\s+de\s+(\d+)/i)?.[1]);
   return {
-    header: {
-      cnpj,
-      accountHolderName,
-      bank,
-      bankCode: bank ? sigefBankCode(bank) : null,
-      agency,
-      account,
-      program,
-      programCode: program?.match(/^\s*([A-Z0-9]{2})\b/i)?.[1]?.toUpperCase() ?? null,
-      period,
-    },
+    header,
     transactions,
+    rawTransactionRows: rawTransactions.length,
+    duplicateRows,
     reportedTotal: Number.isFinite(reportedTotal) ? reportedTotal : null,
     ignoredRows,
   };
