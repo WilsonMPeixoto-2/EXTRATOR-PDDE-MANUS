@@ -150,3 +150,4 @@
 - [x] Implementar coleta integral pela planilha pública `visualizaexcel`, preservando arquivo HTML/XLS, JSON normalizado, hash, URL e contador de movimentos antes de permitir conciliação de crédito.
 - [x] Validar em piloto a cobertura das 144 movimentações declaradas para a conta PDDE Básico da EM Presidente Eurico Dutra, sem tratar a execução como completa se o arquivo falhar, a identidade divergir ou a contagem final não corresponder ao total declarado. O piloto de 14/08/2026 confirmou 144/144 linhas, sem duplicatas, usando a contagem de linhas do detalhamento porque o contador textual não foi emitido na resposta real.
 - [x] Cobrir arquivo integral, falha de download, deduplicação de linhas repetidas e bloqueio de conciliação por cobertura incompleta com testes automatizados.
+- [x] Preparar e entregar os dados financeiros e as movimentações SIGEF validadas da EM Presidente Eurico Dutra em arquivo individual auditável.
