@@ -118,3 +118,4 @@
 - [x] Refinar tipografia, espaçamento, alinhamento e leitura visual das tabelas da execução e da auditoria, preservando integralmente os dados exibidos.
 - [x] Padronizar e modernizar ícones, botões e seus estados de interação em toda a interface, com consistência de proporção, contraste, foco e uso em telas compactas.
 - [x] Analisar individualmente as fontes oficiais de dados do PDDE indicadas no relatório, validar cobertura, acesso permitido, chave de associação, rastreabilidade e viabilidade de integração ao Extrator da 4ª CRE.
+- [x] Investigar experimentalmente, fonte por fonte, as possibilidades de conexão, consulta e extração permitida de dados oficiais do PDDE, classificando integrações por evidência técnica real antes de qualquer implementação produtiva.

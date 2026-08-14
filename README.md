@@ -91,3 +91,5 @@ O único destino aprovado para este código é o repositório existente [`Wilson
 - `REGISTRO_TESTES_FONTES_PDDE_SIGEF_2026_08_12.md`: evidências da rodada controlada no SIGEF e em relatórios públicos correlatos, incluindo a validação do relatório mensal de saldo por CNPJ.
 - `RELATORIO_ANALISE_FONTES_PDDE_2026_08_13.md`: avaliação individual de PAB, BB Gestão Ágil, painéis PDDE, SiGPC, Dados Abertos, PDDEWeb, Portal da Transparência, SIGEF, SIMEC e Transferegov, com critérios de acesso, rastreabilidade e priorização de pilotos.
 - `PESQUISA_FONTES_PDDE_2026_08_13.md`: registro incremental de evidências públicas e testes técnicos controlados realizados durante a análise.
+- `INVESTIGACAO_PRATICA_FONTES_PDDE_2026_08_14.md`: protocolo, tentativas reproduzíveis, artefatos públicos validados, limitações observadas e evidências por fonte.
+- `PROPOSTA_INTEGRACOES_FONTES_OFICIAIS_PDDE_2026_08_14.md`: seleção de integrações, contratos de dados, guardas de auditoria e sequência recomendada de implementação.
