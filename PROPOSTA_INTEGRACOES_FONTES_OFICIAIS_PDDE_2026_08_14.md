@@ -73,7 +73,7 @@ O PDDEREx somente deve avançar quando um teste por CNPJ de UEx comprovar respos
 
 ### 4. SIGEF de Liberações — rota legada pública
 
-O teste revelou um caminho público diferente da interface SIGEF moderna que exige CAPTCHA. O formulário legado `internet_fnde.liberacoes_01_pc` declarou em JavaScript o destino `internet_fnde.liberacoes_result_pc`; a listagem municipal retornou entidades e a abertura do detalhe por CNPJ trouxe as colunas de pagamento, OB, valor, programa, banco, agência e conta. A primeira entrega deve ser um piloto limitado a CNPJs UEx já corroborados pelo PDDEInfo, com uma consulta por entidade, limitação de ritmo e preservação integral da resposta HTML.
+O teste revelou um caminho público diferente da interface SIGEF moderna que exige CAPTCHA. O formulário legado `internet_fnde.liberacoes_01_pc` declarou em JavaScript o destino `internet_fnde.liberacoes_result_pc`; a listagem municipal retornou entidades e a abertura do detalhe por CNPJ trouxe as colunas de pagamento, OB, valor, programa, banco, agência e conta. Um piloto limitado a cinco UEx corroboradas pelo PDDEInfo obteve cinco respostas HTTP 200, sem marcador CAPTCHA, e cinco coincidências em CNPJ, parcela PDDE Básico, data e valor. A rota acrescentou a OB e os dados bancários em todos os casos.
 
 Essa integração continua sendo de **corroboração**, não de preenchimento: um registro SIGEF só poderá abrir observação relacionada a pagamento PDDEInfo quando coincidirem CNPJ, programa declarado, data, valor, OB e dados bancários. O sucesso da rota legada não altera a classificação `CAPTCHA_REQUIRED` das telas SIGEF modernas de Liberações, Conta Corrente e Extratos, nem autoriza sua automação.
 
