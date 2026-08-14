@@ -56,7 +56,7 @@ const SOURCE_AUTOMATION_CATALOG: SourceAutomationDefinition[] = [
     accessState: "AUTONOMOUS_AVAILABLE",
     autonomous: true,
     collectionMethod: "http",
-    detail: "Piloto HTTP restrito ao detalhamento público de contas explicitamente rotuladas como PDDE no PDDEInfo, Banco do Brasil e programa 02. Limite de cinco UEx por execução; HTML, JSON, hash e paginação ficam auditáveis. Não consulta formulário CAPTCHA, não infere contas e não habilita outros programas.",
+    detail: "Piloto HTTP restrito ao detalhamento público de contas explicitamente rotuladas como PDDE no PDDEInfo, Banco do Brasil e programa 02. Prioriza 2026 e só permite 2025 como exercício subsidiário; períodos anteriores ou futuros são rejeitados antes da consulta. Limite de cinco UEx por execução; HTML, JSON, hash e paginação ficam auditáveis. Não consulta formulário CAPTCHA, não infere contas e não habilita outros programas.",
     baseUrl: "https://www.fnde.gov.br/sigefweb/index.php/conta-corrente/extrato-conta-corrente-detalhamento",
   },
   {

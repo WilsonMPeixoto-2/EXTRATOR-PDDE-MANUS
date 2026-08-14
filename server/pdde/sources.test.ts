@@ -39,12 +39,13 @@ describe("catálogo de automação por fonte", () => {
     expect(extrato).toMatchObject({ accessState: "AUTONOMOUS_AVAILABLE", autonomous: true, collectionMethod: "http" });
     expect(extrato.detail).toContain("programa 02");
     expect(extrato.detail).toContain("cinco UEx");
+    expect(extrato.detail).toContain("2026");
   });
 
   it("versiona os roteiros autônomos comprovados e mantém bloqueadas as fontes não autorizadas", () => {
     expect(sourceCollectionPlan("PDDEINFO")).toMatchObject({ allowed: true, version: "PDDEINFO_HTTP_RUNNER_V1", maxAttempts: 3, retryBackoffMs: 900 });
     expect(assertSourceCollectionPermitted("SIGEF_LIBERACAO")).toMatchObject({ allowed: true, version: "SIGEF_LEGACY_LIBERACAO_HTTP_V1", maxAttempts: 2, retryBackoffMs: 1_200 });
-    expect(assertSourceCollectionPermitted("SIGEF_EXTRATO")).toMatchObject({ allowed: true, version: "SIGEF_DIRECT_EXTRATO_HTTP_V1", maxAttempts: 2, retryBackoffMs: 1_200 });
+    expect(assertSourceCollectionPermitted("SIGEF_EXTRATO")).toMatchObject({ allowed: true, version: "SIGEF_DIRECT_EXTRATO_HTTP_V2", maxAttempts: 2, retryBackoffMs: 1_200 });
     expect(sourceCollectionPlan("SIGEF_CONTA_CORRENTE")).toMatchObject({ allowed: false, maxAttempts: 0, version: "SOURCE_RUNNER_BLOCKED_V1" });
   });
 });

@@ -7,6 +7,7 @@ import {
   matchSigefDirectExtractCredits,
   selectSigefDirectExtractTargets,
   SIGEF_DIRECT_EXTRACT_PARSER_VERSION,
+  SIGEF_PRIMARY_COLLECTION_PERIOD,
   type SigefDirectExtractCollection,
   type SigefDirectExtractFullCollection,
   type SigefDirectExtractPaymentMatch,
@@ -174,18 +175,13 @@ export async function registerSigefDirectExtractPilot(
   for (let index = 0; index < targets.length; index += 1) {
     const target = targets[index]!;
     try {
-      const firstPaymentDate = target.record.payments
-        .filter(payment => payment.semanticKey?.startsWith("PDDE_BASIC_P") && payment.paid > 0 && payment.paymentDate)
-        .map(payment => payment.paymentDate!)
-        .sort()[0];
-      if (!firstPaymentDate) throw new Error("UEx elegível sem data de pagamento básico para definir o período inicial do extrato SIGEF.");
       const collection = await dependencies.collect({
         bank: target.bankCode,
         agency: target.account.agency,
         account: target.account.account,
         cnpj: target.record.cnpj,
         program: "02",
-        period: firstPaymentDate.slice(0, 7),
+        period: SIGEF_PRIMARY_COLLECTION_PERIOD,
       });
       const fullCoverage = !("coverageComplete" in collection) || collection.coverageComplete;
       const detailArtifact = "detailPage" in collection
@@ -236,6 +232,8 @@ export async function registerSigefDirectExtractPilot(
           rawHtmlKey: rawArtifact.key,
           normalizedJsonKey: normalizedArtifact.key,
           program: "02",
+          requestedPeriod: collection.query.period,
+          allowedYears: "2025-2026",
           pilotLimit: 5,
           returnedRows: collection.transactions.length,
           rawTransactionRows: collection.rawTransactionRows,

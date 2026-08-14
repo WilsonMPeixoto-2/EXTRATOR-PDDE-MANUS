@@ -14,9 +14,13 @@ const record = (inep: string): SchoolExtraction => ({
 describe("piloto SIGEF de extrato direto", () => {
   it("persiste resposta e registra crédito SIGEF sem modificar a conta primária", async () => {
     const calls: Array<{ name: string; value: unknown }> = [];
+    const collectInputs: Array<{ period: string }> = [];
     const parsed = parseSigefDirectExtractHtml(html);
     const result = await registerSigefDirectExtractPilot("run-1", [record("33068747")], {
-      collect: async () => ({ sourceUrl: "https://sigef.test", consultedAt: "2026-05-03T12:00:00.000Z", httpStatus: 200, attempts: 1, sourceHashSha256: "a".repeat(64), rawHtml: html, query: { bank: "001", agency: "0249", account: "000054966X", cnpj: "02016546000166", program: "02", period: "2026-04" }, ...parsed }),
+      collect: async input => {
+        collectInputs.push({ period: input.period });
+        return { sourceUrl: "https://sigef.test", consultedAt: "2026-05-03T12:00:00.000Z", httpStatus: 200, attempts: 1, sourceHashSha256: "a".repeat(64), rawHtml: html, query: { bank: "001", agency: "0249", account: "000054966X", cnpj: "02016546000166", program: "02", period: "2026-01" }, ...parsed };
+      },
       store: async key => ({ key, url: `/manus-storage/${key}` }),
       persistArtifact: async value => { calls.push({ name: "artifact", value }); },
       appendTrail: async (...value) => { calls.push({ name: "trail", value }); },
@@ -24,6 +28,7 @@ describe("piloto SIGEF de extrato direto", () => {
       now: () => new Date("2026-05-03T12:00:00.000Z"),
     });
     expect(result).toMatchObject({ attempted: 1, fetched: 1, movementsPreserved: 1, locatedCredits: 1, divergentPayments: 0, failures: 0 });
+    expect(collectInputs).toEqual([{ period: "2026-01" }]);
     expect(calls.filter(call => call.name === "artifact")).toHaveLength(2);
     const trail = calls.find(call => call.name === "trail")?.value as unknown[];
     const provenance = trail[2] as Array<{ source: string; logicalKey: string; state: string; validationResults: Array<{ code: string }> }>;

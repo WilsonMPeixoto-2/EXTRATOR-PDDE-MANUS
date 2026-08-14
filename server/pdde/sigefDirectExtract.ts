@@ -9,6 +9,8 @@ export const SIGEF_DIRECT_EXTRACT_SPREADSHEET_ENDPOINT = "https://www.fnde.gov.b
 export const SIGEF_PROGRAM_PDDE_BASIC = "02";
 export const FNDE_CNPJ = "00378257000181";
 export const SIGEF_CREDIT_MAX_LAG_DAYS = 45;
+export const SIGEF_SUPPORTED_YEARS = [2025, 2026] as const;
+export const SIGEF_PRIMARY_COLLECTION_PERIOD = "2026-01";
 
 const clean = (value: string | null | undefined) => (value ?? "").replace(/\s+/g, " ").trim();
 const normalize = (value: string | null | undefined) => clean(value)
@@ -68,6 +70,10 @@ export function normalizeSigefDirectExtractQuery(input: SigefDirectExtractUrlInp
   if (!/^\d{14}$/.test(cnpj)) throw new Error("CNPJ SIGEF inválido.");
   if (program !== SIGEF_PROGRAM_PDDE_BASIC) throw new Error("O piloto SIGEF de extrato aceita apenas o programa 02 do PDDE Básico.");
   if (!/^\d{4}-\d{2}$/.test(period)) throw new Error("Período SIGEF deve ser YYYY-MM.");
+  const [year, month] = period.split("-");
+  if (!SIGEF_SUPPORTED_YEARS.includes(Number(year) as (typeof SIGEF_SUPPORTED_YEARS)[number]) || Number(month) < 1 || Number(month) > 12) {
+    throw new Error("O extrato SIGEF está restrito aos exercícios de 2025 e 2026; períodos anteriores ou futuros não são consultados.");
+  }
   return { bank, agency, account, cnpj, program, period };
 }
 

@@ -41,6 +41,14 @@ describe("SIGEF — detalhamento público de extrato", () => {
     });
   });
 
+  it("aceita apenas os exercícios de 2025 e 2026 antes de montar qualquer rota SIGEF", () => {
+    const identity = { bank: "001", agency: "0249", account: "000054966X", cnpj: "02.016.546/0001-66", program: "02" };
+    expect(normalizeSigefDirectExtractQuery({ ...identity, period: "2025-12" }).period).toBe("2025-12");
+    expect(normalizeSigefDirectExtractQuery({ ...identity, period: "2026-01" }).period).toBe("2026-01");
+    expect(() => sigefDirectExtractUrl({ ...identity, period: "2024-12" })).toThrow("2025 e 2026");
+    expect(() => sigefDirectExtractSpreadsheetUrl({ ...identity, period: "2027-01" })).toThrow("2025 e 2026");
+  });
+
   it("lê cabeçalho, crédito, débito, documento e paginação preservando dígito alfanumérico", () => {
     const parsed = parseSigefDirectExtractHtml(html);
     expect(parsed.header).toMatchObject({ cnpj: "02.016.546/0001-66", bankCode: "001", agency: "0249", account: "000054966X", programCode: "02" });
