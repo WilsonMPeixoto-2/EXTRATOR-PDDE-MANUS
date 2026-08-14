@@ -88,7 +88,17 @@ function SigefCoverageIndicator({ coverage }: { coverage: SigefCoverage | null }
       <span><Layers3 size={13} aria-hidden="true" /> EVIDÊNCIA COMPLEMENTAR · SIGEF</span>
       <Tooltip>
         <TooltipTrigger asChild><button type="button" className="audit-sigef-help" aria-label="Entender a cobertura SIGEF"><CircleHelp size={14} /></button></TooltipTrigger>
-        <TooltipContent side="top" sideOffset={8} className="audit-evidence-tooltip">A cobertura conta apenas UEx com evidência SIGEF preservada. Ela não substitui os dados do PDDEInfo e não mede ausência de crédito.</TooltipContent>
+        <TooltipContent side="top" align="end" sideOffset={10} className="audit-sigef-detail-tooltip">
+          <header><FileCheck2 size={15} aria-hidden="true" /><div><strong>Detalhe da cobertura SIGEF</strong><span>Consulta complementar sobre a referência PDDEInfo</span></div></header>
+          <dl>
+            <div><dt>UEx com evidência</dt><dd>{coverage ? `${summary.covered} de ${summary.total}` : "Carregando"}</dd></div>
+            <div><dt>Cobertura atual</dt><dd>{coverage ? `${summary.percentage}%` : "—"}</dd></div>
+            <div><dt>Lotes contributivos</dt><dd>{coverage ? coverage.contributingRuns : "—"}</dd></div>
+            <div><dt>Sem evidência SIGEF</dt><dd>{coverage ? summary.pending : "—"}</dd></div>
+          </dl>
+          <p><b>Última evidência:</b> {lastCollected}</p>
+          <aside>São contadas apenas UEx com artefato SIGEF preservado no histórico. A ausência de evidência não representa ausência de crédito e não altera os dados do PDDEInfo.</aside>
+        </TooltipContent>
       </Tooltip>
     </div>
     <div className="audit-sigef-body">
