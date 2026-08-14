@@ -1,10 +1,11 @@
 import { useAuth } from "../_core/hooks/useAuth";
+import "./audit-reference.css";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HighContrastToggle } from "@/components/HighContrastToggle";
 import { AlertTriangle, ArrowLeft, FileSearch, RefreshCw, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { buildFinancialSchoolDossier, buildSigefMovementDossier, evidenceStateExplanation, filterAuditObservations, filterAuditSchools, operationalConsultationStatus, operationalRunStatus } from "./auditFilters";
+import { buildFinancialSchoolDossier, buildSigefMovementDossier, evidenceStateExplanation, filterAuditObservations, filterAuditSchools, isPrimaryPddeInfoAuditRun, operationalConsultationStatus, operationalRunStatus, primaryAuditRunId } from "./auditFilters";
 
 type AuditRun = { id: string; status: "running" | "approved" | "partial" | "blocked" | "failed"; masterCount: number; processedCount: number; parserVersion: string; startedAt: string; completedAt: string | null; validationJson: { passed?: boolean; errors?: string[]; sourceLimitations?: string[] } };
 type School = { inep: string; sme: string; schoolName: string | null; status: "success" | "failed"; consultedAt: string; programsJson: string[]; exception: string | null };
@@ -71,6 +72,11 @@ function operationalEventLabel(type: string) {
   return labels[type] ?? "Evento registrado";
 }
 
+function auditRunOptionLabel(run: AuditRun) {
+  const scope = isPrimaryPddeInfoAuditRun(run) ? "PDDEInfo aprovado" : run.parserVersion.startsWith("SIGEF_") ? "SIGEF complementar" : operationalRunStatus(run.status);
+  return `${scope} · ${run.processedCount}/${run.masterCount} unidades · ${displayDate(run.completedAt ?? run.startedAt)}`;
+}
+
 function EvidenceActions({ dossier, observation, runId, onOpenArtifact }: { dossier: Dossier; observation: Observation | null; runId: string; onOpenArtifact: (runId: string, artifactId: number) => void }) {
   if (!observation) return <p><b>Campo:</b> inexistente nesta execução.</p>;
   const htmlArtifact = dossier.artifacts.find(item => item.storageKey === observation.rawHtmlKey);
@@ -114,7 +120,7 @@ export default function Audit() {
       if (!response.ok) throw new Error("Não foi possível carregar o histórico de execuções.");
       const payload = await response.json() as { runs: AuditRun[] };
       setRuns(payload.runs);
-      setSelectedRunId(current => current ?? payload.runs[0]?.id ?? null);
+      setSelectedRunId(current => current && payload.runs.some(run => run.id === current) ? current : primaryAuditRunId(payload.runs));
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao carregar auditoria."); }
     finally { setLoading(false); }
   };
@@ -166,6 +172,7 @@ export default function Audit() {
   };
 
   const selectedRun = runs.find(run => run.id === selectedRunId) ?? null;
+  const selectedRunIsPrimary = selectedRun ? isPrimaryPddeInfoAuditRun(selectedRun) : false;
   const filteredSchools = useMemo(() => filterAuditSchools(schools, programFilter, schoolFilter), [schools, programFilter, schoolFilter]);
   const filteredObservations = useMemo(() => dossier ? filterAuditObservations(dossier.observations, fieldFilter) : [], [dossier, fieldFilter]);
   const financialDossier = useMemo(() => dossier ? buildFinancialSchoolDossier(dossier.observations) : null, [dossier]);
@@ -183,6 +190,11 @@ export default function Audit() {
       </header>
 
       {error && <div className="audit-error"><AlertTriangle size={17} /> {error}</div>}
+
+      <section className="audit-reference-control" aria-label="Referência da auditoria">
+        <div><span>REFERÊNCIA EXIBIDA</span><strong>{selectedRunIsPrimary ? "PDDEInfo · execução aprovada" : "Evidência complementar"}</strong><small>{selectedRunIsPrimary ? "Os 163 registros aprovados do PDDEInfo permanecem como leitura principal da auditoria." : "Esta execução parcial é complementar. Selecione a referência PDDEInfo aprovada para consultar a lista completa de escolas."}</small></div>
+        <label htmlFor="audit-run-select">Execução disponível<select id="audit-run-select" value={selectedRunId ?? ""} onChange={event => setSelectedRunId(event.target.value || null)}>{runs.map(run => <option key={run.id} value={run.id}>{auditRunOptionLabel(run)}</option>)}</select></label>
+      </section>
 
       <section className="audit-summary-grid">
         <div className="audit-summary"><span>COBERTURA DA CONSULTA</span><strong>{selectedRun ? `${selectedRun.processedCount}/${selectedRun.masterCount}` : "—"}</strong><small>unidades processadas na referência atual</small></div>

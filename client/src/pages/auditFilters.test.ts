@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildFinancialSchoolDossier, buildObservationComparisons, buildSigefMovementDossier, evidenceStateExplanation, filterAuditObservations, filterAuditRuns, filterAuditSchools, operationalConsultationStatus, operationalRunStatus } from "./auditFilters";
+import { buildFinancialSchoolDossier, buildObservationComparisons, buildSigefMovementDossier, evidenceStateExplanation, filterAuditObservations, filterAuditRuns, filterAuditSchools, isPrimaryPddeInfoAuditRun, operationalConsultationStatus, operationalRunStatus, primaryAuditRunId } from "./auditFilters";
 
 describe("filtros da auditoria", () => {
   it("filtra escolas pelo programa identificado na execução", () => {
@@ -41,6 +41,16 @@ describe("filtros da auditoria", () => {
     expect(filterAuditRuns(runs, "blocked")).toEqual([runs[1]]);
     expect(filterAuditRuns(runs, "2026-08-10")).toEqual([runs[0]]);
     expect(filterAuditRuns(runs, "aprovada")).toEqual([runs[0]]);
+  });
+
+  it("prioriza a execução aprovada e completa do PDDEInfo acima de um lote SIGEF parcial mais recente", () => {
+    const runs = [
+      { id: "sigef-parcial", status: "partial", masterCount: 163, processedCount: 15, parserVersion: "SIGEF_DIRECT_EXTRACT_HTTP_V2", startedAt: "2026-08-14T19:00:00.000Z", completedAt: "2026-08-14T19:10:00.000Z" },
+      { id: "pddeinfo-aprovado", status: "approved", masterCount: 163, processedCount: 163, parserVersion: "2.3.0", startedAt: "2026-08-12T19:00:00.000Z", completedAt: "2026-08-12T19:10:00.000Z" },
+    ];
+    expect(isPrimaryPddeInfoAuditRun(runs[1]!)).toBe(true);
+    expect(isPrimaryPddeInfoAuditRun(runs[0]!)).toBe(false);
+    expect(primaryAuditRunId(runs)).toBe("pddeinfo-aprovado");
   });
 
   it("filtra observações pelo caminho, chave ou recorte de evidência", () => {

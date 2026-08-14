@@ -1,0 +1,39 @@
+.audit-reference-control {
+  max-width: 1480px;
+  margin: 0 auto 16px;
+  padding: 13px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border: 1px solid #cbdde0;
+  border-radius: 8px;
+  background: linear-gradient(110deg, #edf6f5 0%, #fbfcfc 58%);
+  box-shadow: 0 4px 12px rgba(37, 65, 80, .025);
+}
+
+.audit-reference-control > div,
+.audit-reference-control label {
+  display: flex;
+  flex-direction: column;
+}
+
+.audit-reference-control > div { gap: 3px; }
+.audit-reference-control > div > span { color: #527782; font: 700 8px Arial, sans-serif; letter-spacing: .09em; }
+.audit-reference-control strong { color: #1f554f; font: 700 14px Arial, sans-serif; }
+.audit-reference-control small { color: #5f7884; font-size: 10.5px; line-height: 1.4; }
+.audit-reference-control label { min-width: 340px; gap: 5px; color: #526f7e; font: 700 9px Arial, sans-serif; letter-spacing: .05em; }
+.audit-reference-control select { height: 34px; padding: 0 9px; border: 1px solid #cbd9de; border-radius: 6px; background: #fff; color: #294c61; font: 600 10px Arial, sans-serif; }
+.audit-reference-control select:focus { outline: 2px solid #8eb4bd; outline-offset: 1px; }
+
+.high-contrast .audit-reference-control { background: #000 !important; border-color: #fff !important; box-shadow: none !important; }
+.high-contrast .audit-reference-control span,
+.high-contrast .audit-reference-control strong,
+.high-contrast .audit-reference-control small,
+.high-contrast .audit-reference-control label { color: #fff !important; }
+.high-contrast .audit-reference-control select { background: #000 !important; color: #ffff00 !important; border-color: #ffff00 !important; }
+
+@media (max-width: 760px) {
+  .audit-reference-control { align-items: stretch; flex-direction: column; gap: 12px; }
+  .audit-reference-control label { min-width: 0; width: 100%; }
+}

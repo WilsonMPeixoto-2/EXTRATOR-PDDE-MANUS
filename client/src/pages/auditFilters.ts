@@ -1,5 +1,6 @@
 export type AuditSchoolFilterItem = { inep: string; sme?: string | null; schoolName?: string | null; programsJson?: string[] | null };
 export type AuditRunFilterItem = { id: string; status: string; startedAt?: string | null; completedAt?: string | null };
+export type AuditRunSelectionItem = AuditRunFilterItem & { masterCount: number; processedCount: number; parserVersion: string };
 export type AuditObservationFilterItem = {
   fieldPath: string;
   logicalKey: string;
@@ -40,6 +41,17 @@ const includesNormalized = (value: string, query: string) => value.toLocaleLower
 export function filterAuditRuns<T extends AuditRunFilterItem>(runs: T[], runQuery: string): T[] {
   if (!runQuery.trim()) return runs;
   return runs.filter(run => [run.id, run.status, run.startedAt ?? "", run.completedAt ?? ""].some(value => includesNormalized(value, runQuery)));
+}
+
+/** A referência da auditoria deve ser a execução PDDEInfo aprovada e completa; SIGEF parcial só entra mediante escolha explícita. */
+export function isPrimaryPddeInfoAuditRun(run: AuditRunSelectionItem): boolean {
+  return run.status === "approved" && run.masterCount > 0 && run.processedCount >= run.masterCount && !run.parserVersion.startsWith("SIGEF_");
+}
+
+export function primaryAuditRunId<T extends AuditRunSelectionItem>(runs: T[]): string | null {
+  const primaryRuns = runs.filter(isPrimaryPddeInfoAuditRun)
+    .toSorted((left, right) => (right.completedAt ?? right.startedAt ?? "").localeCompare(left.completedAt ?? left.startedAt ?? ""));
+  return primaryRuns[0]?.id ?? runs.find(run => run.status === "approved")?.id ?? runs[0]?.id ?? null;
 }
 
 export function filterAuditSchools<T extends AuditSchoolFilterItem>(schools: T[], programQuery: string, schoolQuery = ""): T[] {
