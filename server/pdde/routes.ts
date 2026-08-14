@@ -1,7 +1,7 @@
 import type { Express, Response } from "express";
 import type { Request as ExpressRequest, Response as ExpressResponse } from "express";
 import { getRun, masterListSummary, registerSecondaryOpenDataControl, runExtraction } from "./run";
-import { appendAuditTrail, completeAuditRun } from "../db";
+import { appendAuditTrail, completeAuditRun, getSigefAuditCoverage } from "../db";
 import { sourceAutomationCatalog } from "./sources";
 import { sdk } from "../_core/sdk";
 import { decidePddeAccess, type PddeResource } from "./access";
@@ -119,6 +119,11 @@ export function registerPddeRoutes(app: Express) {
     if (!await authorize(request, response, "audit-runs")) return;
     const limit = Math.max(1, Math.min(Number(request.query.limit ?? 25), 100));
     response.json({ runs: await listPersistedAuditRuns(limit) });
+  });
+
+  app.get("/api/pdde/audit/sigef-coverage", async (request, response) => {
+    if (!await authorize(request, response, "audit-sigef-coverage")) return;
+    response.json({ coverage: await getSigefAuditCoverage() });
   });
 
   app.get("/api/pdde/audit/run/:runId", async (request, response) => {

@@ -21,6 +21,7 @@ vi.mock("../db", () => ({
   completeAuditRun: vi.fn(),
   getPersistedAuditRun: vi.fn(),
   getPersistedRunAuditOverview: vi.fn(),
+  getSigefAuditCoverage: vi.fn(),
   getRunArtifact: vi.fn(),
   getSchoolAuditDossier: vi.fn(),
   listPersistedAuditRuns: vi.fn(),
@@ -31,7 +32,7 @@ vi.mock("../db", () => ({
 vi.mock("../storage", () => ({ storageGetSignedUrl: vi.fn() }));
 
 import { sdk } from "../_core/sdk";
-import { appendAuditTrail, completeAuditRun, getPersistedAuditRun, getPersistedRunAuditOverview, listPersistedAuditRuns, listRunSchools } from "../db";
+import { appendAuditTrail, completeAuditRun, getPersistedAuditRun, getPersistedRunAuditOverview, getSigefAuditCoverage, listPersistedAuditRuns, listRunSchools } from "../db";
 import { getRun, registerSecondaryOpenDataControl, runExtraction } from "./run";
 import { registerPddeRoutes } from "./routes";
 
@@ -41,6 +42,7 @@ const mockedRunExtraction = vi.mocked(runExtraction);
 const mockedListPersistedAuditRuns = vi.mocked(listPersistedAuditRuns);
 const mockedGetPersistedAuditRun = vi.mocked(getPersistedAuditRun);
 const mockedGetPersistedRunAuditOverview = vi.mocked(getPersistedRunAuditOverview);
+const mockedGetSigefAuditCoverage = vi.mocked(getSigefAuditCoverage);
 const mockedRegisterSecondaryOpenDataControl = vi.mocked(registerSecondaryOpenDataControl);
 const mockedListRunSchools = vi.mocked(listRunSchools);
 const mockedAppendAuditTrail = vi.mocked(appendAuditTrail);
@@ -91,7 +93,7 @@ describe("rotas operacionais protegidas do PDDE", () => {
 
   it("retorna 401 para lista, fontes, início e status quando não há autenticação", async () => {
     authenticateRequest.mockResolvedValue(null);
-    for (const path of ["/api/pdde/master-list", "/api/pdde/sources", "/api/pdde/run", "/api/pdde/run/inexistente", "/api/pdde/audit/runs", "/api/pdde/audit/run/existente", "/api/pdde/audit/run/existente/schools", "/api/pdde/audit/run/existente/school/33069247", "/api/pdde/audit/run/existente/findings", "/api/pdde/audit/run/existente/artifact/1"]) {
+    for (const path of ["/api/pdde/master-list", "/api/pdde/sources", "/api/pdde/run", "/api/pdde/run/inexistente", "/api/pdde/audit/runs", "/api/pdde/audit/sigef-coverage", "/api/pdde/audit/run/existente", "/api/pdde/audit/run/existente/schools", "/api/pdde/audit/run/existente/school/33069247", "/api/pdde/audit/run/existente/findings", "/api/pdde/audit/run/existente/artifact/1"]) {
       const response = await request(appForTest(), path);
       expect(response.status).toBe(401);
     }
@@ -159,6 +161,14 @@ describe("rotas operacionais protegidas do PDDE", () => {
     const response = await request(appForTest(), "/api/pdde/audit/runs");
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ runs: [expect.objectContaining({ id: "run-existente", status: "approved" })] });
+  });
+
+  it("expõe cobertura SIGEF única sobre a referência PDDEInfo sem substituir suas escolas", async () => {
+    authenticateRequest.mockResolvedValue(user);
+    mockedGetSigefAuditCoverage.mockResolvedValue({ referenceMasterCount: 163, coveredUex: 20, contributingRuns: 2, lastCollectedAt: "2026-08-14T19:00:00.000Z" });
+    const response = await request(appForTest(), "/api/pdde/audit/sigef-coverage");
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ coverage: { referenceMasterCount: 163, coveredUex: 20, contributingRuns: 2, lastCollectedAt: "2026-08-14T19:00:00.000Z" } });
   });
 
   it("retorna nome da unidade na lista operacional da auditoria", async () => {

@@ -14,6 +14,7 @@ type Observation = { id: number; fieldPath: string; logicalKey: string; source: 
 type Artifact = { id: number; kind: string; storageKey: string; sha256: string; contentType: string; createdAt?: string };
 type RunAuditEvent = { id: string; occurredAt: string; type: string; severity: string; message: string; payloadJson?: { source?: string; exercise?: number; matchedSchools?: number; warnings?: string[] } };
 type Dossier = { consultation: School | null; observations: Observation[]; events: Array<{ id: string; occurredAt: string; type: string; severity: string; message: string }>; findings: Finding[]; artifacts: Artifact[] };
+type SigefCoverage = { referenceMasterCount: number; coveredUex: number; contributingRuns: number; lastCollectedAt: string | null };
 
 function displayDate(value: string | null | undefined) {
   return value ? new Date(value).toLocaleString("pt-BR") : "—";
@@ -99,6 +100,7 @@ function EvidenceActions({ dossier, observation, runId, onOpenArtifact }: { doss
 export default function Audit() {
   const { isAuthenticated, loading: authLoading } = useAuth({ redirectOnUnauthenticated: true });
   const [runs, setRuns] = useState<AuditRun[]>([]);
+  const [sigefCoverage, setSigefCoverage] = useState<SigefCoverage | null>(null);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [schools, setSchools] = useState<School[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
@@ -116,10 +118,17 @@ export default function Audit() {
     if (!isAuthenticated) return;
     setLoading(true); setError(null);
     try {
-      const response = await operationalFetch("/api/pdde/audit/runs");
-      if (!response.ok) throw new Error("Não foi possível carregar o histórico de execuções.");
-      const payload = await response.json() as { runs: AuditRun[] };
+      const [response, coverageResponse] = await Promise.all([
+        operationalFetch("/api/pdde/audit/runs"),
+        operationalFetch("/api/pdde/audit/sigef-coverage"),
+      ]);
+      if (!response.ok || !coverageResponse.ok) throw new Error("Não foi possível carregar o histórico de execuções.");
+      const [payload, coveragePayload] = await Promise.all([
+        response.json() as Promise<{ runs: AuditRun[] }>,
+        coverageResponse.json() as Promise<{ coverage: SigefCoverage }>,
+      ]);
       setRuns(payload.runs);
+      setSigefCoverage(coveragePayload.coverage);
       setSelectedRunId(current => current && payload.runs.some(run => run.id === current) ? current : primaryAuditRunId(payload.runs));
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao carregar auditoria."); }
     finally { setLoading(false); }
@@ -173,6 +182,7 @@ export default function Audit() {
 
   const selectedRun = runs.find(run => run.id === selectedRunId) ?? null;
   const selectedRunIsPrimary = selectedRun ? isPrimaryPddeInfoAuditRun(selectedRun) : false;
+  const sigefCoveragePercent = sigefCoverage?.referenceMasterCount ? Math.round((sigefCoverage.coveredUex / sigefCoverage.referenceMasterCount) * 100) : 0;
   const filteredSchools = useMemo(() => filterAuditSchools(schools, programFilter, schoolFilter), [schools, programFilter, schoolFilter]);
   const filteredObservations = useMemo(() => dossier ? filterAuditObservations(dossier.observations, fieldFilter) : [], [dossier, fieldFilter]);
   const financialDossier = useMemo(() => dossier ? buildFinancialSchoolDossier(dossier.observations) : null, [dossier]);
@@ -193,6 +203,7 @@ export default function Audit() {
 
       <section className="audit-reference-control" aria-label="Referência da auditoria">
         <div><span>REFERÊNCIA EXIBIDA</span><strong>{selectedRunIsPrimary ? "PDDEInfo · execução aprovada" : "Evidência complementar"}</strong><small>{selectedRunIsPrimary ? "Os 163 registros aprovados do PDDEInfo permanecem como leitura principal da auditoria." : "Esta execução parcial é complementar. Selecione a referência PDDEInfo aprovada para consultar a lista completa de escolas."}</small></div>
+        <div className="audit-sigef-coverage" aria-label="Cobertura SIGEF sobre a referência PDDEInfo"><span>COBERTURA SIGEF</span><strong>{sigefCoverage ? `${sigefCoverage.coveredUex}/${sigefCoverage.referenceMasterCount} UEx` : "—"}</strong><small>{sigefCoverage ? `${sigefCoveragePercent}% da lista PDDEInfo · ${sigefCoverage.contributingRuns} lote(s) concluído(s)` : "Carregando cobertura complementar"}</small><div className="audit-sigef-progress" role="progressbar" aria-label="Cobertura SIGEF" aria-valuemin={0} aria-valuemax={sigefCoverage?.referenceMasterCount ?? 0} aria-valuenow={sigefCoverage?.coveredUex ?? 0}><span style={{ width: `${sigefCoveragePercent}%` }} /></div></div>
         <label htmlFor="audit-run-select">Execução disponível<select id="audit-run-select" value={selectedRunId ?? ""} onChange={event => setSelectedRunId(event.target.value || null)}>{runs.map(run => <option key={run.id} value={run.id}>{auditRunOptionLabel(run)}</option>)}</select></label>
       </section>
 

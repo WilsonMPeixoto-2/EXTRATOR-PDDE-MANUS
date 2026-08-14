@@ -3,7 +3,7 @@ const recentOperationalRequests = new Map<string, number>();
 export const MINIMUM_RUN_INTERVAL_MS = 5 * 60 * 1000;
 export const MINIMUM_OPERATIONAL_REQUEST_INTERVAL_MS = 750;
 
-export type PddeResource = "master-list" | "sources" | "run" | "run-status" | "audit-runs" | "audit-schools" | "audit-dossier" | "audit-findings" | "artifact" | "open-data-import";
+export type PddeResource = "master-list" | "sources" | "run" | "run-status" | "audit-runs" | "audit-sigef-coverage" | "audit-schools" | "audit-dossier" | "audit-findings" | "artifact" | "open-data-import";
 
 export type PddeAccessDecision = { allowed: true; status: 200; retryAfterSeconds: 0 } | { allowed: false; status: 401 | 429; retryAfterSeconds: number; message: string };
 

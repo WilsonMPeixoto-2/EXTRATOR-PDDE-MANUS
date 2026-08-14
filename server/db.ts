@@ -1,4 +1,4 @@
-import { and, desc, eq, ne } from "drizzle-orm";
+import { and, desc, eq, like, ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { extractionRuns, fieldObservations, InsertUser, runArtifacts, runAuditEvents, runFindings, schoolConsultations, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -251,6 +251,27 @@ export async function persistHistoricalFindings(runId: string, findings: Histori
 export async function listPersistedAuditRuns(limit = 25) {
   const db = await getAuditDbOrThrow();
   return db.select().from(extractionRuns).orderBy(desc(extractionRuns.completedAt), desc(extractionRuns.createdAt)).limit(limit);
+}
+
+/** Conta UEx únicas com consulta SIGEF concluída sem permitir que o SIGEF se torne a referência financeira primária. */
+export async function getSigefAuditCoverage() {
+  const db = await getAuditDbOrThrow();
+  const [runs, consultations] = await Promise.all([
+    db.select().from(extractionRuns).orderBy(desc(extractionRuns.completedAt), desc(extractionRuns.createdAt)).limit(100),
+    db.select({ inep: fieldObservations.inep, runId: fieldObservations.runId, consultedAt: fieldObservations.consultedAt })
+      .from(fieldObservations)
+      .innerJoin(extractionRuns, eq(fieldObservations.runId, extractionRuns.id))
+      .where(and(like(extractionRuns.parserVersion, "SIGEF_DIRECT_EXTRACT%"), eq(fieldObservations.source, "SIGEF_EXTRATO"))),
+  ]);
+  const referenceRun = runs.find(run => run.status === "approved" && run.masterCount > 0 && run.processedCount >= run.masterCount && !run.parserVersion.startsWith("SIGEF_"));
+  const uniqueIneps = new Set(consultations.map(consultation => consultation.inep));
+  const completedAt = consultations.reduce<Date | null>((latest, consultation) => !latest || consultation.consultedAt > latest ? consultation.consultedAt : latest, null);
+  return {
+    referenceMasterCount: referenceRun?.masterCount ?? 0,
+    coveredUex: uniqueIneps.size,
+    contributingRuns: new Set(consultations.map(consultation => consultation.runId)).size,
+    lastCollectedAt: completedAt?.toISOString() ?? null,
+  };
 }
 
 export async function getPersistedAuditRun(runId: string) {

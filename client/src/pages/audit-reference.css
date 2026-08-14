@@ -25,6 +25,10 @@
 .audit-reference-control label { min-width: 340px; gap: 5px; color: #526f7e; font: 700 9px Arial, sans-serif; letter-spacing: .05em; }
 .audit-reference-control select { height: 34px; padding: 0 9px; border: 1px solid #cbd9de; border-radius: 6px; background: #fff; color: #294c61; font: 600 10px Arial, sans-serif; }
 .audit-reference-control select:focus { outline: 2px solid #8eb4bd; outline-offset: 1px; }
+.audit-sigef-coverage { min-width: 210px; padding: 8px 12px; border-left: 1px solid #cbdde0; }
+.audit-sigef-coverage strong { font-size: 16px; }
+.audit-sigef-progress { height: 6px; margin-top: 6px; overflow: hidden; border-radius: 99px; background: #d9e7e7; }
+.audit-sigef-progress > span { display: block; height: 100%; min-width: 2px; border-radius: inherit; background: linear-gradient(90deg, #347a7a, #4f8f8e); transition: width .18s ease-out; }
 
 .high-contrast .audit-reference-control { background: #000 !important; border-color: #fff !important; box-shadow: none !important; }
 .high-contrast .audit-reference-control span,
@@ -32,8 +36,12 @@
 .high-contrast .audit-reference-control small,
 .high-contrast .audit-reference-control label { color: #fff !important; }
 .high-contrast .audit-reference-control select { background: #000 !important; color: #ffff00 !important; border-color: #ffff00 !important; }
+.high-contrast .audit-sigef-coverage { border-color: #fff !important; }
+.high-contrast .audit-sigef-progress { background: #fff !important; }
+.high-contrast .audit-sigef-progress > span { background: #00ff84 !important; }
 
 @media (max-width: 760px) {
   .audit-reference-control { align-items: stretch; flex-direction: column; gap: 12px; }
   .audit-reference-control label { min-width: 0; width: 100%; }
+  .audit-sigef-coverage { min-width: 0; padding-left: 0; border-left: 0; }
 }
