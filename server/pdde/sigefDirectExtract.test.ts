@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   collectSigefDirectExtract,
+  collectSigefDirectExtractFull,
   matchSigefDirectExtractCredits,
   normalizeSigefDirectExtractQuery,
   parseSigefDirectExtractHtml,
   selectSigefDirectExtractTargets,
   sigefDirectExtractMovementDeduplicationKey,
+  sigefDirectExtractSpreadsheetUrl,
   sigefDirectExtractUrl,
 } from "./sigefDirectExtract";
 import type { SchoolExtraction } from "./types";
@@ -16,6 +18,7 @@ const html = `<html><body>
 <tr><td>03/05/2026</td><td>5.305,00</td><td>0</td><td>1974995000840</td><td>ORDEM BANCARIA</td><td>00.378.257/0001-81</td><td>FUNDO NACIONAL DE DESENVOLVIMENTO DA EDUCACAO</td><td>001</td><td>1607</td><td>0997380845</td></tr>
 <tr><td>03/05/2026</td><td>0</td><td>5.305,00</td><td>0000000000000070</td><td>BB-APLIC C.PRZ-APL.AUT</td><td>-</td><td>-</td><td>001</td><td>0000</td><td>0000000000</td></tr></table>
 <p>Exibindo de 1 até 10 de 119</p></body></html>`;
+const latin1Response = (body: string, status = 200) => new Response(Buffer.from(body, "latin1"), { status });
 
 const record = (account = "000054966X"): SchoolExtraction => ({
   inep: "33068747", sme: "0430206", sourceUrl: "https://pddeinfo.test", consultedAt: "2026-04-30T00:00:00.000Z", schoolName: "Escola", uex: "UEx", cnpj: "02.016.546/0001-66",
@@ -29,6 +32,7 @@ describe("SIGEF — detalhamento público de extrato", () => {
     const url = sigefDirectExtractUrl({ bank: "001", agency: "0249", account: "000054966X", cnpj: "02.016.546/0001-66", program: "02", period: "2026-04" });
     expect(url).toContain("/banco/001/agencia/0249/contacorrente/000054966X/cnpj/02016546000166/programa/02/data/042026");
     expect(() => sigefDirectExtractUrl({ bank: "001", agency: "0249", account: "000054966X", cnpj: "02.016.546/0001-66", program: "0C", period: "2026-04" })).toThrow("programa 02");
+    expect(sigefDirectExtractSpreadsheetUrl({ bank: "001", agency: "0249", account: "000054966X", cnpj: "02.016.546/0001-66", program: "02", period: "2026-04" })).toContain("/visualizaexcel/banco/001/agencia/0249/contacorrente/000054966X");
   });
 
   it("preenche banco, agência e conta somente como formatação da mesma identidade declarada", () => {
@@ -93,5 +97,45 @@ describe("SIGEF — detalhamento público de extrato", () => {
       fetcher: async () => new Response("<html>reCAPTCHA</html>", { status: 200 }),
       pause: async () => undefined,
     })).rejects.toThrow("CAPTCHA");
+  });
+
+  it("recupera a planilha pública integral e só marca cobertura completa quando as linhas conferem com o total declarado", async () => {
+    const detailHtml = html.replace("Exibindo de 1 até 10 de 119", "Exibindo de 1 ate 2 de 2");
+    const spreadsheetHtml = `<table><tr><th>Data</th></tr><tr><td>03/05/2026</td><td>5.305,00</td><td>0</td><td>1974995000840</td><td>ORDEM BANCARIA</td><td>00.378.257/0001-81</td><td>FNDE</td><td>001</td><td>1607</td><td>0997380845</td></tr><tr><td>03/05/2026</td><td>0</td><td>5.305,00</td><td>0000000000000070</td><td>BB-APLIC C.PRZ-APL.AUT</td><td>-</td><td>-</td><td>001</td><td>0000</td><td>0000000000</td></tr></table>`;
+    const responses = [detailHtml, spreadsheetHtml];
+    const collection = await collectSigefDirectExtractFull({ bank: "001", agency: "0249", account: "000054966X", cnpj: "02.016.546/0001-66", program: "02", period: "2026-04" }, {
+      fetcher: async () => latin1Response(responses.shift()!),
+      pause: async () => undefined,
+    });
+    expect(collection).toMatchObject({ reportedTotal: 2, rawTransactionRows: 2, coverageComplete: true });
+    expect(collection).toMatchObject({ coverageExpectedRows: 2, coverageBasis: "reported-total" });
+    expect(collection.sourceUrl).toContain("visualizaexcel");
+    expect(collection.detailPage.sourceUrl).toContain("extrato-conta-corrente-detalhamento");
+  });
+
+  it("usa as linhas do detalhamento como base de cobertura quando o contador textual estiver ausente e bloqueia conciliação se a planilha divergir", async () => {
+    const detailHtml = html.replace(/<p>Exibindo de 1 até 10 de 119<\/p>/, "");
+    const spreadsheetHtml = `<table><tr><td>03/05/2026</td><td>5.305,00</td><td>0</td><td>1974995000840</td><td>ORDEM BANCARIA</td><td>00.378.257/0001-81</td><td>FNDE</td><td>001</td><td>1607</td><td>0997380845</td></tr></table>`;
+    const responses = [detailHtml, spreadsheetHtml];
+    const collection = await collectSigefDirectExtractFull({ bank: "001", agency: "0249", account: "000054966X", cnpj: "02.016.546/0001-66", program: "02", period: "2026-04" }, {
+      fetcher: async () => latin1Response(responses.shift()!),
+      pause: async () => undefined,
+    });
+    expect(collection).toMatchObject({ reportedTotal: null, coverageExpectedRows: 2, coverageBasis: "detail-row-count", rawTransactionRows: 1, coverageComplete: false });
+    const target = selectSigefDirectExtractTargets([record()])[0]!;
+    expect(matchSigefDirectExtractCredits(target, collection)[0]).toMatchObject({ matched: false, state: "CONSULTA_INCONCLUSIVA" });
+  });
+
+  it("interrompe a coleta integral quando a planilha pública não puder ser baixada", async () => {
+    let requestCount = 0;
+    await expect(collectSigefDirectExtractFull({ bank: "001", agency: "0249", account: "000054966X", cnpj: "02.016.546/0001-66", program: "02", period: "2026-04" }, {
+      fetcher: async () => {
+        requestCount += 1;
+        return requestCount === 1
+          ? latin1Response(html)
+          : new Response("indisponível", { status: 503 });
+      },
+      pause: async () => undefined,
+    })).rejects.toThrow("HTTP 503");
   });
 });

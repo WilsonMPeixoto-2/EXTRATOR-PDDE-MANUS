@@ -3,10 +3,12 @@ import { appendAuditTrail, persistRunArtifact } from "../db";
 import { storagePut } from "../storage";
 import {
   collectSigefDirectExtract,
+  collectSigefDirectExtractFull,
   matchSigefDirectExtractCredits,
   selectSigefDirectExtractTargets,
   SIGEF_DIRECT_EXTRACT_PARSER_VERSION,
   type SigefDirectExtractCollection,
+  type SigefDirectExtractFullCollection,
   type SigefDirectExtractPaymentMatch,
   type SigefDirectExtractTarget,
 } from "./sigefDirectExtract";
@@ -16,7 +18,7 @@ const pause = (milliseconds: number) => new Promise<void>(resolve => setTimeout(
 type StoredArtifact = { key: string; url: string };
 
 export type SigefDirectExtractPilotDependencies = {
-  collect: (input: { bank: string; agency: string; account: string; cnpj: string; program: string; period: string }) => Promise<SigefDirectExtractCollection>;
+  collect: (input: { bank: string; agency: string; account: string; cnpj: string; program: string; period: string }) => Promise<SigefDirectExtractCollection | SigefDirectExtractFullCollection>;
   store: (key: string, data: string, contentType: string) => Promise<StoredArtifact>;
   persistArtifact: typeof persistRunArtifact;
   appendTrail: typeof appendAuditTrail;
@@ -25,7 +27,7 @@ export type SigefDirectExtractPilotDependencies = {
 };
 
 const productionDependencies: SigefDirectExtractPilotDependencies = {
-  collect: collectSigefDirectExtract,
+  collect: collectSigefDirectExtractFull,
   store: storagePut,
   persistArtifact: persistRunArtifact,
   appendTrail: appendAuditTrail,
@@ -185,10 +187,15 @@ export async function registerSigefDirectExtractPilot(
         program: "02",
         period: firstPaymentDate.slice(0, 7),
       });
-      const rawArtifact = await dependencies.store(`evidence/pdde-4cre/${runId}/${target.record.inep}/sigef-extrato-source.html`, collection.rawHtml, "text/html; charset=iso-8859-1");
+      const fullCoverage = !("coverageComplete" in collection) || collection.coverageComplete;
+      const detailArtifact = "detailPage" in collection
+        ? await dependencies.store(`evidence/pdde-4cre/${runId}/${target.record.inep}/sigef-extrato-detail-page.html`, collection.detailPage.rawHtml, "text/html; charset=iso-8859-1")
+        : null;
+      const rawArtifact = await dependencies.store(`evidence/pdde-4cre/${runId}/${target.record.inep}/sigef-extrato-integral.xls`, collection.rawHtml, "application/vnd.ms-excel; charset=iso-8859-1");
       const normalized = JSON.stringify({ source: "SIGEF_EXTRATO", inep: target.record.inep, cnpj: target.record.cnpj, collection: { ...collection, rawHtml: undefined } }, null, 2);
       const normalizedArtifact = await dependencies.store(`evidence/pdde-4cre/${runId}/${target.record.inep}/sigef-extrato-normalized.json`, normalized, "application/json");
-      await dependencies.persistArtifact({ runId, kind: "raw_html", storageKey: rawArtifact.key, storageUrl: rawArtifact.url, contentType: "text/html; charset=iso-8859-1", sha256: collection.sourceHashSha256 });
+      if (detailArtifact && "detailPage" in collection) await dependencies.persistArtifact({ runId, kind: "raw_html", storageKey: detailArtifact.key, storageUrl: detailArtifact.url, contentType: "text/html; charset=iso-8859-1", sha256: collection.detailPage.sourceHashSha256 });
+      await dependencies.persistArtifact({ runId, kind: "raw_html", storageKey: rawArtifact.key, storageUrl: rawArtifact.url, contentType: "application/vnd.ms-excel; charset=iso-8859-1", sha256: collection.sourceHashSha256 });
       await dependencies.persistArtifact({ runId, kind: "normalized_json", storageKey: normalizedArtifact.key, storageUrl: normalizedArtifact.url, contentType: "application/json", sha256: createHash("sha256").update(normalized).digest("hex") });
       const matches = matchSigefDirectExtractCredits(target, collection);
       const creditProvenance = evidenceFields({ target, collection, matches, rawArtifact, normalizedArtifact });
@@ -198,7 +205,7 @@ export async function registerSigefDirectExtractPilot(
       const located = matches.filter(match => match.matched).length;
       const divergent = matches.filter(match => match.divergent).length;
       const inconclusive = matches.filter(match => !match.matched && !match.divergent).length;
-      const limited = collection.reportedTotal !== null && collection.reportedTotal > collection.transactions.length;
+      const limited = !fullCoverage || (collection.reportedTotal !== null && collection.reportedTotal > collection.transactions.length);
       locatedCredits += located;
       movementsPreserved += movements.length;
       duplicateMovementsCollapsed += collection.duplicateRows.length;

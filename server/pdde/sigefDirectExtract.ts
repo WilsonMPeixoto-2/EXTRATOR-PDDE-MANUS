@@ -5,6 +5,7 @@ import type { BankAccount, FieldState, PaymentLine, SchoolExtraction } from "./t
 
 export const SIGEF_DIRECT_EXTRACT_PARSER_VERSION = "SIGEF_DIRECT_EXTRACT_HTTP_V1";
 export const SIGEF_DIRECT_EXTRACT_ENDPOINT = "https://www.fnde.gov.br/sigefweb/index.php/conta-corrente/extrato-conta-corrente-detalhamento";
+export const SIGEF_DIRECT_EXTRACT_SPREADSHEET_ENDPOINT = "https://www.fnde.gov.br/sigefweb/index.php/conta-corrente/visualizaexcel";
 export const SIGEF_PROGRAM_PDDE_BASIC = "02";
 export const FNDE_CNPJ = "00378257000181";
 export const SIGEF_CREDIT_MAX_LAG_DAYS = 45;
@@ -75,6 +76,13 @@ export function sigefDirectExtractUrl(input: SigefDirectExtractUrlInput): string
   const { bank, agency, account, cnpj, program, period } = normalizeSigefDirectExtractQuery(input);
   const [year, month] = period.split("-");
   return `${SIGEF_DIRECT_EXTRACT_ENDPOINT}/banco/${bank}/agencia/${agency}/contacorrente/${account}/cnpj/${cnpj}/programa/${program}/data/${month}${year}`;
+}
+
+/** Rota pública de planilha emitida pelo próprio SIGEF para a mesma identidade bancária e programa. */
+export function sigefDirectExtractSpreadsheetUrl(input: SigefDirectExtractUrlInput): string {
+  const { bank, agency, account, cnpj, program, period } = normalizeSigefDirectExtractQuery(input);
+  const [year, month] = period.split("-");
+  return `${SIGEF_DIRECT_EXTRACT_SPREADSHEET_ENDPOINT}/banco/${bank}/agencia/${agency}/contacorrente/${account}/cnpj/${cnpj}/programa/${program}/data/${month}${year}`;
 }
 
 export type SigefDirectExtractHeader = {
@@ -235,6 +243,16 @@ export function parseSigefDirectExtractHtml(html: string): SigefDirectExtractPar
   };
 }
 
+/**
+ * A rota visualizaexcel entrega HTML ISO-8859-1 com extensão .xls e não repete todos
+ * os rótulos de identidade. O cabeçalho da página de detalhamento já validada é usado
+ * somente pelo parser; o artefato bruto da planilha permanece inalterado.
+ */
+export function parseSigefDirectExtractSpreadsheetHtml(html: string, header: SigefDirectExtractHeader): SigefDirectExtractParsed {
+  const identity = `<section>CNPJ: ${header.cnpj ?? ""} Razão Social: ${header.accountHolderName ?? ""} Banco: ${header.bank ?? ""} Agência: ${header.agency ?? ""} Conta Corrente: ${header.account ?? ""} Programa: ${header.program ?? ""} Mês/Ano Início: ${header.period ?? ""}</section>`;
+  return parseSigefDirectExtractHtml(`${identity}${html}`);
+}
+
 export type SigefDirectExtractCollection = SigefDirectExtractParsed & {
   sourceUrl: string;
   consultedAt: string;
@@ -243,6 +261,19 @@ export type SigefDirectExtractCollection = SigefDirectExtractParsed & {
   sourceHashSha256: string;
   rawHtml: string;
   query: SigefDirectExtractUrlInput;
+};
+
+export type SigefDirectExtractFullCollection = SigefDirectExtractCollection & {
+  coverageComplete: boolean;
+  coverageExpectedRows: number;
+  coverageBasis: "reported-total" | "detail-row-count";
+  detailPage: {
+    sourceUrl: string;
+    sourceHashSha256: string;
+    rawHtml: string;
+    returnedRows: number;
+    reportedTotal: number | null;
+  };
 };
 
 export type SigefDirectExtractFetch = (url: string, init?: RequestInit) => Promise<Response>;
@@ -279,6 +310,63 @@ export async function collectSigefDirectExtract(
       };
     } catch (error) {
       lastError = error instanceof Error ? error.message : "Falha desconhecida no detalhamento SIGEF";
+      if (attempt < plan.maxAttempts) await pause(plan.retryBackoffMs * attempt);
+    }
+  }
+  throw new Error(lastError);
+}
+
+/**
+ * Recupera o detalhamento para validar identidade e, em seguida, a planilha pública
+ * integral. Se a exportação não corresponder ao total declarado, a resposta é mantida,
+ * mas marcada como incompleta para impedir conciliação financeira.
+ */
+export async function collectSigefDirectExtractFull(
+  query: SigefDirectExtractUrlInput,
+  dependencies: { fetcher?: SigefDirectExtractFetch; now?: () => Date; pause?: (milliseconds: number) => Promise<void> } = {},
+): Promise<SigefDirectExtractFullCollection> {
+  const detail = await collectSigefDirectExtract(query, dependencies);
+  const coverageExpectedRows = detail.reportedTotal ?? detail.rawTransactionRows;
+  const coverageBasis = detail.reportedTotal === null ? "detail-row-count" as const : "reported-total" as const;
+  const plan = assertSourceCollectionPermitted("SIGEF_EXTRATO");
+  const fetcher = dependencies.fetcher ?? fetch;
+  const pause = dependencies.pause ?? (milliseconds => new Promise<void>(resolve => setTimeout(resolve, milliseconds)));
+  const sourceUrl = sigefDirectExtractSpreadsheetUrl(detail.query);
+  let lastError = "";
+  for (let attempt = 1; attempt <= plan.maxAttempts; attempt += 1) {
+    try {
+      const response = await fetcher(sourceUrl, {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; 4CRE-PDDEInfo-Extractor/SIGEF-Extract-1.0)", Accept: "application/download,application/vnd.ms-excel,text/html" },
+        signal: AbortSignal.timeout(25_000),
+      });
+      if (!response.ok) throw new Error(`Planilha integral SIGEF retornou HTTP ${response.status}`);
+      const rawHtml = Buffer.from(await response.arrayBuffer()).toString("latin1");
+      if (/recaptcha|captcha/i.test(rawHtml)) throw new Error("Planilha integral SIGEF apresentou desafio CAPTCHA; a coleta foi interrompida sem tentativa de contorno.");
+      const parsed = parseSigefDirectExtractSpreadsheetHtml(rawHtml, detail.header);
+      return {
+        sourceUrl,
+        consultedAt: detail.consultedAt,
+        httpStatus: response.status,
+        attempts: detail.attempts + attempt,
+        sourceHashSha256: createHash("sha256").update(rawHtml, "latin1").digest("hex"),
+        rawHtml,
+        query: detail.query,
+        ...parsed,
+        header: detail.header,
+        reportedTotal: detail.reportedTotal,
+        coverageComplete: parsed.rawTransactionRows === coverageExpectedRows,
+        coverageExpectedRows,
+        coverageBasis,
+        detailPage: {
+          sourceUrl: detail.sourceUrl,
+          sourceHashSha256: detail.sourceHashSha256,
+          rawHtml: detail.rawHtml,
+          returnedRows: detail.rawTransactionRows,
+          reportedTotal: detail.reportedTotal,
+        },
+      };
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : "Falha desconhecida na planilha integral SIGEF";
       if (attempt < plan.maxAttempts) await pause(plan.retryBackoffMs * attempt);
     }
   }
@@ -345,8 +433,10 @@ export function matchSigefDirectExtractCredits(target: SigefDirectExtractTarget,
     }));
   }
 
+  const coverageComplete = !("coverageComplete" in collection) || collection.coverageComplete;
+  const coverageExpectedRows = "coverageExpectedRows" in collection ? collection.coverageExpectedRows : collection.reportedTotal;
   const partialPage = collection.reportedTotal !== null && collection.reportedTotal > collection.transactions.length;
-  if (partialPage) {
+  if (partialPage || !coverageComplete) {
     return payments.map(payment => ({
       payment,
       transaction: null,
@@ -354,7 +444,9 @@ export function matchSigefDirectExtractCredits(target: SigefDirectExtractTarget,
       divergent: false,
       state: "CONSULTA_INCONCLUSIVA" as const,
       divergenceFields: [],
-      message: `A página SIGEF retornou ${collection.transactions.length} de ${collection.reportedTotal} movimentações declaradas; o crédito não foi conciliado a partir de resultado parcial.`,
+      message: !coverageComplete
+        ? `A planilha SIGEF retornou ${collection.rawTransactionRows} de ${coverageExpectedRows} movimentações esperadas; o crédito não foi conciliado por cobertura incompleta.`
+        : `A página SIGEF retornou ${collection.transactions.length} de ${collection.reportedTotal} movimentações declaradas; o crédito não foi conciliado a partir de resultado parcial.`,
     }));
   }
 
