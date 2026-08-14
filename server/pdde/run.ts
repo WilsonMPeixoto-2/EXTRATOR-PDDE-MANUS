@@ -11,6 +11,7 @@ import type { AuditEvent, AuditEventType, AuditRecord, SchoolExtraction, Validat
 import { canReleaseDownload, createV2Workbook, validateExtraction } from "./workbook";
 import { persistOpenDataControl, type OpenDataControlInput, type OpenDataControlPersistence } from "./openDataControl";
 import { registerSigefLegacyLiberationPilot } from "./sigefLiberationPilot";
+import { registerSigefDirectExtractPilot } from "./sigefDirectExtractPilot";
 
 const delay = (milliseconds: number) => new Promise(resolve => setTimeout(resolve, milliseconds));
 
@@ -274,6 +275,8 @@ export async function runExtraction(onEvent: (event: ExtractionEvent) => void, c
   // primários do PDDEInfo. As observações SIGEF ficam anexadas à trilha da mesma execução.
   const sigefPilot = await registerSigefLegacyLiberationPilot(runId, run.records);
   run.auditEvents.push(...sigefPilot.events);
+  const sigefDirectExtractPilot = await registerSigefDirectExtractPilot(runId, run.records);
+  run.auditEvents.push(...sigefDirectExtractPilot.events);
 
   const baseline = await loadLatestApprovedPaymentSnapshots(runId);
   const historicalFindings = baseline.runId

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildFinancialSchoolDossier, buildObservationComparisons, evidenceStateExplanation, filterAuditObservations, filterAuditRuns, filterAuditSchools, operationalConsultationStatus, operationalRunStatus } from "./auditFilters";
+import { buildFinancialSchoolDossier, buildObservationComparisons, buildSigefMovementDossier, evidenceStateExplanation, filterAuditObservations, filterAuditRuns, filterAuditSchools, operationalConsultationStatus, operationalRunStatus } from "./auditFilters";
 
 describe("filtros da auditoria", () => {
   it("filtra escolas pelo programa identificado na execução", () => {
@@ -86,5 +86,13 @@ describe("filtros da auditoria", () => {
       accounts: [{ program: "PDDE", agency: "0249", account: "000054640X" }],
       payments: [{ destination: "PDDE Básico - 1ª Parcela", expected: "100,00", paid: "100,00", paymentDate: "05/08/2026", state: "PAGAMENTO_INFORMADO_PDDEINFO" }],
     });
+  });
+
+  it("projeta apenas movimentações SIGEF estruturadas sem atribuir natureza contábil", () => {
+    const movements = buildSigefMovementDossier([
+      { fieldPath: "sigefExtrato.movements[0]", logicalKey: "sigefExtrato:movement:2026-05-03:1974:0", rawValue: JSON.stringify({ date: "2026-05-03", credit: 5305, debit: 0, document: "1974", historic: "ORDEM BANCARIA", beneficiaryCnpj: "00378257000181", beneficiaryName: "FNDE" }) },
+      { fieldPath: "sigefExtrato.movements[1]", logicalKey: "sigefExtrato:movement:invalid:1", rawValue: "conteúdo inválido" },
+    ]);
+    expect(movements).toEqual([{ date: "2026-05-03", credit: 5305, debit: 0, document: "1974", historic: "ORDEM BANCARIA", beneficiaryCnpj: "00378257000181", beneficiaryName: "FNDE" }]);
   });
 });

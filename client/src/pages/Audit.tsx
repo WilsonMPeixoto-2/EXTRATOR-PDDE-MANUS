@@ -4,7 +4,7 @@ import { HighContrastToggle } from "@/components/HighContrastToggle";
 import { AlertTriangle, ArrowLeft, FileSearch, RefreshCw, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { buildFinancialSchoolDossier, evidenceStateExplanation, filterAuditObservations, filterAuditSchools, operationalConsultationStatus, operationalRunStatus } from "./auditFilters";
+import { buildFinancialSchoolDossier, buildSigefMovementDossier, evidenceStateExplanation, filterAuditObservations, filterAuditSchools, operationalConsultationStatus, operationalRunStatus } from "./auditFilters";
 
 type AuditRun = { id: string; status: "running" | "approved" | "partial" | "blocked" | "failed"; masterCount: number; processedCount: number; parserVersion: string; startedAt: string; completedAt: string | null; validationJson: { passed?: boolean; errors?: string[]; sourceLimitations?: string[] } };
 type School = { inep: string; sme: string; schoolName: string | null; status: "success" | "failed"; consultedAt: string; programsJson: string[]; exception: string | null };
@@ -16,6 +16,10 @@ type Dossier = { consultation: School | null; observations: Observation[]; event
 
 function displayDate(value: string | null | undefined) {
   return value ? new Date(value).toLocaleString("pt-BR") : "—";
+}
+
+function displayMoney(value: number) {
+  return value ? value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
 }
 
 async function operationalFetch(url: string, attempts = 2): Promise<Response> {
@@ -165,6 +169,7 @@ export default function Audit() {
   const filteredSchools = useMemo(() => filterAuditSchools(schools, programFilter, schoolFilter), [schools, programFilter, schoolFilter]);
   const filteredObservations = useMemo(() => dossier ? filterAuditObservations(dossier.observations, fieldFilter) : [], [dossier, fieldFilter]);
   const financialDossier = useMemo(() => dossier ? buildFinancialSchoolDossier(dossier.observations) : null, [dossier]);
+  const sigefMovements = useMemo(() => dossier ? buildSigefMovementDossier(dossier.observations) : [], [dossier]);
   const openDataArtifacts = runArtifacts.filter(artifact => artifact.kind === "open_data_file");
   const openDataEvents = runEvents.filter(event => event.payloadJson?.source === "DADOS_ABERTOS");
   const sigefArtifacts = runArtifacts.filter(artifact => artifact.kind === "sigef_movement_pdf");
@@ -209,6 +214,10 @@ export default function Audit() {
             <article className="financial-payments-panel">
               <header><h3>Parcelas e valores registrados</h3><small>“Valor pago” significa pagamento registrado no PDDEInfo; não confirma crédito bancário.</small></header>
               {financialDossier.payments.length ? <div className="financial-table-scroll"><table className="financial-data-table"><thead><tr><th>Destinação</th><th>Previsto</th><th>Pago registrado</th><th>Data da ordem</th><th>Estado</th></tr></thead><tbody>{financialDossier.payments.map(payment => <tr key={payment.index}><td className="financial-destination">{payment.destination ?? "—"}</td><td className="financial-amount">{payment.expected ?? "—"}</td><td className="financial-amount financial-paid">{payment.paid ?? "—"}</td><td>{payment.paymentDate ?? "—"}</td><td><EvidenceStateBadge state={payment.state} className={`financial-evidence-state ${payment.state === "PAGAMENTO_INFORMADO_PDDEINFO" ? "financial-evidence-confirmed" : ""}`} /></td></tr>)}</tbody></table></div> : <p className="audit-empty">Nenhuma parcela foi exibida na página consultada.</p>}
+            </article>
+            <article className="financial-payments-panel">
+              <header><h3>Movimentações SIGEF — piloto PDDE Básico</h3><small>Créditos e débitos retornados pelo extrato do programa 02. Os lançamentos não classificam despesa, saldo real ou prestação de contas.</small></header>
+              {sigefMovements.length ? <div className="financial-table-scroll"><table className="financial-data-table"><thead><tr><th>Data</th><th>Crédito</th><th>Débito</th><th>Documento</th><th>Histórico</th><th>Favorecido</th></tr></thead><tbody>{sigefMovements.map(movement => <tr key={`${movement.date}-${movement.document}`}><td>{movement.date}</td><td className="financial-amount financial-paid">{displayMoney(movement.credit)}</td><td className="financial-amount">{displayMoney(movement.debit)}</td><td className="financial-code">{movement.document}</td><td>{movement.historic}</td><td>{movement.beneficiaryName ?? "—"}<small>{movement.beneficiaryCnpj ?? ""}</small></td></tr>)}</tbody></table></div> : <p className="audit-empty">Nenhuma movimentação SIGEF foi preservada para esta unidade na execução selecionada.</p>}
             </article>
           </div>
         </div> : <p className="audit-empty">Selecione uma unidade na tabela acima. O resumo financeiro mostrará contas, parcelas e valores efetivamente extraídos.</p>}

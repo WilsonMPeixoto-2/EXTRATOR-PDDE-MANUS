@@ -52,12 +52,12 @@ const SOURCE_AUTOMATION_CATALOG: SourceAutomationDefinition[] = [
   },
   {
     source: "SIGEF_EXTRATO",
-    label: "SIGEF — Movimentação Bancária",
-    accessState: "PILOT_COMPLETED_WITH_LIMITATIONS",
-    autonomous: false,
-    collectionMethod: "file-import",
-    detail: "Piloto de PDF autorizado concluído: armazenamento, hash, extração e recuperação auditáveis comprovados. O arquivo identificou créditos FNDE, mas não traz programa, parcela e conta destinatária suficientes para associação estrita. A rota pública de Extratos exibe reCAPTCHA após a seleção do programa; por isso, não é automatizada nem habilitada.",
-    baseUrl: "https://www.fnde.gov.br/sigefweb/index.php/extratos",
+    label: "SIGEF — Extrato de Conta Corrente (detalhamento público)",
+    accessState: "AUTONOMOUS_AVAILABLE",
+    autonomous: true,
+    collectionMethod: "http",
+    detail: "Piloto HTTP restrito ao detalhamento público de contas explicitamente rotuladas como PDDE no PDDEInfo, Banco do Brasil e programa 02. Limite de cinco UEx por execução; HTML, JSON, hash e paginação ficam auditáveis. Não consulta formulário CAPTCHA, não infere contas e não habilita outros programas.",
+    baseUrl: "https://www.fnde.gov.br/sigefweb/index.php/conta-corrente/extrato-conta-corrente-detalhamento",
   },
   {
     source: "EXTRATO_BB",

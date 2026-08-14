@@ -25,6 +25,16 @@ export type FinancialSchoolDossier = {
   payments: Array<{ index: number; destination: string | null; expected: string | null; paid: string | null; paidCusteio: string | null; paidCapital: string | null; paymentDate: string | null; state: string | null }>;
 };
 
+export type SigefMovementDossierLine = {
+  date: string;
+  credit: number;
+  debit: number;
+  document: string;
+  historic: string;
+  beneficiaryCnpj: string | null;
+  beneficiaryName: string | null;
+};
+
 const includesNormalized = (value: string, query: string) => value.toLocaleLowerCase("pt-BR").includes(query.trim().toLocaleLowerCase("pt-BR"));
 
 export function filterAuditRuns<T extends AuditRunFilterItem>(runs: T[], runQuery: string): T[] {
@@ -102,6 +112,30 @@ export function buildFinancialSchoolDossier<T extends AuditObservationFilterItem
     accounts,
     payments,
   };
+}
+
+/** Converte apenas linhas SIGEF já preservadas pelo backend; JSON inválido ou incompleto não aparece como movimento. */
+export function buildSigefMovementDossier<T extends AuditObservationFilterItem>(observations: T[]): SigefMovementDossierLine[] {
+  return observations
+    .filter(observation => observation.logicalKey.startsWith("sigefExtrato:movement:"))
+    .flatMap(observation => {
+      try {
+        const value = JSON.parse(observation.rawValue ?? "null") as Partial<SigefMovementDossierLine>;
+        if (typeof value.date !== "string" || typeof value.credit !== "number" || typeof value.debit !== "number" || typeof value.document !== "string" || typeof value.historic !== "string") return [];
+        return [{
+          date: value.date,
+          credit: value.credit,
+          debit: value.debit,
+          document: value.document,
+          historic: value.historic,
+          beneficiaryCnpj: typeof value.beneficiaryCnpj === "string" ? value.beneficiaryCnpj : null,
+          beneficiaryName: typeof value.beneficiaryName === "string" ? value.beneficiaryName : null,
+        }];
+      } catch {
+        return [];
+      }
+    })
+    .toSorted((left, right) => right.date.localeCompare(left.date) || right.document.localeCompare(left.document));
 }
 
 export function buildObservationComparisons<T extends AuditObservationFilterItem>(currentObservations: T[], previousObservations: T[]): AuditObservationComparison<T>[] {

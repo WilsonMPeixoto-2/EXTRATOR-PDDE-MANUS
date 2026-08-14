@@ -27,6 +27,16 @@ export function sourceCollectionPlan(source: EvidenceSource): SourceCollectionPl
       reason: "Rota SIGEF legada pública comprovada em piloto; a coleta é limitada a CNPJs UEx confirmados e preserva a resposta HTML por consulta.",
     };
   }
+  if (source === "SIGEF_EXTRATO" && allowed) {
+    return {
+      source,
+      version: "SIGEF_DIRECT_EXTRATO_HTTP_V1",
+      allowed: true,
+      maxAttempts: 2,
+      retryBackoffMs: 1_200,
+      reason: "Detalhamento público SIGEF comprovado em piloto para contas PDDE Básico explicitamente declaradas, Banco do Brasil e programa 02; a coleta preserva HTML, paginação e evidência por consulta.",
+    };
+  }
   return {
     source,
     version: source === "PDDEINFO" ? "PDDEINFO_HTTP_RUNNER_V1" : "SOURCE_RUNNER_BLOCKED_V1",

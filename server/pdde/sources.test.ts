@@ -31,19 +31,20 @@ describe("catálogo de automação por fonte", () => {
     ]));
   });
 
-  it("mantém o SIGEF Conta Corrente bloqueado por CAPTCHA e registra o reCAPTCHA da rota pública do piloto de extrato", () => {
+  it("mantém o SIGEF Conta Corrente bloqueado por CAPTCHA e habilita somente o detalhamento público de extrato no piloto restrito", () => {
     const contaCorrente = sourceDefinition("SIGEF_CONTA_CORRENTE");
     const extrato = sourceDefinition("SIGEF_EXTRATO");
     expect(contaCorrente).toMatchObject({ accessState: "CAPTCHA_REQUIRED", autonomous: false, collectionMethod: "institutional-channel" });
     expect(contaCorrente.baseUrl).toContain("extrato-conta-corrente");
-    expect(extrato).toMatchObject({ accessState: "PILOT_COMPLETED_WITH_LIMITATIONS", autonomous: false, collectionMethod: "file-import" });
-    expect(extrato.detail).toContain("programa, parcela e conta destinatária");
-    expect(extrato.detail).toContain("reCAPTCHA");
+    expect(extrato).toMatchObject({ accessState: "AUTONOMOUS_AVAILABLE", autonomous: true, collectionMethod: "http" });
+    expect(extrato.detail).toContain("programa 02");
+    expect(extrato.detail).toContain("cinco UEx");
   });
 
   it("versiona os roteiros autônomos comprovados e mantém bloqueadas as fontes não autorizadas", () => {
     expect(sourceCollectionPlan("PDDEINFO")).toMatchObject({ allowed: true, version: "PDDEINFO_HTTP_RUNNER_V1", maxAttempts: 3, retryBackoffMs: 900 });
     expect(assertSourceCollectionPermitted("SIGEF_LIBERACAO")).toMatchObject({ allowed: true, version: "SIGEF_LEGACY_LIBERACAO_HTTP_V1", maxAttempts: 2, retryBackoffMs: 1_200 });
+    expect(assertSourceCollectionPermitted("SIGEF_EXTRATO")).toMatchObject({ allowed: true, version: "SIGEF_DIRECT_EXTRATO_HTTP_V1", maxAttempts: 2, retryBackoffMs: 1_200 });
     expect(sourceCollectionPlan("SIGEF_CONTA_CORRENTE")).toMatchObject({ allowed: false, maxAttempts: 0, version: "SOURCE_RUNNER_BLOCKED_V1" });
   });
 });

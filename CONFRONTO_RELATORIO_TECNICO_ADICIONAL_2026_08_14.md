@@ -57,6 +57,26 @@ O relatório é útil principalmente porque desloca o **extrato SIGEF por conta 
 
 As frentes BB Gestão Ágil, Webservice SIGEF e Portal da Transparência continuam relevantes, mas não substituem o caminho que já possui resposta pública e prova com UEx da 4ª CRE. A PAB também continua prioritária para histórico e controle, porém não depende de descoberta de XHR: os seus endpoints públicos já foram comprovados pelo projeto.
 
+## Confronto dos scripts adicionais de movimentações de 2026
+
+Os novos scripts recebidos trouxeram uma confirmação útil: o detalhamento público do SIGEF retorna as linhas de movimentação de uma conta quando a identidade já é conhecida pelo PDDEInfo. Eles também confirmam a estrutura de cada linha: data, crédito, débito, documento, histórico, identificador e nome do favorecido, banco, agência e conta do favorecido. O adaptador foi ampliado para preservar essas linhas como **fatos de extrato auditáveis** para o programa `02`, sem convertê-las automaticamente em despesa classificada, saldo real, prestação de contas aprovada ou irregularidade.
+
+| Elemento dos scripts recebidos | Avaliação | Decisão no adaptador |
+|---|---|---|
+| Fluxo PDDEInfo → conta do rótulo exato `PDDE` → detalhamento SIGEF | **Confirmado.** | Mantido como única rota de elegibilidade do piloto. |
+| Banco com três dígitos, agência com quatro, conta BB com dez posições e possível dígito `X`, CNPJ com 14 dígitos. | **Confirmado e incorporado.** | O adaptador normaliza exclusivamente a apresentação da mesma identidade já declarada; parâmetros normalizados ficam preservados junto da evidência. |
+| Código `02` para PDDE Básico. | **Confirmado na amostra.** | Mantido como única opção produtiva do piloto. |
+| Créditos, débitos, documento, histórico e favorecido no HTML. | **Confirmado e incorporado.** | Cada linha é anexada ao dossiê como observação SIGEF com URL, hash, seletor e trecho de evidência. |
+| Laços que testam códigos `0A`, `0B` e `Z9`, várias contas e vários meses até obter resposta. | **Não incorporado.** | Isso constitui sondagem por tentativa e erro e não é permitido no fluxo autônomo. Novos códigos dependem de mapeamento e piloto específicos. |
+| Remover caracteres não numéricos da conta antes de consultar. | **Rejeitado.** | O adaptador preserva o dígito verificador `X`; removê-lo pode consultar outra identidade bancária. |
+| Considerar qualquer HTML sem “Nenhum registro encontrado” como resultado útil. | **Rejeitado.** | O parser exige cabeçalho de CNPJ, banco, agência, conta e programa compatíveis, além de linhas financeiras estruturadas. |
+
+> **Resultado do novo piloto de implementação:** o coletor implementado consultou novamente as três UEx de referência. Todas responderam HTTP 200 em uma tentativa, com cabeçalho compatível e crédito FNDE localizado no programa `02`: R$ 5.305,00, R$ 9.905,00 e R$ 4.295,00. As respostas continham, respectivamente, 119, 201 e 101 linhas financeiras parseáveis. A ausência de um contador explícito de paginação nessas respostas foi preservada como limitação; ela não é convertida em alegação de cobertura total.
+
+O parâmetro de mês/ano continua tratado como **período inicial consultado**, não como filtro de um único mês. Portanto, o adaptador usa o mês do primeiro pagamento básico disponível para iniciar a consulta, registra esse parâmetro e conserva todas as linhas retornadas. A conciliação permanece independente: somente crédito por ordem bancária do FNDE, com identidade da conta e valor compatíveis, recebe o estado `CREDITO_LOCALIZADO_SIGEF`.
+
+A verificação visual da rota `/auditoria` confirmou que a tela institucional continua carregando e que o dossiê conserva sua área de resumo financeiro. A tabela de movimentações SIGEF permanece vazia nas execuções históricas anteriores — como esperado, porque elas não possuem as novas observações — e será preenchida apenas nas próximas execuções que acionarem o piloto do adaptador.
+
 ## Referências
 
 [1]: https://www.fnde.gov.br/sigefweb/default/conta-corrente/extrato-conta-corrente "SIGEF — Extrato Conta Corrente"

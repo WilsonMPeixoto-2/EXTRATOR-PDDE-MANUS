@@ -13,8 +13,8 @@ A ferramenta deve realizar autonomamente **toda etapa permitida e reproduzível*
 | PDDEInfo por INEP | Completa. A rota pública é consultável por URL e já possui coletor próprio com lotes e retentativas. | Coletar, salvar HTML/JSON, parsear e validar automaticamente. | `FALHA_TECNICA` somente para erro de rede, resposta inválida ou alteração de estrutura. |
 | Dados Abertos FNDE — PDDE | Completa após definir o arquivo oficial, exercício e periodicidade. O portal do FNDE informa conjuntos de execução financeira, escolas atendidas, saldos e prestação de contas do PDDE. [1] | Baixar arquivo oficial, registrar data de atualização, hash, cobertura e completar a conciliação como controle secundário. | `ARQUIVO_NAO_DISPONIVEL` ou `COBERTURA_INSUFICIENTE`. |
 | SIGEF — Liberação de Recursos | Parcial. A interface moderna apresenta CAPTCHA, mas a rota legada pública de Liberações foi comprovada por CNPJ, programa e município. | Consultar no máximo cinco UEx por execução, salvar HTML/JSON/hash e corroborar somente parcela, data e valor que coincidam com o PDDEInfo. | `OB_CORROBORADA_CREDITO_NAO_LOCALIZADO`, `DIVERGENCIA_ENTRE_FONTES` ou `CONSULTA_INCONCLUSIVA`; nunca preencher conta primária do PDDEInfo. |
-| SIGEF — Conta Corrente | Pendente de piloto. A tela é pública, mas a consulta deve ser testada por CNPJ e pelo fluxo completo. | Criar adaptador somente depois de comprovar resultado, estabilidade e permissão de acesso. | `PILOTO_PENDENTE` ou `ACESSO_RESTRITO`. |
-| SIGEF — Extratos | Pendente de piloto. A tela pública possui filtros, mas é preciso provar o vínculo com a UEx e a cobertura de 2026. | Não habilitar em lote antes de testar conta, período, programas, paginação e estornos. | `PILOTO_PENDENTE` ou `ACESSO_RESTRITO`. |
+| SIGEF — Conta Corrente | Pendente de canal acessível/autorizado. A tela geral de pesquisa não integra o piloto e seus controles não são contornados. | Não criar coletor para formulário protegido nem interpretar falha de acesso como ausência de conta. | `ACESSO_RESTRITO` ou `CONSULTA_INCONCLUSIVA`. |
+| SIGEF — Extratos (detalhamento público) | Parcial e comprovada somente para programa `02` do PDDE Básico. O detalhamento por URL respondeu em três UEx com CNPJ, Banco do Brasil, agência e conta do rótulo exato `PDDE` coincidentes. | Consultar no máximo cinco UEx por execução; normalizar somente banco (3), agência (4), conta BB (10, preservando `X`) e CNPJ (14); salvar HTML/JSON/hash e todas as linhas retornadas. | `CREDITO_LOCALIZADO_SIGEF`, `DIVERGENCIA_ENTRE_FONTES` ou `CONSULTA_INCONCLUSIVA`; não inferir programas, contas, saldo ou natureza de despesa. |
 | Extrato bancário fornecido/autorizado | Autonomia de ingestão, não de obtenção. | Receber arquivo autorizado, extrair lançamentos e manter o documento original como evidência. | `ARQUIVO_NAO_FORNECIDO`. |
 
 ## Comportamento obrigatório da aplicação
@@ -35,7 +35,7 @@ O aplicativo seguirá com **adaptadores por fonte**. Todos devolvem o mesmo cont
 Coleta permitida → artefato bruto → hash → parsing versionado → validações → observações por campo → estado de evidência → achados de conciliação
 ```
 
-O adaptador PDDEInfo é o primeiro já operacional. Dados Abertos será o próximo candidato a automação integral. SIGEF só será conectado de forma autônoma quando existir rota permitida e testada ou canal institucional oficialmente autorizado.
+O adaptador PDDEInfo é o primeiro já operacional. O detalhamento SIGEF de extrato é o segundo adaptador HTTP habilitado, mas permanece em piloto restrito ao programa `02`. Dados Abertos será o próximo candidato a automação integral. Demais frentes SIGEF só serão conectadas de forma autônoma quando existir rota permitida e testada ou canal institucional oficialmente autorizado.
 
 ## Referências
 
