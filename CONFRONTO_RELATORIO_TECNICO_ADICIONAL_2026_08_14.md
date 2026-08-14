@@ -97,6 +97,26 @@ Após o confronto, a própria rota já preservada pela execução recuperada foi
 
 O adaptador foi corrigido para comparar `reportedTotal` com as linhas financeiras extraídas. Quando o total declarado é superior ao retorno, todas as conciliações de crédito passam a `CONSULTA_INCONCLUSIVA`; as linhas ainda são preservadas como fatos da página consultada, mas recebem aviso de paginação parcial e não podem ser apresentadas como livro-razão completo. A execução recuperada já aprovada continua imutável e seu dossiê mantém os artefatos originais; a nova regra incidirá nas próximas execuções.
 
+## Materiais externos de auditoria de 10 escolas: registro inicial
+
+Os materiais recebidos em 14/08/2026 descrevem uma amostra de dez UEx, seus extratos diretos e códigos em Node.js, Python, Power Query e PowerShell. Eles são úteis como **evidência exploratória** de que o detalhamento SIGEF pode expor documento, histórico, favorecido e conta alfanumérica para identidades já conhecidas. Também reforçam a necessidade de preservar o dígito `X`, o uso de centavos inteiros em totalizações e uma chave determinística de transação como recurso futuro de deduplicação.
+
+Entretanto, o mesmo material possui limitações incompatíveis com a integração produtiva atual: seus scripts mapeiam `0A`, `0B` e `Z9` sem piloto independente, aplicam código `02` como padrão para programa não reconhecido, não verificam `Exibindo de ... de ...`, somam páginas potencialmente parciais como histórico completo e classificam transações como despesa, tarifa indevida, aplicação ou irregularidade com base somente no texto do histórico. Tais classificações serão tratadas, no máximo, como hipóteses de triagem; não são prova de gasto, saldo atual, violação normativa, recurso aguardando execução ou necessidade de estorno.
+
+O conjunto informa contagens históricas de 234 a 531 movimentos por escola e relatórios agregados de dez unidades. Esses números não devem ser reproduzidos pelo sistema enquanto a paginação de cada resposta não for resolvida ou comprovada. Uma verificação própria já demonstrou que uma URL de extrato preservada retornou `Exibindo de 1 até 10 de 147`; portanto, o texto “livro-razão completo em uma única tabela” permanece refutado para essa amostra.
+
+A Resolução CD/FNDE nº 15/2021 prevê isenção de taxas e tarifas para EEx, UEx e EM nos termos do Acordo de Cooperação Mútua vigente. Isso torna uma linha cujo histórico contenha `TARIFA` um **sinal relevante para conferência**, mas não prova, isoladamente, que houve cobrança indevida, que a conta estava abrangida pelo acordo na data, nem que cabe estorno. O sistema deve conservar o fato bruto como `TARIFA_DETECTADA_SIGEF` e requerer confirmação documental antes de qualquer alerta conclusivo ou providência administrativa.[9]
+
+| Elemento dos novos materiais | Avaliação | Encaminhamento recomendado |
+|---|---|---|
+| Normalização de conta com dígito `X`, CNPJ e valores em centavos inteiros | **Aproveitável.** Já é compatível com o adaptador. | Manter no núcleo do coletor e ampliar testes de regressão. |
+| Hash determinístico da linha de movimento | **Aproveitável com ajuste.** Evita duplicação entre reconsultas, mas não substitui o hash do HTML nem a evidência de origem. | Criar uma chave auxiliar de deduplicação numa alteração separada, sem reescrever fatos históricos. |
+| Repasses FNDE identificados por OB, valor, CNPJ e conta | **Aproveitável somente com identidade e cobertura completas.** | Continuar usando a conciliação estrita já implantada; página parcial permanece inconclusiva. |
+| Histórico `BB-APLIC` e `RESGATE` | **Aproveitável como descrição bruta.** | Preservar o texto e, se houver triagem futura, usar rótulo reversível de hipótese; não tratar como gasto ou saldo. |
+| `TARIFA`, `PIX`, pagamentos e fornecedores | **Não conclusivo para auditoria de mérito.** | Exibir como fato de extrato e, se necessário, abrir revisão documental; não gerar irregularidade ou solicitação de estorno automática. |
+| Consulta automática para `0A`, `0B` e `Z9` | **Ainda não aprovada.** | Exigir piloto por programa com conta declarada, resposta autenticada e evidência de que o código corresponde ao rótulo do PDDEInfo. |
+| Relatório de “saldo atual”, “volume histórico completo” e “prontidão para 163 escolas” | **Rejeitado na forma apresentada.** | Só publicar métricas com posição temporal explícita e cobertura comprovada de todas as páginas do extrato. |
+
 ## Referências
 
 [1]: https://www.fnde.gov.br/sigefweb/default/conta-corrente/extrato-conta-corrente "SIGEF — Extrato Conta Corrente"
@@ -107,3 +127,4 @@ O adaptador foi corrigido para comparar `reportedTotal` com as linhas financeira
 [6]: https://www.fnde.gov.br/webservices/sigef/teste/index/consultar-andamento-cr "FNDE — Interface pública de teste do Webservice SIGEF"
 [7]: https://www.gov.br/fnde/pt-br/assuntos/sistemas/sigefweb "FNDE — SIGEFWEB"
 [8]: https://bb.com.br/site/setor-publico/bb-gestao-agil/ "Banco do Brasil — Gestão Ágil"
+[9]: https://www.gov.br/fnde/pt-br/acesso-a-informacao/legislacao/resolucoes/2021/resolucao-no-15-de-16-de-setembro-de-2021 "Resolução CD/FNDE nº 15, de 16 de setembro de 2021"
