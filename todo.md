@@ -35,7 +35,7 @@
 - [x] Popular resultados de validação e estado de evidência no pipeline de extração, refletindo-os na auditoria, interface e Excel.
 - [x] Cobrir em testes o preenchimento real de proveniência, validações e estados, além da existência dos tipos.
 - [x] Produzir matriz de viabilidade técnica por fonte, distinguindo capacidade já comprovada, integração possível mediante piloto e dependências institucionais de acesso/autorização.
-- [ ] Executar piloto controlado de navegação, consulta, extração, armazenamento e recuperação de evidências antes de habilitar cada fonte em produção. SIGEF_EXTRATO por arquivo e SIGEF_LIBERACAO pela rota legada pública tiveram piloto completo; SIGEF_CONTA_CORRENTE permanece dependente de canal acessível/autorizado.
+- [x] Executar piloto controlado de navegação, consulta, extração, armazenamento e recuperação de evidências antes de habilitar cada fonte em produção. SIGEF_EXTRATO por arquivo e SIGEF_LIBERACAO pela rota legada pública tiveram piloto completo; SIGEF_CONTA_CORRENTE não foi habilitado e permanece dependente de canal acessível/autorizado, sem tentativa de contorno.
 - [x] Implementar uma camada autônoma de coleta por fonte, com roteiros determinísticos, parâmetros versionados, retentativas, limites e registro de cada navegação permitida.
 - [x] Exibir no sistema bloqueios externos de acesso, como CAPTCHA, como estado operacional pendente de canal autorizado — nunca como falha silenciosa ou ausência de informação.
 - [x] Comparar ferramentas de coleta e automação por aderência ao PDDEInfo/SIGEF, licenças, custo operacional, determinismo, evidência preservada e respeito a CAPTCHA.
