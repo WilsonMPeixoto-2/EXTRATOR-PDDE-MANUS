@@ -20,6 +20,7 @@ O PDDEREx permanece uma hipótese útil de confirmação, mas não atingiu o mes
 | **Piloto imediato** | PAB produto 70 — Saldos das Contas das UEx Públicas | Gzip público de 10,43 MB; 163/163 INEPs em 326 registros de 2025; banco `001` em todas as linhas da lista-mestre. | Referência histórica de conta/saldo por INEP, conta e exercício, sem inferir o programa da conta. |
 | **Controle secundário** | PAB produto 59 — Consulta Prestação de Contas | Gzip público contendo INEP, CNPJ UEx, CNPJ EEx e atualização, mas sem campos de situação de prestação no cabeçalho testado. | Apoio de identificação e junção INEP–CNPJ; não usar como situação de prestação de contas. |
 | **Investigação adicional** | PDDEREx | Rota pública de lista comprovada; amostra Rio de Janeiro/2025–2026 sem registros e detalhe indisponível no host testado. | Somente novo piloto por CNPJ de UEx e resposta detalhada comprovada. |
+| **Piloto controlado** | SIGEF — Liberações, rota legada | O formulário e o detalhe público retornaram CNPJ, programa, data, OB, valor, banco, agência e C/C sem CAPTCHA no fluxo testado. | Consultar somente CNPJs UEx já confirmados e conciliar estritamente por CNPJ, programa, valor, data, OB e conta; manter a interface SIGEF moderna como `CAPTCHA_REQUIRED`. |
 | **Acesso institucional** | BB Gestão Ágil | API Accountability existe, mas não foi localizada credencial, contrato ou escopo PDDE da SME-Rio. | Integração apenas após habilitação formal do órgão, sem automação de tela. |
 | **Condicionada** | Portal da Transparência | API REST oficial e dados macro; token obrigatório e consulta web bloqueada no ambiente. | Contraprova de documento/ordem federal somente após credencial e teste de chave CNPJ/OB. |
 | **Não priorizar** | SiGPC, PDDEWeb, SIMEC/PDDE Interativo, Transferegov e Power BI | Autorização, bloqueio técnico, foco cadastral/planejamento ou escopo de transferência distinto. | Importação autorizada, consulta manual ou validação agregada, conforme a fonte. |
@@ -70,7 +71,13 @@ O produto 66 deve gerar fatos históricos de execução por exercício e destina
 
 O PDDEREx somente deve avançar quando um teste por CNPJ de UEx comprovar resposta detalhada, campos bancários e parâmetros estáveis. O adaptador futuro não deve classificar “DADOS INEXISTENTES” como falha de rede nem criar conta a partir de qualquer programa que não seja explicitamente PDDE. A primeira entrega, se a fonte voltar a responder para o recorte, deverá ser somente uma conciliação de valores previstos/transferidos e de dados bancários declarados, com divergência visível no dossiê. [6]
 
-### 4. Canais condicionados a credencial ou autorização
+### 4. SIGEF de Liberações — rota legada pública
+
+O teste revelou um caminho público diferente da interface SIGEF moderna que exige CAPTCHA. O formulário legado `internet_fnde.liberacoes_01_pc` declarou em JavaScript o destino `internet_fnde.liberacoes_result_pc`; a listagem municipal retornou entidades e a abertura do detalhe por CNPJ trouxe as colunas de pagamento, OB, valor, programa, banco, agência e conta. A primeira entrega deve ser um piloto limitado a CNPJs UEx já corroborados pelo PDDEInfo, com uma consulta por entidade, limitação de ritmo e preservação integral da resposta HTML.
+
+Essa integração continua sendo de **corroboração**, não de preenchimento: um registro SIGEF só poderá abrir observação relacionada a pagamento PDDEInfo quando coincidirem CNPJ, programa declarado, data, valor, OB e dados bancários. O sucesso da rota legada não altera a classificação `CAPTCHA_REQUIRED` das telas SIGEF modernas de Liberações, Conta Corrente e Extratos, nem autoriza sua automação.
+
+### 5. Canais condicionados a credencial ou autorização
 
 BB Gestão Ágil, SiGPC Contas Online, PDDEWeb e API do Portal da Transparência devem permanecer fora do agendamento e da execução automática até existir acesso institucional válido. O contrato correto é de **importação autorizada**: arquivo ou API fornecida pelo titular do acesso, token exclusivamente no backend, escopo mínimo e revalidação de cobertura antes de persistir dados.
 
