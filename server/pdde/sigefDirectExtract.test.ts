@@ -43,9 +43,18 @@ describe("SIGEF — detalhamento público de extrato", () => {
     expect(parsed.reportedTotal).toBe(119);
   });
 
-  it("seleciona somente conta declarada como PDDE e localiza crédito FNDE sem equiparar as datas", () => {
+  it("não concilia crédito quando o extrato declara paginação parcial", () => {
     const target = selectSigefDirectExtractTargets([record()])[0]!;
     const collection = { sourceUrl: "https://sigef.test", consultedAt: "2026-05-03T00:00:00.000Z", httpStatus: 200, attempts: 1, sourceHashSha256: "a".repeat(64), rawHtml: html, query: { bank: "001", agency: "0249", account: "000054966X", cnpj: "02016546000166", program: "02", period: "2026-04" }, ...parseSigefDirectExtractHtml(html) };
+    const match = matchSigefDirectExtractCredits(target, collection)[0]!;
+    expect(match).toMatchObject({ matched: false, state: "CONSULTA_INCONCLUSIVA", transaction: null });
+    expect(match.message).toContain("2 de 119");
+  });
+
+  it("concilia crédito somente quando não há evidência de paginação parcial", () => {
+    const target = selectSigefDirectExtractTargets([record()])[0]!;
+    const completeHtml = html.replace(/<p>Exibindo de 1 até 10 de 119<\/p>/, "");
+    const collection = { sourceUrl: "https://sigef.test", consultedAt: "2026-05-03T00:00:00.000Z", httpStatus: 200, attempts: 1, sourceHashSha256: "a".repeat(64), rawHtml: completeHtml, query: { bank: "001", agency: "0249", account: "000054966X", cnpj: "02016546000166", program: "02", period: "2026-04" }, ...parseSigefDirectExtractHtml(completeHtml) };
     const match = matchSigefDirectExtractCredits(target, collection)[0]!;
     expect(match).toMatchObject({ matched: true, state: "CREDITO_LOCALIZADO_SIGEF", transaction: { date: "2026-05-03", credit: 5305 } });
   });

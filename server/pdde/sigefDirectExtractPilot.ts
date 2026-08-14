@@ -109,6 +109,10 @@ function movementFields(input: {
   rawArtifact: StoredArtifact;
   normalizedArtifact: StoredArtifact;
 }): FieldProvenance[] {
+  const partialPage = input.collection.reportedTotal !== null && input.collection.reportedTotal > input.collection.transactions.length;
+  const paginationNotice = partialPage
+    ? `Página parcial SIGEF: ${input.collection.transactions.length} de ${input.collection.reportedTotal} movimentações declaradas. `
+    : "";
   return input.collection.transactions.map((transaction, index) => {
     const logicalKey = `sigefExtrato:movement:${transaction.date}:${transaction.document}:${index}`;
     const direction = transaction.credit > 0 ? "crédito" : "débito";
@@ -132,9 +136,10 @@ function movementFields(input: {
       parserVersion: SIGEF_DIRECT_EXTRACT_PARSER_VERSION,
       extractionRule: "sigef-direct-extract-program-02-movement-row",
       selector: transaction.selector,
-      evidenceSnippet: `SIGEF extrato: ${direction} de ${amount.toFixed(2)} em ${transaction.date}; documento ${transaction.document}; histórico ${transaction.historic}; favorecido ${transaction.beneficiaryName ?? "não informado"} (${transaction.beneficiaryCnpj ?? "não informado"}).`,
+      evidenceSnippet: `${paginationNotice}SIGEF extrato: ${direction} de ${amount.toFixed(2)} em ${transaction.date}; documento ${transaction.document}; histórico ${transaction.historic}; favorecido ${transaction.beneficiaryName ?? "não informado"} (${transaction.beneficiaryCnpj ?? "não informado"}).`,
       validationResults: [
         { code: "source-hash", level: "passed", message: "Hash SHA-256 da resposta SIGEF de extrato presente." },
+        ...(partialPage ? [{ code: "pagination-partial", level: "warning" as const, message: `A rota declarou ${input.collection.reportedTotal} movimentações, mas retornou ${input.collection.transactions.length}; esta linha não representa livro-razão completo.` }] : []),
         { code: "movement-semantics", level: "warning", message: "Movimentação preservada como fato do extrato; não classifica despesa, saldo real, prestação de contas ou regularidade." },
       ],
       state: null,
@@ -197,15 +202,17 @@ export async function registerSigefDirectExtractPilot(
       inconclusivePayments += inconclusive;
       if (limited) paginationLimited += 1;
       const fetchedEvent: AuditEvent = {
-        eventId: `sigef-extrato-${runId}-${target.record.inep}-${dependencies.now().getTime()}`,
+        eventId: crypto.randomUUID(),
         runId,
         occurredAt: dependencies.now().toISOString(),
         type: "SOURCE_FETCHED",
-        severity: divergent > 0 ? "critical" : located > 0 ? "info" : "warning",
+        severity: divergent > 0 ? "critical" : limited ? "warning" : located > 0 ? "info" : "warning",
         inep: target.record.inep,
         fieldId: null,
         message: divergent > 0
           ? "Detalhamento SIGEF retornou divergência de identidade; associação bloqueada e conta primária do PDDEInfo preservada."
+          : limited
+          ? `Detalhamento SIGEF retornou ${collection.transactions.length} de ${collection.reportedTotal} movimentações declaradas; créditos não foram conciliados e as linhas ficaram identificadas como página parcial.`
           : located > 0
           ? `Detalhamento SIGEF localizou ${located} crédito(s) FNDE compatível(is) na conta PDDE Básico; data de crédito preservada separadamente.`
           : "Detalhamento SIGEF consultado sem crédito compatível concluído; nenhuma ausência foi inferida.",
@@ -229,7 +236,7 @@ export async function registerSigefDirectExtractPilot(
         },
       };
       const reconciliationEvents = matches.map(match => ({
-        eventId: `${fetchedEvent.eventId}-${match.payment.semanticKey ?? "payment"}`,
+        eventId: crypto.randomUUID(),
         runId,
         occurredAt: fetchedEvent.occurredAt,
         type: "FIELD_RECONCILED" as const,
@@ -242,15 +249,17 @@ export async function registerSigefDirectExtractPilot(
         payload: { source: "SIGEF_EXTRATO", semanticKey: match.payment.semanticKey, state: match.state, divergenceFields: match.divergenceFields, artifact: rawArtifact.key },
       }));
       const movementEvent = headerDivergent ? null : {
-        eventId: `${fetchedEvent.eventId}-movements`,
+        eventId: crypto.randomUUID(),
         runId,
         occurredAt: fetchedEvent.occurredAt,
         type: "FIELD_PARSED" as const,
-        severity: "info" as const,
+        severity: limited ? "warning" as const : "info" as const,
         inep: target.record.inep,
         fieldId: null,
-        message: `${movements.length} movimentação(ões) de crédito e débito do extrato SIGEF foram preservadas como evidência, sem classificação contábil automática.`,
-        payload: { source: "SIGEF_EXTRATO", program: "02", movementCount: movements.length, artifact: rawArtifact.key },
+        message: limited
+          ? `${movements.length} movimentação(ões) da página parcial SIGEF foram preservadas como evidência incompleta; não representam livro-razão total nem conciliação de crédito.`
+          : `${movements.length} movimentação(ões) de crédito e débito do extrato SIGEF foram preservadas como evidência, sem classificação contábil automática.`,
+        payload: { source: "SIGEF_EXTRATO", program: "02", movementCount: movements.length, reportedTotal: collection.reportedTotal, paginationLimited: limited, artifact: rawArtifact.key },
       };
       const trailEvents = movementEvent ? [fetchedEvent, ...reconciliationEvents, movementEvent] : [fetchedEvent, ...reconciliationEvents];
       events.push(...trailEvents);
@@ -259,7 +268,7 @@ export async function registerSigefDirectExtractPilot(
     } catch (error) {
       failures += 1;
       const failure: AuditEvent = {
-        eventId: `sigef-extrato-failure-${runId}-${target.record.inep}-${dependencies.now().getTime()}`,
+        eventId: crypto.randomUUID(),
         runId,
         occurredAt: dependencies.now().toISOString(),
         type: "SOURCE_FETCHED",

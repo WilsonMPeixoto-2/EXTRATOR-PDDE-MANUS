@@ -271,12 +271,26 @@ export async function runExtraction(onEvent: (event: ExtractionEvent) => void, c
     await appendAuditTrail(runId, recovered.audit.inep, recovered.record?.fieldProvenance ?? [], recovered.events);
   }
 
-  // Piloto complementar e limitado: não bloqueia a execução nem preenche campos
-  // primários do PDDEInfo. As observações SIGEF ficam anexadas à trilha da mesma execução.
-  const sigefPilot = await registerSigefLegacyLiberationPilot(runId, run.records);
-  run.auditEvents.push(...sigefPilot.events);
-  const sigefDirectExtractPilot = await registerSigefDirectExtractPilot(runId, run.records);
-  run.auditEvents.push(...sigefDirectExtractPilot.events);
+  // Pilotos complementares e limitados: nunca bloqueiam a execução PDDEInfo nem preenchem
+  // campos primários. Uma falha externa é preservada como consulta inconclusiva e o fluxo segue.
+  const sigefPilots = [
+    { source: "SIGEF_LIBERACAO", execute: () => registerSigefLegacyLiberationPilot(runId, run.records) },
+    { source: "SIGEF_EXTRATO", execute: () => registerSigefDirectExtractPilot(runId, run.records) },
+  ];
+  for (const pilot of sigefPilots) {
+    try {
+      const result = await pilot.execute();
+      run.auditEvents.push(...result.events);
+    } catch (cause) {
+      const pilotFailure = event(runId, "SOURCE_FETCHED", "warning", null, null, `Piloto ${pilot.source} não concluído; a coleta e os controles do PDDEInfo permanecem válidos.`, {
+        source: pilot.source,
+        state: "CONSULTA_INCONCLUSIVA",
+        exception: cause instanceof Error ? cause.message : "Falha desconhecida",
+      });
+      run.auditEvents.push(pilotFailure);
+      await appendAuditTrail(runId, "00000000", [], [pilotFailure]);
+    }
+  }
 
   const baseline = await loadLatestApprovedPaymentSnapshots(runId);
   const historicalFindings = baseline.runId

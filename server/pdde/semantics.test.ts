@@ -15,6 +15,11 @@ describe("catálogo semântico de destinações", () => {
     expect(classifyDestination("PDDE BÁSICO - 1ª PARCELA")).toMatchObject({ status: "known", key: "PDDE_BASIC_P1" });
   });
 
+  it("distingue as parcelas P1 e P2 de Primeira Infância sem colapsar a segunda parcela", () => {
+    expect(classifyDestination("PDDE / PDDE Básico - Primeira Infância - P1")).toMatchObject({ status: "known", key: "PRIMEIRA_INFANCIA_P1" });
+    expect(classifyDestination("PDDE / PDDE Básico - Primeira Infância - P2")).toMatchObject({ status: "known", key: "PRIMEIRA_INFANCIA_P2" });
+  });
+
   it("marca destinação fora do catálogo como desconhecida", () => {
     expect(classifyDestination("Programa Experimental 2026")).toEqual({ status: "unknown", key: null, candidates: [] });
   });
@@ -42,6 +47,12 @@ describe("invariantes financeiras do PDDEInfo", () => {
       expect.objectContaining({ code: "paid-arithmetic", level: "failed" }),
     ]));
     expect(validateExtraction([record], []).errors.join(" ")).toContain("falha(s) crítica(s) de validação por campo");
+  });
+
+  it("contabiliza Primeira Infância P2 como segunda parcela prevista, sem convertê-la em PDDE Básico genérico", () => {
+    const record = parseSchoolPage(paymentTable("PDDE / PDDE Básico - Primeira Infância - P2"), "33069247", "0410001", "https://fonte.test", "2026-08-12T12:00:00.000Z", "a".repeat(64));
+    expect(record.payments[0]?.semanticKey).toBe("PRIMEIRA_INFANCIA_P2");
+    expect(validateExtraction([record], []).secondInstallmentExpected).toBe(1);
   });
 
   it("bloqueia a validação quando uma destinação extraída não pertence ao catálogo", () => {

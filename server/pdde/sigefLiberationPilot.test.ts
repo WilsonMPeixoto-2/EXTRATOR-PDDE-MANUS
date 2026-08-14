@@ -24,6 +24,8 @@ describe("piloto SIGEF legado", () => {
     const trail = calls.find(call => call.name === "trail")?.value as unknown[];
     const provenance = trail[2] as Array<{ source: string; logicalKey: string; normalizedValue: string; state: string }>;
     expect(provenance).toEqual(expect.arrayContaining([expect.objectContaining({ source: "SIGEF_LIBERACAO", logicalKey: "sigefLiberacao:PDDE_BASIC_P1:account", normalizedValue: "0000549789", state: "OB_CORROBORADA_CREDITO_NAO_LOCALIZADO" })]));
+    const events = trail[3] as Array<{ eventId: string }>;
+    expect(events.every(event => event.eventId.length <= 64)).toBe(true);
   });
 
   it("persiste divergência crítica quando o valor SIGEF conflita com a parcela PDDEInfo", async () => {

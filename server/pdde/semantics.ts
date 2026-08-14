@@ -11,6 +11,7 @@ export type DestinationSemanticKey =
   | "PDDE_BASIC_P1"
   | "PDDE_BASIC_P2"
   | "PRIMEIRA_INFANCIA_P1"
+  | "PRIMEIRA_INFANCIA_P2"
   | "EDUCACAO_CONECTADA_2026"
   | "ESCOLA_E_COMUNIDADE_2026"
   | "ESCOLA_DAS_ADOLESCENCIAS_2026"
@@ -26,7 +27,8 @@ type DestinationDefinition = {
 const definitions: DestinationDefinition[] = [
   { key: "PDDE_BASIC_P1", label: "PDDE Básico — 1ª parcela", aliases: ["PDDE / PDDE BASICO - 1A PARCELA", "PDDE BASICO - 1A PARCELA"] },
   { key: "PDDE_BASIC_P2", label: "PDDE Básico — 2ª parcela", aliases: ["PDDE / PDDE BASICO - 2A PARCELA", "PDDE BASICO - 2A PARCELA"] },
-  { key: "PRIMEIRA_INFANCIA_P1", label: "Primeira Infância — P1", aliases: ["PRIMEIRA INFANCIA"] },
+  { key: "PRIMEIRA_INFANCIA_P1", label: "Primeira Infância — P1", aliases: ["PRIMEIRA INFANCIA - P1"] },
+  { key: "PRIMEIRA_INFANCIA_P2", label: "Primeira Infância — P2", aliases: ["PRIMEIRA INFANCIA - P2"] },
   { key: "EDUCACAO_CONECTADA_2026", label: "Educação Conectada 2026", aliases: ["EDUCACAO CONECTADA 2026"] },
   { key: "ESCOLA_E_COMUNIDADE_2026", label: "Escola e Comunidade 2026", aliases: ["ESCOLA E COMUNIDADE 2026"] },
   { key: "ESCOLA_DAS_ADOLESCENCIAS_2026", label: "Escola das Adolescências 2026", aliases: ["ESCOLA DAS ADOLESCENCIAS 2026"] },

@@ -282,6 +282,19 @@ export function matchSigefDirectExtractCredits(target: SigefDirectExtractTarget,
     }));
   }
 
+  const partialPage = collection.reportedTotal !== null && collection.reportedTotal > collection.transactions.length;
+  if (partialPage) {
+    return payments.map(payment => ({
+      payment,
+      transaction: null,
+      matched: false,
+      divergent: false,
+      state: "CONSULTA_INCONCLUSIVA" as const,
+      divergenceFields: [],
+      message: `A página SIGEF retornou ${collection.transactions.length} de ${collection.reportedTotal} movimentações declaradas; o crédito não foi conciliado a partir de resultado parcial.`,
+    }));
+  }
+
   const availableCredits = collection.transactions.filter(transaction =>
     transaction.credit > 0
     && normalize(transaction.historic).includes("ORDEM BANCARIA")
@@ -312,9 +325,7 @@ export function matchSigefDirectExtractCredits(target: SigefDirectExtractTarget,
       divergent: false,
       state: "CONSULTA_INCONCLUSIVA" as const,
       divergenceFields: [],
-      message: collection.reportedTotal !== null && collection.reportedTotal > collection.transactions.length
-        ? "A página SIGEF retornou somente parte da paginação; ausência de crédito não foi concluída nem inferida."
-        : "O extrato SIGEF foi consultado, mas não trouxe crédito FNDE compatível dentro da janela controlada; nenhuma ausência de crédito foi inferida.",
+      message: "O extrato SIGEF foi consultado, mas não trouxe crédito FNDE compatível dentro da janela controlada; nenhuma ausência de crédito foi inferida.",
     };
   });
 }

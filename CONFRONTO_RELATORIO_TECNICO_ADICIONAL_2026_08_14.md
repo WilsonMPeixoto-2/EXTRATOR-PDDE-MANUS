@@ -77,6 +77,26 @@ O parâmetro de mês/ano continua tratado como **período inicial consultado**, 
 
 A verificação visual da rota `/auditoria` confirmou que a tela institucional continua carregando e que o dossiê conserva sua área de resumo financeiro. A tabela de movimentações SIGEF permanece vazia nas execuções históricas anteriores — como esperado, porque elas não possuem as novas observações — e será preenchida apenas nas próximas execuções que acionarem o piloto do adaptador.
 
+## Confronto do relatório de paginação e classificação contábil
+
+O novo material acrescenta três hipóteses úteis, mas elas têm níveis diferentes de comprovação. O código `02` para o PDDE Básico permanece **confirmado** no piloto próprio. Os códigos sugeridos para outros programas (`0A`, `0B` e `Z9`) são tratados somente como **hipóteses de mapeamento**: não foram consultados pelo adaptador, não habilitam varredura de códigos e exigem chave de vínculo, amostra controlada e evidência independente antes de qualquer uso.
+
+| Alegação recebida | Confronto com as evidências do projeto | Decisão atual |
+|---|---|---|
+| O detalhamento retorna livro-razão completo em uma tabela sem paginação. | **Parcialmente confirmada.** O piloto próprio registrou 101, 119 e 201 linhas; a alegação de 263 linhas é evidência externa ainda não reproduzida aqui. Nas respostas próprias não houve contador total verificável. | Preservar todas as linhas retornadas e manter `paginationLimited` quando houver contador superior às linhas coletadas. Não declarar cobertura total apenas pela ausência de links `.pagination` ou `tfoot`. |
+| `/data/MMYYYY` ancora a janela histórica até o presente. | **Compatível com o piloto, mas não exaustivamente comprovada.** O parâmetro já é preservado como período inicial e não como mês isolado. | Manter uma única consulta por identidade conhecida; testes de janelas múltiplas só podem ser feitos em amostra específica, com deduplicação e evidência de cada resposta. |
+| `transactionId` SHA-256 por conta, data, operação, documento e valor. | **Útil como mecanismo de deduplicação**, mas não substitui o documento bruto, hash da resposta nem o seletor HTML. | Planejar chave determinística adicional para futuras reconsultas, sem alterar os fatos já preservados nesta execução. |
+| Classificação automática de aplicação, resgate, despesa, tarifa e estorno. | **Não incorporada como verdade contábil.** O histórico bancário, isoladamente, não comprova natureza de despesa, regularidade, isenção, saldo conciliado ou prestação de contas. | Manter fatos brutos no dossiê; qualquer rótulo futuro será hipótese de triagem, reversível, com revisão humana e sem conclusão de irregularidade. |
+| Workbook com quatro abas de utilização e alertas. | **Não aplicável ao escopo atual.** | Permanecem obrigatórias as abas `Financeiro 4ª CRE V2` e `Validação V2`; novas abas só poderão ser discutidas em mudança de requisito explícita. |
+
+> **Conclusão:** o material melhora os próximos testes, sobretudo a verificação dirigida de paginação e uma futura deduplicação determinística. Ele não autoriza, porém, classificação contábil automática, ampliação de programas, sondagem de parâmetros, nem conclusão sobre tarifas, despesas ou regularidade.
+
+### Verificação corretiva de paginação
+
+Após o confronto, a própria rota já preservada pela execução recuperada foi consultada novamente, sem alterar conta, CNPJ, programa ou período. O resultado oficial mostrou expressamente: **“Exibindo de 1 até 10 de 147”**. Portanto, a hipótese de livro-razão contínuo em uma única tabela foi **refutada para essa amostra**: a resposta contém apenas a primeira página, embora mantenha o total declarado.
+
+O adaptador foi corrigido para comparar `reportedTotal` com as linhas financeiras extraídas. Quando o total declarado é superior ao retorno, todas as conciliações de crédito passam a `CONSULTA_INCONCLUSIVA`; as linhas ainda são preservadas como fatos da página consultada, mas recebem aviso de paginação parcial e não podem ser apresentadas como livro-razão completo. A execução recuperada já aprovada continua imutável e seu dossiê mantém os artefatos originais; a nova regra incidirá nas próximas execuções.
+
 ## Referências
 
 [1]: https://www.fnde.gov.br/sigefweb/default/conta-corrente/extrato-conta-corrente "SIGEF — Extrato Conta Corrente"

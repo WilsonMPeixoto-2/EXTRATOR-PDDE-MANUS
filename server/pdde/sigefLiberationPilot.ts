@@ -113,7 +113,7 @@ export async function registerSigefLegacyLiberationPilot(
       corroboratedPayments += matches - divergences;
       divergentPayments += divergences;
       const fetchedEvent: AuditEvent = {
-        eventId: `sigef-liberacao-${runId}-${record.inep}-${dependencies.now().getTime()}`,
+        eventId: crypto.randomUUID(),
         runId,
         occurredAt: dependencies.now().toISOString(),
         type: "SOURCE_FETCHED",
@@ -128,7 +128,7 @@ export async function registerSigefLegacyLiberationPilot(
         payload: { source: "SIGEF_LIBERACAO", sourceUrl: collection.sourceUrl, httpStatus: collection.httpStatus, attempts: collection.attempts, sourceHashSha256: collection.sourceHashSha256, rawHtmlKey: rawArtifact.key, normalizedJsonKey: normalizedArtifact.key, matchedPayments: matches - divergences, divergentPayments: divergences, rowCount: collection.rows.length, pilotLimit: 5 },
       };
       const reconciliationEvents = provenance.filter(field => field.logicalKey.endsWith(":bankOrder")).map(field => ({
-        eventId: `${fetchedEvent.eventId}-${field.fieldId}`,
+        eventId: crypto.randomUUID(),
         runId,
         occurredAt: fetchedEvent.occurredAt,
         type: "FIELD_RECONCILED" as const,
@@ -146,7 +146,7 @@ export async function registerSigefLegacyLiberationPilot(
     } catch (error) {
       failures += 1;
       const failure: AuditEvent = {
-        eventId: `sigef-liberacao-failure-${runId}-${record.inep}-${dependencies.now().getTime()}`,
+        eventId: crypto.randomUUID(),
         runId,
         occurredAt: dependencies.now().toISOString(),
         type: "SOURCE_FETCHED",

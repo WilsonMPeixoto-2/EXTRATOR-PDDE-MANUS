@@ -29,9 +29,30 @@ describe("piloto SIGEF de extrato direto", () => {
     const provenance = trail[2] as Array<{ source: string; logicalKey: string; state: string }>;
     expect(provenance).toEqual(expect.arrayContaining([expect.objectContaining({ source: "SIGEF_EXTRATO", logicalKey: "sigefExtrato:PDDE_BASIC_P1:credit", state: "CREDITO_LOCALIZADO_SIGEF" })]));
     expect(provenance).toEqual(expect.arrayContaining([expect.objectContaining({ source: "SIGEF_EXTRATO", logicalKey: expect.stringContaining("sigefExtrato:movement:2026-05-03:1974995000840"), state: null })]));
+    const events = trail[3] as Array<{ eventId: string }>;
+    expect(events.every(event => event.eventId.length <= 64)).toBe(true);
   });
 
   it("limita a seleção a cinco UEx elegíveis", () => {
     expect(selectSigefDirectExtractTargets(Array.from({ length: 6 }, (_, index) => record(`330687${index}`)))).toHaveLength(5);
+  });
+
+  it("preserva página parcial como evidência incompleta sem conciliar crédito", async () => {
+    const calls: Array<{ name: string; value: unknown }> = [];
+    const partialHtml = html.replace("Exibindo de 1 até 1 de 1", "Exibindo de 1 até 1 de 147");
+    const parsed = parseSigefDirectExtractHtml(partialHtml);
+    const result = await registerSigefDirectExtractPilot("run-partial", [record("33068749")], {
+      collect: async () => ({ sourceUrl: "https://sigef.test", consultedAt: "2026-05-03T12:00:00.000Z", httpStatus: 200, attempts: 1, sourceHashSha256: "b".repeat(64), rawHtml: partialHtml, query: { bank: "001", agency: "0249", account: "000054966X", cnpj: "02016546000166", program: "02", period: "2026-04" }, ...parsed }),
+      store: async key => ({ key, url: `/manus-storage/${key}` }),
+      persistArtifact: async () => undefined,
+      appendTrail: async (...value) => { calls.push({ name: "trail", value }); },
+      wait: async () => undefined,
+      now: () => new Date("2026-05-03T12:00:00.000Z"),
+    });
+    expect(result).toMatchObject({ fetched: 1, movementsPreserved: 1, locatedCredits: 0, inconclusivePayments: 1, paginationLimited: 1 });
+    const trail = calls.find(call => call.name === "trail")?.value as unknown[];
+    const provenance = trail[2] as Array<{ logicalKey: string; validationResults: Array<{ code: string }> }>;
+    const movement = provenance.find(field => field.logicalKey.includes("sigefExtrato:movement"));
+    expect(movement?.validationResults).toEqual(expect.arrayContaining([expect.objectContaining({ code: "pagination-partial" })]));
   });
 });

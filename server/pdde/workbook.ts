@@ -19,6 +19,7 @@ export const financialHeaders = [
   "PDDE Básico — 2ª parcela prevista", "PDDE Básico — 2ª parcela: pagamento registrado", "PDDE Básico — 2ª parcela: data da ordem",
   "PDDE Qualidade — Agência", "PDDE Qualidade — Conta", "PDDE Equidade — Agência", "PDDE Equidade — Conta", "Educação Integral — Agência", "Educação Integral — Conta",
   "Primeira Infância P1 — Previsto", "Primeira Infância P1 — Pagamento registrado", "Primeira Infância P1 — Data da ordem",
+  "Primeira Infância P2 — Previsto", "Primeira Infância P2 — Pagamento registrado", "Primeira Infância P2 — Data da ordem",
   "Educação Conectada 2026 — Previsto", "Educação Conectada 2026 — Pagamento registrado", "Educação Conectada 2026 — Data da ordem",
   "Escola e Comunidade 2026 — Previsto", "Escola e Comunidade 2026 — Pagamento registrado", "Escola e Comunidade 2026 — Data da ordem",
   "Escola das Adolescências 2026 — Previsto", "Escola das Adolescências 2026 — Pagamento registrado", "Escola das Adolescências 2026 — Data da ordem",
@@ -26,8 +27,8 @@ export const financialHeaders = [
   "PDDE SRM 2026 — Previsto", "PDDE SRM 2026 — Pagamento registrado", "PDDE SRM 2026 — Data da ordem",
 ];
 
-const currencyColumns = [9, 10, 12, 13, 21, 22, 24, 25, 27, 28, 30, 31, 33, 34, 36, 37];
-const dateColumns = [11, 14, 23, 26, 29, 32, 35, 38];
+const currencyColumns = [9, 10, 12, 13, 21, 22, 24, 25, 27, 28, 30, 31, 33, 34, 36, 37, 39, 40];
+const dateColumns = [11, 14, 23, 26, 29, 32, 35, 38, 41];
 const textAccountColumns = [1, 2, 5, 6, 7, 15, 16, 17, 18, 19, 20];
 
 const evidenceStateLabels: Record<FieldState, string> = {
@@ -97,6 +98,7 @@ function buildRow(record: SchoolExtraction) {
   const first = paymentValues(record, "PDDE_BASIC_P1");
   const second = paymentValues(record, "PDDE_BASIC_P2");
   const firstChildhood = paymentValues(record, "PRIMEIRA_INFANCIA_P1");
+  const secondChildhood = paymentValues(record, "PRIMEIRA_INFANCIA_P2");
   const connected = paymentValues(record, "EDUCACAO_CONECTADA_2026");
   const community = paymentValues(record, "ESCOLA_E_COMUNIDADE_2026");
   const adolescence = paymentValues(record, "ESCOLA_DAS_ADOLESCENCIAS_2026");
@@ -109,7 +111,7 @@ function buildRow(record: SchoolExtraction) {
     basic?.agency ?? "", basic?.account ?? "", missingBasic ? "Não informada pelo PDDEInfo" : "Informada pelo PDDEInfo",
     ...first, ...second,
     quality?.agency ?? "", quality?.account ?? "", equity?.agency ?? "", equity?.account ?? "", integral?.agency ?? "", integral?.account ?? "",
-    ...firstChildhood, ...connected, ...community, ...adolescence, ...reading, ...srm,
+    ...firstChildhood, ...secondChildhood, ...connected, ...community, ...adolescence, ...reading, ...srm,
   ];
 }
 
@@ -117,7 +119,11 @@ export function validateExtraction(records: SchoolExtraction[], audits: AuditRec
   const errors: string[] = [];
   const uniqueIneps = new Set(records.map(record => record.inep)).size;
   const firstInstallmentPaid = records.filter(record => (paymentContaining(record, "PDDE_BASIC_P1")?.paid ?? 0) > 0).length;
-  const secondInstallmentExpected = records.filter(record => (paymentContaining(record, "PDDE_BASIC_P2")?.expected ?? 0) > 0).length;
+  const secondInstallmentExpected = records.filter(record => {
+    const basicSecond = paymentContaining(record, "PDDE_BASIC_P2")?.expected ?? 0;
+    const earlyChildhoodSecond = paymentContaining(record, "PRIMEIRA_INFANCIA_P2")?.expected ?? 0;
+    return basicSecond > 0 || earlyChildhoodSecond > 0;
+  }).length;
   const missingBasicAccounts = records.filter(record => {
     const basic = accountForExactProgram(record, "PDDE");
     return !basic?.agency && !basic?.account;
