@@ -2,10 +2,10 @@ import { useAuth } from "../_core/hooks/useAuth";
 import "./audit-reference.css";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { HighContrastToggle } from "@/components/HighContrastToggle";
-import { AlertTriangle, ArrowLeft, FileSearch, RefreshCw, ShieldCheck } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, ArrowLeft, CalendarClock, CircleHelp, FileCheck2, FileSearch, Layers3, RefreshCw, ShieldCheck } from "lucide-react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Link } from "wouter";
-import { buildFinancialSchoolDossier, buildSigefMovementDossier, evidenceStateExplanation, filterAuditObservations, filterAuditSchools, isPrimaryPddeInfoAuditRun, operationalConsultationStatus, operationalRunStatus, primaryAuditRunId } from "./auditFilters";
+import { buildFinancialSchoolDossier, buildSigefMovementDossier, evidenceStateExplanation, filterAuditObservations, filterAuditSchools, isPrimaryPddeInfoAuditRun, operationalConsultationStatus, operationalRunStatus, primaryAuditRunId, sigefCoverageSummary } from "./auditFilters";
 
 type AuditRun = { id: string; status: "running" | "approved" | "partial" | "blocked" | "failed"; masterCount: number; processedCount: number; parserVersion: string; startedAt: string; completedAt: string | null; validationJson: { passed?: boolean; errors?: string[]; sourceLimitations?: string[] } };
 type School = { inep: string; sme: string; schoolName: string | null; status: "success" | "failed"; consultedAt: string; programsJson: string[]; exception: string | null };
@@ -76,6 +76,32 @@ function operationalEventLabel(type: string) {
 function auditRunOptionLabel(run: AuditRun) {
   const scope = isPrimaryPddeInfoAuditRun(run) ? "PDDEInfo aprovado" : run.parserVersion.startsWith("SIGEF_") ? "SIGEF complementar" : operationalRunStatus(run.status);
   return `${scope} · ${run.processedCount}/${run.masterCount} unidades · ${displayDate(run.completedAt ?? run.startedAt)}`;
+}
+
+function SigefCoverageIndicator({ coverage }: { coverage: SigefCoverage | null }) {
+  const summary = sigefCoverageSummary(coverage?.coveredUex ?? 0, coverage?.referenceMasterCount ?? 0);
+  const progressStyle = { "--sigef-progress": `${summary.percentage}%` } as CSSProperties;
+  const lastCollected = coverage?.lastCollectedAt ? displayDate(coverage.lastCollectedAt) : "Sem evidência registrada";
+
+  return <section className="audit-sigef-coverage" aria-label="Cobertura complementar SIGEF">
+    <div className="audit-sigef-heading">
+      <span><Layers3 size={13} aria-hidden="true" /> EVIDÊNCIA COMPLEMENTAR · SIGEF</span>
+      <Tooltip>
+        <TooltipTrigger asChild><button type="button" className="audit-sigef-help" aria-label="Entender a cobertura SIGEF"><CircleHelp size={14} /></button></TooltipTrigger>
+        <TooltipContent side="top" sideOffset={8} className="audit-evidence-tooltip">A cobertura conta apenas UEx com evidência SIGEF preservada. Ela não substitui os dados do PDDEInfo e não mede ausência de crédito.</TooltipContent>
+      </Tooltip>
+    </div>
+    <div className="audit-sigef-body">
+      <div className="audit-sigef-ring" style={progressStyle} aria-hidden="true"><div><strong>{summary.percentage}<small>%</small></strong><span>coberto</span></div></div>
+      <div className="audit-sigef-measure">
+        <strong>{coverage ? summary.covered : "—"}<small>{coverage ? ` de ${summary.total} UEx` : ""}</small></strong>
+        <span>com evidência SIGEF preservada</span>
+      </div>
+    </div>
+    <div className="audit-sigef-progress" role="progressbar" aria-label="Cobertura SIGEF sobre a lista PDDEInfo" aria-valuemin={0} aria-valuemax={summary.total} aria-valuenow={summary.covered} aria-valuetext={`${summary.covered} de ${summary.total} UEx com evidência SIGEF preservada`}><span style={{ width: `${summary.percentage}%` }} /></div>
+    <div className="audit-sigef-stats"><span><FileCheck2 size={13} aria-hidden="true" /> {coverage ? `${coverage.contributingRuns} lote(s) com evidência` : "Calculando lotes"}</span><span>{coverage ? `${summary.pending} UEx sem evidência SIGEF` : "Carregando cobertura"}</span></div>
+    <footer><span><CalendarClock size={13} aria-hidden="true" /> Última evidência: {lastCollected}</span><small>Não substitui a referência PDDEInfo.</small></footer>
+  </section>;
 }
 
 function EvidenceActions({ dossier, observation, runId, onOpenArtifact }: { dossier: Dossier; observation: Observation | null; runId: string; onOpenArtifact: (runId: string, artifactId: number) => void }) {
@@ -182,7 +208,6 @@ export default function Audit() {
 
   const selectedRun = runs.find(run => run.id === selectedRunId) ?? null;
   const selectedRunIsPrimary = selectedRun ? isPrimaryPddeInfoAuditRun(selectedRun) : false;
-  const sigefCoveragePercent = sigefCoverage?.referenceMasterCount ? Math.round((sigefCoverage.coveredUex / sigefCoverage.referenceMasterCount) * 100) : 0;
   const filteredSchools = useMemo(() => filterAuditSchools(schools, programFilter, schoolFilter), [schools, programFilter, schoolFilter]);
   const filteredObservations = useMemo(() => dossier ? filterAuditObservations(dossier.observations, fieldFilter) : [], [dossier, fieldFilter]);
   const financialDossier = useMemo(() => dossier ? buildFinancialSchoolDossier(dossier.observations) : null, [dossier]);
@@ -202,9 +227,9 @@ export default function Audit() {
       {error && <div className="audit-error"><AlertTriangle size={17} /> {error}</div>}
 
       <section className="audit-reference-control" aria-label="Referência da auditoria">
-        <div><span>REFERÊNCIA EXIBIDA</span><strong>{selectedRunIsPrimary ? "PDDEInfo · execução aprovada" : "Evidência complementar"}</strong><small>{selectedRunIsPrimary ? "Os 163 registros aprovados do PDDEInfo permanecem como leitura principal da auditoria." : "Esta execução parcial é complementar. Selecione a referência PDDEInfo aprovada para consultar a lista completa de escolas."}</small></div>
-        <div className="audit-sigef-coverage" aria-label="Cobertura SIGEF sobre a referência PDDEInfo"><span>COBERTURA SIGEF</span><strong>{sigefCoverage ? `${sigefCoverage.coveredUex}/${sigefCoverage.referenceMasterCount} UEx` : "—"}</strong><small>{sigefCoverage ? `${sigefCoveragePercent}% da lista PDDEInfo · ${sigefCoverage.contributingRuns} lote(s) concluído(s)` : "Carregando cobertura complementar"}</small><div className="audit-sigef-progress" role="progressbar" aria-label="Cobertura SIGEF" aria-valuemin={0} aria-valuemax={sigefCoverage?.referenceMasterCount ?? 0} aria-valuenow={sigefCoverage?.coveredUex ?? 0}><span style={{ width: `${sigefCoveragePercent}%` }} /></div></div>
-        <label htmlFor="audit-run-select">Execução disponível<select id="audit-run-select" value={selectedRunId ?? ""} onChange={event => setSelectedRunId(event.target.value || null)}>{runs.map(run => <option key={run.id} value={run.id}>{auditRunOptionLabel(run)}</option>)}</select></label>
+        <div className="audit-reference-primary"><span>REFERÊNCIA EXIBIDA</span><strong>{selectedRunIsPrimary ? "PDDEInfo · execução aprovada" : "Evidência complementar"}</strong><small>{selectedRunIsPrimary ? "Os 163 registros aprovados do PDDEInfo permanecem como leitura principal da auditoria." : "Esta execução parcial é complementar. Selecione a referência PDDEInfo aprovada para consultar a lista completa de escolas."}</small></div>
+        <SigefCoverageIndicator coverage={sigefCoverage} />
+        <label className="audit-reference-select" htmlFor="audit-run-select">Execução disponível<select id="audit-run-select" value={selectedRunId ?? ""} onChange={event => setSelectedRunId(event.target.value || null)}>{runs.map(run => <option key={run.id} value={run.id}>{auditRunOptionLabel(run)}</option>)}</select></label>
       </section>
 
       <section className="audit-summary-grid">

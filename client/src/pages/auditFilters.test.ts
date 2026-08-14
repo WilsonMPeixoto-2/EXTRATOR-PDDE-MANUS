@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildFinancialSchoolDossier, buildObservationComparisons, buildSigefMovementDossier, evidenceStateExplanation, filterAuditObservations, filterAuditRuns, filterAuditSchools, isPrimaryPddeInfoAuditRun, operationalConsultationStatus, operationalRunStatus, primaryAuditRunId } from "./auditFilters";
+import { buildFinancialSchoolDossier, buildObservationComparisons, buildSigefMovementDossier, evidenceStateExplanation, filterAuditObservations, filterAuditRuns, filterAuditSchools, isPrimaryPddeInfoAuditRun, operationalConsultationStatus, operationalRunStatus, primaryAuditRunId, sigefCoverageSummary } from "./auditFilters";
 
 describe("filtros da auditoria", () => {
   it("filtra escolas pelo programa identificado na execução", () => {
@@ -51,6 +51,12 @@ describe("filtros da auditoria", () => {
     expect(isPrimaryPddeInfoAuditRun(runs[1]!)).toBe(true);
     expect(isPrimaryPddeInfoAuditRun(runs[0]!)).toBe(false);
     expect(primaryAuditRunId(runs)).toBe("pddeinfo-aprovado");
+  });
+
+  it("resume a cobertura SIGEF sem ultrapassar a referência PDDEInfo", () => {
+    expect(sigefCoverageSummary(20, 163)).toEqual({ covered: 20, total: 163, pending: 143, percentage: 12 });
+    expect(sigefCoverageSummary(999, 163)).toEqual({ covered: 163, total: 163, pending: 0, percentage: 100 });
+    expect(sigefCoverageSummary(-2, 163)).toEqual({ covered: 0, total: 163, pending: 163, percentage: 0 });
   });
 
   it("filtra observações pelo caminho, chave ou recorte de evidência", () => {

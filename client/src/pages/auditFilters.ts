@@ -54,6 +54,14 @@ export function primaryAuditRunId<T extends AuditRunSelectionItem>(runs: T[]): s
   return primaryRuns[0]?.id ?? runs.find(run => run.status === "approved")?.id ?? runs[0]?.id ?? null;
 }
 
+/** Métrica de apresentação: só contabiliza UEx com evidência SIGEF já preservada. */
+export function sigefCoverageSummary(coveredUex: number, referenceMasterCount: number) {
+  const total = Math.max(0, Math.trunc(referenceMasterCount));
+  const covered = Math.min(total, Math.max(0, Math.trunc(coveredUex)));
+  const percentage = total ? Math.round((covered / total) * 100) : 0;
+  return { covered, total, pending: total - covered, percentage };
+}
+
 export function filterAuditSchools<T extends AuditSchoolFilterItem>(schools: T[], programQuery: string, schoolQuery = ""): T[] {
   const normalizedProgramQuery = programQuery.trim();
   const normalizedSchoolQuery = schoolQuery.trim();
