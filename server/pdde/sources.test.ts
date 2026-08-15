@@ -28,7 +28,16 @@ describe("catálogo de automação por fonte", () => {
     expect(pending).toEqual(expect.arrayContaining([
       expect.objectContaining({ source: "EXTRATO_BB", accessState: "AUTHORIZATION_REQUIRED" }),
       expect.objectContaining({ source: "SIGEF_CONTA_CORRENTE", accessState: "CAPTCHA_REQUIRED" }),
+      expect.objectContaining({ source: "DADOS_ABERTOS", accessState: "PILOT_COMPLETED_WITH_LIMITATIONS", collectionMethod: "http" }),
     ]));
+  });
+
+  it("registra o piloto CGU como evidência de transferências, sem reclassificá-lo como extrato ou automação já habilitada", () => {
+    const cgu = sourceDefinition("DADOS_ABERTOS");
+    expect(cgu.autonomous).toBe(false);
+    expect(cgu.baseUrl).toContain("portaldatransparencia.gov.br/download-de-dados/transferencias");
+    expect(cgu.detail).toContain("95 UEx");
+    expect(cgu.detail).toContain("não confirma crédito bancário");
   });
 
   it("mantém o SIGEF Conta Corrente bloqueado por CAPTCHA e habilita somente o detalhamento público de extrato no piloto restrito", () => {

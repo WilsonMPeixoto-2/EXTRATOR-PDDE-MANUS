@@ -25,12 +25,12 @@ const SOURCE_AUTOMATION_CATALOG: SourceAutomationDefinition[] = [
   },
   {
     source: "DADOS_ABERTOS",
-    label: "FNDE — Dados Abertos PDDE",
-    accessState: "PILOT_PENDING",
+    label: "CGU — Recursos Transferidos PDDE",
+    accessState: "PILOT_COMPLETED_WITH_LIMITATIONS",
     autonomous: false,
-    collectionMethod: "file-import",
-    detail: "A automação será habilitada após validar arquivo, exercício, cobertura e periodicidade.",
-    baseUrl: "https://www.gov.br/fnde/pt-br/acesso-a-informacao/dados-abertos",
+    collectionMethod: "http",
+    detail: "Piloto público concluído nos arquivos mensais de janeiro a julho de 2026: 97 transferências PDDE do FNDE vinculadas por CNPJ a 95 UEx da 4ª CRE. O arquivo confirma transferências por mês, CNPJ, órgão, ação e valor; não confirma crédito bancário, saldo, pagamentos ou movimentações. A integração de produção permanece desabilitada até a implementação de adaptador com preservação de arquivo, hash e validações.",
+    baseUrl: "https://portaldatransparencia.gov.br/download-de-dados/transferencias",
   },
   {
     source: "SIGEF_LIBERACAO",
