@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  assertSigefDetailIdentity,
   collectSigefDirectExtract,
   collectSigefDirectExtractFull,
   matchSigefDirectExtractCredits,
@@ -105,6 +106,13 @@ describe("SIGEF — detalhamento público de extrato", () => {
       fetcher: async () => new Response("<html>reCAPTCHA</html>", { status: 200 }),
       pause: async () => undefined,
     })).rejects.toThrow("CAPTCHA");
+  });
+
+  it("rejeita resposta SIGEF cuja identidade não corresponda à consulta", () => {
+    const parsed = parseSigefDirectExtractHtml(html);
+    expect(() => assertSigefDetailIdentity(parsed.header, {
+      bank: "001", agency: "0249", account: "0000549000", cnpj: "02.016.546/0001-66", program: "02", period: "2026-04",
+    })).toThrow("conta");
   });
 
   it("recupera a planilha pública integral e só marca cobertura completa quando as linhas conferem com o total declarado", async () => {

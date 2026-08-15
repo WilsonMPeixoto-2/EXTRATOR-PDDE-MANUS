@@ -193,6 +193,21 @@ describe("rotas operacionais protegidas do PDDE", () => {
     expect(await response.json()).toMatchObject({ id: "run-aprovada", status: "approved", records: 163, validation: { passed: true }, downloadUrl: "/manus-storage/exports/run-aprovada.xlsx", persisted: true });
   });
 
+  it("não publica uma execução parcial como referência corrente", async () => {
+    authenticateRequest.mockResolvedValue(user);
+    mockedListPersistedAuditRuns.mockResolvedValue([
+      { id: "run-parcial", status: "approved", masterCount: 163, processedCount: 20 },
+      { id: "run-integral", status: "approved", masterCount: 163, processedCount: 163 },
+    ] as any);
+    mockedGetPersistedRunAuditOverview.mockResolvedValue({
+      run: { id: "run-integral", status: "approved", processedCount: 163, validationJson: { passed: true, errors: [] } }, artifacts: [], events: [],
+    } as any);
+
+    const response = await request(appForTest(), "/api/pdde/latest-approved");
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ id: "run-integral", records: 163 });
+  });
+
   it("registra arquivo secundário autenticado e o recupera no detalhe auditável da execução", async () => {
     authenticateRequest.mockResolvedValue(user);
     mockedGetPersistedAuditRun.mockResolvedValue({ id: "run-existente", status: "approved" } as any);

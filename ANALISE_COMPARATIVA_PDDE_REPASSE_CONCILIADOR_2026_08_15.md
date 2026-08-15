@@ -51,11 +51,13 @@ O comparativo identifica corretamente três melhorias materiais: precisão monet
 
 Em 15/08/2026, os dois primeiros padrões priorizados foram incorporados ao Extrator: o parser passou a converter moeda brasileira por centavos inteiros antes de materializar o valor para apresentação; e o workbook passou a neutralizar texto externo iniciado por `=`, `+`, `-` ou `@`, impedindo interpretação como fórmula. Os testes cobrem centavos, entrada inválida e células de conteúdo externo, preservando as abas obrigatórias e a semântica financeira. Validação técnica: 107 testes, tipagem e build aprovados.
 
-## Próximas evoluções seletivas
+## Evolução complementar concluída
 
-1. Introduzir a publicação de uma visão corrente somente após execução PDDEInfo integral aprovada.
-2. Incorporar os guardas de resposta/charset do SIGEF e testar contra os artefatos já preservados.
-3. Avaliar a cadeia SHA-256 como incremento posterior, junto com a fila persistida de importação PDDEInfo/CGU.
+Também em 15/08/2026, o coletor SIGEF passou a bloquear resposta que não seja HTML reconhecível e qualquer cabeçalho que não confirme simultaneamente CNPJ, banco, agência, conta e programa consultados. A rota de referência corrente passou a aceitar somente execução com status aprovado e cobertura de 163/163 escolas. Os novos testes cobrem rejeição de identidade SIGEF divergente e exclusão de execução parcial da referência publicada. Validação técnica final: 109 testes, tipagem e build aprovados.
+
+## Evolução futura independente
+
+Avaliar a cadeia de eventos SHA-256 como incremento posterior, junto com a fila persistida de importação PDDEInfo/CGU.
 
 ## Referências
 

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import * as cheerio from "cheerio";
 import { assertSourceCollectionPermitted } from "./collectionRunners";
 import type { BankAccount, FieldState, PaymentLine, SchoolExtraction } from "./types";
+import { centsToNumber, parseBrazilianCurrencyToCents } from "./money";
 
 export const SIGEF_DIRECT_EXTRACT_PARSER_VERSION = "SIGEF_DIRECT_EXTRACT_HTTP_V1";
 export const SIGEF_DIRECT_EXTRACT_ENDPOINT = "https://www.fnde.gov.br/sigefweb/index.php/conta-corrente/extrato-conta-corrente-detalhamento";
@@ -29,8 +30,8 @@ function nullableValue(value: string | undefined) {
 export function parseSigefDirectExtractCurrency(value: string | undefined): number | null {
   const normalized = clean(value);
   if (!normalized || normalized === "-") return 0;
-  const parsed = Number(normalized.replace(/\./g, "").replace(",", "."));
-  return Number.isFinite(parsed) ? parsed : null;
+  if (!/^-?(?:\d{1,3}(?:\.\d{3})*|\d+)(?:,\d{1,2})?$/.test(normalized)) return null;
+  return centsToNumber(parseBrazilianCurrencyToCents(normalized));
 }
 
 export function parseSigefDirectExtractDate(value: string | undefined): string | null {
@@ -144,7 +145,7 @@ export function sigefDirectExtractMovementDeduplicationKey(
   transaction: SigefDirectExtractTransactionInput | SigefDirectExtractTransaction,
 ): string {
   const direction = transaction.credit > 0 ? "CREDIT" : transaction.debit > 0 ? "DEBIT" : "ZERO";
-  const amountInCents = Math.round((transaction.credit > 0 ? transaction.credit : transaction.debit) * 100);
+  const amountInCents = parseBrazilianCurrencyToCents((transaction.credit > 0 ? transaction.credit : transaction.debit).toFixed(2).replace(".", ","));
   const canonicalAccount = clean(header.account).replace(/[^\dA-Za-z]/g, "").toUpperCase();
   const identity = [
     "SIGEF_MOVEMENT_V1",
@@ -284,6 +285,25 @@ export type SigefDirectExtractFullCollection = SigefDirectExtractCollection & {
 
 export type SigefDirectExtractFetch = (url: string, init?: RequestInit) => Promise<Response>;
 
+function canonicalSigefAccount(value: string | null | undefined): string {
+  return clean(value).replace(/[^\dA-Za-z]/g, "").toUpperCase();
+}
+
+/** Bloqueia HTML de erro ou resposta de conta diferente antes de persistir qualquer evidência SIGEF. */
+export function assertSigefDetailIdentity(header: SigefDirectExtractHeader, query: SigefDirectExtractUrlInput): void {
+  const expected = normalizeSigefDirectExtractQuery(query);
+  const mismatches = [
+    digits(header.cnpj) !== expected.cnpj ? "CNPJ" : null,
+    header.bankCode !== expected.bank ? "banco" : null,
+    digits(header.agency) !== expected.agency ? "agência" : null,
+    canonicalSigefAccount(header.account) !== expected.account ? "conta" : null,
+    header.programCode !== expected.program ? "programa" : null,
+  ].filter((field): field is string => field !== null);
+  if (mismatches.length > 0) {
+    throw new Error(`Detalhamento SIGEF não confirmou a identidade consultada: ${mismatches.join(", ")}.`);
+  }
+}
+
 export async function collectSigefDirectExtract(
   query: SigefDirectExtractUrlInput,
   dependencies: { fetcher?: SigefDirectExtractFetch; now?: () => Date; pause?: (milliseconds: number) => Promise<void> } = {},
@@ -304,6 +324,9 @@ export async function collectSigefDirectExtract(
       if (!response.ok) throw new Error(`Detalhamento SIGEF retornou HTTP ${response.status}`);
       const rawHtml = Buffer.from(await response.arrayBuffer()).toString("latin1");
       if (/recaptcha|captcha/i.test(rawHtml)) throw new Error("Detalhamento SIGEF apresentou desafio CAPTCHA; a coleta foi interrompida sem tentativa de contorno.");
+      if (!/<(?:html|body|table|tr|td)\b/i.test(rawHtml)) throw new Error("Detalhamento SIGEF não retornou documento HTML reconhecível.");
+      const parsed = parseSigefDirectExtractHtml(rawHtml);
+      assertSigefDetailIdentity(parsed.header, normalizedQuery);
       return {
         sourceUrl,
         consultedAt: now().toISOString(),
@@ -312,7 +335,7 @@ export async function collectSigefDirectExtract(
         sourceHashSha256: createHash("sha256").update(rawHtml, "latin1").digest("hex"),
         rawHtml,
         query: normalizedQuery,
-        ...parseSigefDirectExtractHtml(rawHtml),
+        ...parsed,
       };
     } catch (error) {
       lastError = error instanceof Error ? error.message : "Falha desconhecida no detalhamento SIGEF";
