@@ -3,6 +3,7 @@ import { accountForExactProgram } from "./parser";
 import type { DestinationSemanticKey } from "./semantics";
 import type { AuditRecord, FieldState, SchoolExtraction, ValidationSummary } from "./types";
 import type { HistoricalFinding } from "./history";
+import { neutralizeSpreadsheetText } from "./money";
 
 const title = "4ª CRE • VISÃO FINANCEIRA POR UNIDADE ESCOLAR • PDDEINFO 2026 • VERSÃO 2";
 const missingAccountNote =
@@ -115,6 +116,10 @@ function buildRow(record: SchoolExtraction) {
   ];
 }
 
+function spreadsheetSafeRow(values: ExcelJS.CellValue[]): ExcelJS.CellValue[] {
+  return values.map(value => typeof value === "string" ? neutralizeSpreadsheetText(value) : value);
+}
+
 export function validateExtraction(records: SchoolExtraction[], audits: AuditRecord[], historicalFindings: HistoricalFinding[] = []): ValidationSummary {
   const errors: string[] = [];
   const uniqueIneps = new Set(records.map(record => record.inep)).size;
@@ -204,7 +209,7 @@ export async function createV2Workbook(records: SchoolExtraction[], audits: Audi
 
   records.forEach((record, index) => {
     const row = sheet.getRow(index + 5);
-    row.values = buildRow(record);
+    row.values = spreadsheetSafeRow(buildRow(record));
     row.height = 28;
     row.eachCell({ includeEmpty: true }, cell => {
       cell.font = { name: "Aptos", size: 9, color: { argb: "FF18323A" } };
@@ -237,8 +242,8 @@ export async function createV2Workbook(records: SchoolExtraction[], audits: Audi
   styleHeader(audit.getCell("A3"), "FF164E63");
   styleHeader(audit.getCell("B3"), "FF164E63");
   indicators.forEach(([label, result], index) => {
-    audit.getCell(index + 4, 1).value = label;
-    audit.getCell(index + 4, 2).value = result;
+    audit.getCell(index + 4, 1).value = neutralizeSpreadsheetText(label);
+    audit.getCell(index + 4, 2).value = typeof result === "string" ? neutralizeSpreadsheetText(result) : result;
   });
   audit.getCell("B4").font = { name: "Aptos", bold: true, color: { argb: validation.passed ? "FF176B50" : "FF9D3030" } };
   audit.getCell("A12").value = "METADADOS, PROVENIÊNCIA E AUDITORIA POR UNIDADE";
@@ -250,7 +255,7 @@ export async function createV2Workbook(records: SchoolExtraction[], audits: Audi
     const row = audit.getRow(index + 14);
     const extracted = recordsByInep.get(record.inep);
     const missingBasic = extracted ? !accountForExactProgram(extracted, "PDDE")?.agency && !accountForExactProgram(extracted, "PDDE")?.account : false;
-    row.values = [record.sme, record.inep, record.sourceUrl, record.consultedAt ?? "", record.status, record.attempts, record.programsFound.join(" | "), record.exception ?? "", extracted ? `${basicAccountSource(extracted)} · ${missingBasic ? "Não informada pelo PDDEInfo" : "Informada pelo PDDEInfo"}` : "Sem registro financeiro extraído", extracted ? paymentEvidenceSummary(extracted) : "Sem registro financeiro extraído", extracted ? sourceCompletenessSummary(extracted) : "Sem registro financeiro extraído"];
+    row.values = spreadsheetSafeRow([record.sme, record.inep, record.sourceUrl, record.consultedAt ?? "", record.status, record.attempts, record.programsFound.join(" | "), record.exception ?? "", extracted ? `${basicAccountSource(extracted)} · ${missingBasic ? "Não informada pelo PDDEInfo" : "Informada pelo PDDEInfo"}` : "Sem registro financeiro extraído", extracted ? paymentEvidenceSummary(extracted) : "Sem registro financeiro extraído", extracted ? sourceCompletenessSummary(extracted) : "Sem registro financeiro extraído"]);
     row.alignment = { vertical: "top", wrapText: true };
     if (record.status === "FAILED") row.getCell(5).font = { color: { argb: "FFB42318" }, bold: true };
   });

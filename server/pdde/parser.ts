@@ -3,6 +3,7 @@ import { derivePaymentEvidenceState } from "./reconciliation";
 import { classifyBankProgram, classifyDestination } from "./semantics";
 import { schoolExtractionSchemaIssues } from "./schema";
 import type { BankAccount, EvidenceSource, FieldProvenance, FieldState, PaymentLine, SchoolExtraction } from "./types";
+import { centsToNumber, parseBrazilianCurrencyToCents } from "./money";
 
 export const PDDEINFO_PARSER_VERSION = "2.3.0";
 const SOURCE: EvidenceSource = "PDDEINFO";
@@ -24,9 +25,7 @@ export const normalize = (value: string | null | undefined) =>
     .toUpperCase();
 
 export function parseBrazilianCurrency(value: string): number {
-  const normalized = clean(value).replace(/\./g, "").replace(",", ".");
-  const parsed = Number.parseFloat(normalized);
-  return Number.isFinite(parsed) ? parsed : 0;
+  return centsToNumber(parseBrazilianCurrencyToCents(value));
 }
 
 export function isBrazilianCurrency(value: string): boolean {

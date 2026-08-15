@@ -47,13 +47,15 @@ O comparativo identifica corretamente três melhorias materiais: precisão monet
 
 > A melhor síntese não é “fundir dois projetos”, mas manter o **Extrator PDDE 4ª CRE** como sistema publicado e evoluí-lo com padrões específicos verificáveis do repositório comparado.
 
-## Sequência recomendada
+## Evolução após a análise
 
-1. Implementar proteção contra injeção de fórmulas e testes de regressão do Excel.
-2. Migrar os cálculos críticos para centavos inteiros, começando pelo parser e pelas validações aritméticas.
-3. Introduzir a publicação de uma visão corrente somente após execução PDDEInfo integral aprovada.
-4. Incorporar os guardas de resposta/charset do SIGEF e testar contra os artefatos já preservados.
-5. Avaliar a cadeia SHA-256 como incremento posterior, junto com a fila persistida de importação PDDEInfo/CGU.
+Em 15/08/2026, os dois primeiros padrões priorizados foram incorporados ao Extrator: o parser passou a converter moeda brasileira por centavos inteiros antes de materializar o valor para apresentação; e o workbook passou a neutralizar texto externo iniciado por `=`, `+`, `-` ou `@`, impedindo interpretação como fórmula. Os testes cobrem centavos, entrada inválida e células de conteúdo externo, preservando as abas obrigatórias e a semântica financeira. Validação técnica: 107 testes, tipagem e build aprovados.
+
+## Próximas evoluções seletivas
+
+1. Introduzir a publicação de uma visão corrente somente após execução PDDEInfo integral aprovada.
+2. Incorporar os guardas de resposta/charset do SIGEF e testar contra os artefatos já preservados.
+3. Avaliar a cadeia SHA-256 como incremento posterior, junto com a fila persistida de importação PDDEInfo/CGU.
 
 ## Referências
 

@@ -188,6 +188,22 @@ describe("vinculação bancária por programa", () => {
     expect(String(audit?.getCell("K14").value)).toContain("Associação externa: NÃO COMPROVADA");
     expect(sheet?.getCell("G5").numFmt).toBe("@");
   });
+
+  it("neutraliza texto externo que poderia ser interpretado como fórmula no Excel", async () => {
+    const record = parseSchoolPage(fixture, "33069247", "0410001", "https://fonte.test/33069247", "2026-08-11T12:00:00.000Z", "f".repeat(64));
+    record.schoolName = "=COMANDO_EXTERNO()";
+    const auditRecord: AuditRecord = {
+      inep: "33069247", sme: "0410001", sourceUrl: "=URL_EXTERNA()", consultedAt: "2026-08-11T12:00:00.000Z",
+      status: "SUCCESS", attempts: 1, httpStatus: 200, sourceHashSha256: "f".repeat(64), normalizedHashSha256: "a".repeat(64),
+      rawHtmlKey: "evidence/test.html", normalizedJsonKey: "evidence/test.json", responseBytes: 123, programsFound: ["PDDE QUALIDADE"], exception: null,
+    };
+    const buffer = await createV2Workbook([record], [auditRecord], { passed: true, uniqueIneps: 163, firstInstallmentPaid: 111, secondInstallmentExpected: 163, missingBasicAccounts: 47, errors: [] });
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]);
+
+    expect(workbook.getWorksheet("Financeiro 4ª CRE V2")?.getCell("C5").value).toBe("'=COMANDO_EXTERNO()");
+    expect(workbook.getWorksheet("Validação V2")?.getCell("C14").value).toBe("'=URL_EXTERNA()");
+  });
 });
 
 describe("validações de regressão", () => {
