@@ -1,3 +1,4 @@
+import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { centsToNumber, neutralizeSpreadsheetText, parseBrazilianCurrencyToCents, sumCents } from "./money";
 
@@ -12,6 +13,23 @@ describe("moeda em centavos", () => {
   it("recusa formato inválido sem inventar valor", () => {
     expect(parseBrazilianCurrencyToCents("R$ 12,00")).toBe(0);
     expect(parseBrazilianCurrencyToCents("12,345")).toBe(0);
+  });
+
+  it("mantém a soma em centavos independente da segmentação e da ordem dos valores", () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.integer({ min: -10_000_000, max: 10_000_000 }), { maxLength: 120 }),
+        fc.integer({ min: 0, max: 120 }),
+        (values, requestedSplit) => {
+          const split = Math.min(requestedSplit, values.length);
+          const first = values.slice(0, split);
+          const second = values.slice(split);
+          expect(sumCents(values)).toBe(sumCents([...first, ...second]));
+          expect(sumCents(values)).toBe(sumCents([...values].reverse()));
+        },
+      ),
+      { numRuns: 300 },
+    );
   });
 });
 
