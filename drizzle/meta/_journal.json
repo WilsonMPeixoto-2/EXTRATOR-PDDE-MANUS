@@ -64,6 +64,13 @@
       "when": 1786538380635,
       "tag": "0008_goofy_zarda",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1786834017574,
+      "tag": "0009_graceful_grey_gargoyle",
+      "breakpoints": true
     }
   ]
 }

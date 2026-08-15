@@ -1,4 +1,4 @@
-import { index, int, json, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { bigint, index, int, json, mysqlEnum, mysqlTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -143,3 +143,52 @@ export type RunArtifact = typeof runArtifacts.$inferSelect;
 export type RunFinding = typeof runFindings.$inferSelect;
 export type FieldObservation = typeof fieldObservations.$inferSelect;
 export type RunAuditEvent = typeof runAuditEvents.$inferSelect;
+
+/**
+ * Execuções de importação complementar são independentes das extrações PDDEInfo:
+ * preservam arquivo/hash e permitem retomada sem alterar a fonte primária aprovada.
+ */
+export const sourceImportRuns = mysqlTable("source_import_runs", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  source: mysqlEnum("source", ["PDDEINFO", "CGU_TRANSFERENCIAS"]).notNull(),
+  referencePeriod: varchar("reference_period", { length: 7 }).notNull(),
+  status: mysqlEnum("status", ["queued", "running", "completed", "failed", "skipped"]).notNull(),
+  idempotencyKey: varchar("idempotency_key", { length: 128 }).notNull(),
+  sourceUrl: text("source_url"),
+  sourceHashSha256: varchar("source_hash_sha256", { length: 64 }),
+  parentPddeinfoRunId: varchar("parent_pddeinfo_run_id", { length: 64 }),
+  totalRows: int("total_rows").notNull().default(0),
+  matchedUex: int("matched_uex").notNull().default(0),
+  latestSourceDate: varchar("latest_source_date", { length: 10 }),
+  cursorJson: json("cursor_json"),
+  errorMessage: text("error_message"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, table => [
+  uniqueIndex("source_import_runs_idempotency_uq").on(table.idempotencyKey),
+  index("source_import_runs_source_period_idx").on(table.source, table.referencePeriod),
+  index("source_import_runs_status_idx").on(table.status),
+]);
+
+/** Linhas CGU só existem após associação determinística por CNPJ com UEx da lista aprovada. */
+export const cguTransferLines = mysqlTable("cgu_transfer_lines", {
+  id: int("id").autoincrement().primaryKey(),
+  importRunId: varchar("import_run_id", { length: 64 }).notNull(),
+  inep: varchar("inep", { length: 8 }).notNull(),
+  cnpj: varchar("cnpj", { length: 14 }).notNull(),
+  beneficiaryName: text("beneficiary_name").notNull(),
+  referenceMonth: varchar("reference_month", { length: 7 }).notNull(),
+  siafiOrgCode: varchar("siafi_org_code", { length: 16 }).notNull(),
+  actionCode: varchar("action_code", { length: 32 }).notNull(),
+  amountCents: bigint("amount_cents", { mode: "number" }).notNull(),
+  sourceRecordFingerprint: varchar("source_record_fingerprint", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, table => [
+  uniqueIndex("cgu_transfer_lines_import_fingerprint_uq").on(table.importRunId, table.sourceRecordFingerprint),
+  index("cgu_transfer_lines_inep_idx").on(table.inep),
+  index("cgu_transfer_lines_cnpj_month_idx").on(table.cnpj, table.referenceMonth),
+]);
+
+export type SourceImportRun = typeof sourceImportRuns.$inferSelect;
+export type CguTransferLine = typeof cguTransferLines.$inferSelect;

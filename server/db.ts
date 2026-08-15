@@ -1,6 +1,6 @@
-import { and, desc, eq, like, ne } from "drizzle-orm";
+import { and, desc, eq, like, ne, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { extractionRuns, fieldObservations, InsertUser, runArtifacts, runAuditEvents, runFindings, schoolConsultations, users } from "../drizzle/schema";
+import { cguTransferLines, extractionRuns, fieldObservations, InsertUser, runArtifacts, runAuditEvents, runFindings, schoolConsultations, sourceImportRuns, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import type { AuditEvent, AuditRecord, FieldProvenance, ValidationSummary } from "./pdde/types";
 import type { HistoricalFinding, PaymentSnapshot } from "./pdde/history";
@@ -328,6 +328,163 @@ export async function getRunArtifact(runId: string, artifactId: number) {
   const db = await getAuditDbOrThrow();
   const rows = await db.select().from(runArtifacts).where(and(eq(runArtifacts.runId, runId), eq(runArtifacts.id, artifactId))).limit(1);
   return rows[0] ?? null;
+}
+
+export type SourceImportRunInput = {
+  id: string;
+  source: "PDDEINFO" | "CGU_TRANSFERENCIAS";
+  referencePeriod: string;
+  status: "queued" | "running" | "completed" | "failed" | "skipped";
+  idempotencyKey: string;
+  sourceUrl?: string | null;
+  sourceHashSha256?: string | null;
+  parentPddeinfoRunId?: string | null;
+  totalRows?: number;
+  matchedUex?: number;
+  latestSourceDate?: string | null;
+  cursorJson?: Record<string, unknown> | null;
+  errorMessage?: string | null;
+  startedAt?: Date | null;
+  completedAt?: Date | null;
+};
+
+export type SourceImportRunPatch = Partial<Omit<SourceImportRunInput, "id" | "source" | "referencePeriod" | "idempotencyKey">>;
+
+export type CguTransferLineInput = {
+  importRunId: string;
+  inep: string;
+  cnpj: string;
+  beneficiaryName: string;
+  referenceMonth: string;
+  siafiOrgCode: string;
+  actionCode: string;
+  amountCents: number;
+  sourceRecordFingerprint: string;
+};
+
+export function deduplicateCguTransferLines(lines: CguTransferLineInput[]) {
+  const byFingerprint = new Map<string, CguTransferLineInput>();
+  for (const line of lines) {
+    byFingerprint.set(`${line.importRunId}:${line.sourceRecordFingerprint}`, line);
+  }
+  return Array.from(byFingerprint.values());
+}
+
+/** Localiza uma importação pelo contrato imutável de fonte/período/artefato. */
+export async function getSourceImportRunByIdempotencyKey(idempotencyKey: string) {
+  const db = await getAuditDbOrThrow();
+  const rows = await db.select().from(sourceImportRuns)
+    .where(eq(sourceImportRuns.idempotencyKey, idempotencyKey))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/**
+ * Cria a execução uma única vez. Em colisão, preserva o registro original e o retorna;
+ * isso impede que uma repetição do mesmo artefato reabra ou reprocese a importação.
+ */
+export async function createSourceImportRun(input: SourceImportRunInput) {
+  const db = await getAuditDbOrThrow();
+  await db.insert(sourceImportRuns).values({
+    ...input,
+    totalRows: input.totalRows ?? 0,
+    matchedUex: input.matchedUex ?? 0,
+  }).onDuplicateKeyUpdate({
+    set: { idempotencyKey: input.idempotencyKey },
+  });
+  return getSourceImportRunByIdempotencyKey(input.idempotencyKey);
+}
+
+/** Atualiza apenas o estado operacional da importação, mantendo fonte, período e chave de idempotência imutáveis. */
+export async function updateSourceImportRun(id: string, patch: SourceImportRunPatch) {
+  const db = await getAuditDbOrThrow();
+  if (Object.keys(patch).length === 0) {
+    const rows = await db.select().from(sourceImportRuns).where(eq(sourceImportRuns.id, id)).limit(1);
+    return rows[0] ?? null;
+  }
+  await db.update(sourceImportRuns).set(patch).where(eq(sourceImportRuns.id, id));
+  const rows = await db.select().from(sourceImportRuns).where(eq(sourceImportRuns.id, id)).limit(1);
+  return rows[0] ?? null;
+}
+
+/**
+ * Insere somente linhas previamente associadas por CNPJ a uma UEx da lista-mestre.
+ * A chave única mantém a operação idempotente mesmo se o mesmo lote for repetido.
+ */
+export async function insertCguTransferLines(lines: CguTransferLineInput[]) {
+  if (lines.length === 0) return { attempted: 0, uniqueInBatch: 0 };
+  const db = await getAuditDbOrThrow();
+  const uniqueLines = deduplicateCguTransferLines(lines);
+  await db.insert(cguTransferLines).values(uniqueLines).onDuplicateKeyUpdate({
+    set: { importRunId: sql`${cguTransferLines.importRunId}` },
+  });
+  return { attempted: lines.length, uniqueInBatch: uniqueLines.length };
+}
+
+/** Resume cobertura complementar CGU sem atribuir a ela estado de parcela, conta ou crédito bancário. */
+export async function getCguTransferSummary(referencePeriod: string) {
+  const db = await getAuditDbOrThrow();
+  const [runs, lines] = await Promise.all([
+    db.select().from(sourceImportRuns)
+      .where(and(eq(sourceImportRuns.source, "CGU_TRANSFERENCIAS"), eq(sourceImportRuns.referencePeriod, referencePeriod)))
+      .orderBy(desc(sourceImportRuns.createdAt)),
+    db.select().from(cguTransferLines)
+      .where(eq(cguTransferLines.referenceMonth, referencePeriod)),
+  ]);
+  if (runs.length === 0) return null;
+  const latestSourceDate = runs.reduce<string | null>((latest, run) => {
+    if (!run.latestSourceDate) return latest;
+    return !latest || run.latestSourceDate > latest ? run.latestSourceDate : latest;
+  }, null);
+  return {
+    referencePeriod,
+    runs,
+    lineCount: lines.length,
+    coveredUex: new Set(lines.map(line => line.inep)).size,
+    totalAmountCents: lines.reduce((total, line) => total + line.amountCents, 0),
+    latestSourceDate,
+  };
+}
+
+/** Lista o histórico imutável das importações complementares, sem expor artefatos brutos. */
+export async function listSourceImportRuns(limit = 25) {
+  const db = await getAuditDbOrThrow();
+  return db.select().from(sourceImportRuns)
+    .orderBy(desc(sourceImportRuns.createdAt))
+    .limit(Math.max(1, Math.min(limit, 100)));
+}
+
+/** Recupera CNPJs somente da referência PDDEInfo aprovada e completa de 163 UEx. */
+export async function listApprovedPddeinfoCnpjAssociations() {
+  const db = await getAuditDbOrThrow();
+  const referenceRows = await db.select({ id: extractionRuns.id })
+    .from(extractionRuns)
+    .where(and(
+      eq(extractionRuns.status, "approved"),
+      eq(extractionRuns.masterCount, 163),
+      eq(extractionRuns.processedCount, 163),
+    ))
+    .orderBy(desc(extractionRuns.completedAt), desc(extractionRuns.createdAt))
+    .limit(1);
+  const referenceRunId = referenceRows[0]?.id;
+  if (!referenceRunId) {
+    throw new Error("Não há execução PDDEInfo aprovada com 163/163 UEx para vincular transferências CGU.");
+  }
+  const observations = await db.select({ inep: fieldObservations.inep, rawValue: fieldObservations.rawValue })
+    .from(fieldObservations)
+    .where(and(eq(fieldObservations.runId, referenceRunId), eq(fieldObservations.fieldPath, "cnpj")));
+  const byCnpj = new Map<string, string>();
+  const conflictingCnpjs = new Set<string>();
+  for (const observation of observations) {
+    const cnpj = (observation.rawValue ?? "").replace(/\D/g, "");
+    if (!/^\d{14}$/.test(cnpj)) continue;
+    const existingInep = byCnpj.get(cnpj);
+    if (existingInep && existingInep !== observation.inep) conflictingCnpjs.add(cnpj);
+    else byCnpj.set(cnpj, observation.inep);
+  }
+  const conflictingCnpjList = Array.from(conflictingCnpjs);
+  for (const cnpj of conflictingCnpjList) byCnpj.delete(cnpj);
+  return { referenceRunId, cnpjToInep: byCnpj, conflictingCnpjs: conflictingCnpjList };
 }
 
 export async function completeAuditRun(

@@ -1,12 +1,13 @@
 import type { Express, Response } from "express";
 import type { Request as ExpressRequest, Response as ExpressResponse } from "express";
 import { getRun, masterListSummary, registerSecondaryOpenDataControl, runExtraction } from "./run";
-import { appendAuditTrail, completeAuditRun, getSigefAuditCoverage } from "../db";
+import { appendAuditTrail, completeAuditRun, getCguTransferSummary, getSigefAuditCoverage, listSourceImportRuns } from "../db";
 import { sourceAutomationCatalog } from "./sources";
 import { sdk } from "../_core/sdk";
 import { decidePddeAccess, type PddeResource } from "./access";
 import { getPersistedAuditRun, getPersistedRunAuditOverview, getRunArtifact, getSchoolAuditDossier, listPersistedAuditRuns, listRunFindings, listRunSchools } from "../db";
 import { storageGetSignedUrl } from "../storage";
+import { currentAndPreviousReferencePeriods, importCguTransfers } from "./cguTransferencias";
 
 function writeEvent(response: Response, payload: unknown) {
   response.write(`data: ${JSON.stringify(payload)}\n\n`);
@@ -126,6 +127,32 @@ export function registerPddeRoutes(app: Express) {
   app.get("/api/pdde/audit/sigef-coverage", async (request, response) => {
     if (!await authorize(request, response, "audit-sigef-coverage")) return;
     response.json({ coverage: await getSigefAuditCoverage() });
+  });
+
+  app.post("/api/pdde/import/cgu-transferencias", async (request, response) => {
+    if (!await authorize(request, response, "cgu-import")) return;
+    const referencePeriods = currentAndPreviousReferencePeriods();
+    const results = await Promise.allSettled(referencePeriods.map(referencePeriod => importCguTransfers(referencePeriod)));
+    const imports = results.map((result, index) => result.status === "fulfilled"
+      ? { referencePeriod: referencePeriods[index], ok: true as const, result: result.value }
+      : { referencePeriod: referencePeriods[index], ok: false as const, message: result.reason instanceof Error ? result.reason.message : "Falha não especificada na importação CGU." },
+    );
+    const hasSuccess = imports.some(item => item.ok);
+    response.status(hasSuccess ? 200 : 502).json({
+      imports,
+      notice: "A CGU é uma fonte complementar: suas transferências não confirmam crédito bancário nem alteram conta, parcela ou pagamento do PDDEInfo.",
+    });
+  });
+
+  app.get("/api/pdde/import/runs", async (request, response) => {
+    if (!await authorize(request, response, "source-import-runs")) return;
+    const limit = Math.max(1, Math.min(Number(request.query.limit ?? 25), 100));
+    const referencePeriod = typeof request.query.referencePeriod === "string" ? request.query.referencePeriod : null;
+    const runs = await listSourceImportRuns(limit);
+    const cguSummary = referencePeriod && /^202[56]-(0[1-9]|1[0-2])$/.test(referencePeriod)
+      ? await getCguTransferSummary(referencePeriod)
+      : null;
+    response.json({ runs, cguSummary });
   });
 
   app.get("/api/pdde/audit/run/:runId", async (request, response) => {

@@ -15,6 +15,8 @@ type Artifact = { id: number; kind: string; storageKey: string; sha256: string; 
 type RunAuditEvent = { id: string; occurredAt: string; type: string; severity: string; message: string; payloadJson?: { source?: string; exercise?: number; matchedSchools?: number; warnings?: string[] } };
 type Dossier = { consultation: School | null; observations: Observation[]; events: Array<{ id: string; occurredAt: string; type: string; severity: string; message: string }>; findings: Finding[]; artifacts: Artifact[] };
 type SigefCoverage = { referenceMasterCount: number; coveredUex: number; contributingRuns: number; lastCollectedAt: string | null };
+type SourceImportRun = { id: string; source: "PDDEINFO" | "CGU_TRANSFERENCIAS"; referencePeriod: string; status: "queued" | "running" | "completed" | "failed" | "skipped"; sourceHashSha256: string | null; totalRows: number; matchedUex: number; createdAt: string; completedAt: string | null };
+type CguSummary = { referencePeriod: string; lineCount: number; coveredUex: number; totalAmountCents: number; latestSourceDate: string | null };
 
 function displayDate(value: string | null | undefined) {
   return value ? new Date(value).toLocaleString("pt-BR") : "—";
@@ -24,12 +26,12 @@ function displayMoney(value: number) {
   return value ? value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
 }
 
-async function operationalFetch(url: string, attempts = 2): Promise<Response> {
-  let response = await fetch(url);
+async function operationalFetch(url: string, options?: RequestInit, attempts = 2): Promise<Response> {
+  let response = await fetch(url, options);
   for (let attempt = 0; response.status === 429 && attempt < attempts; attempt += 1) {
     const retryAfter = Math.max(1, Number(response.headers.get("Retry-After") ?? "1"));
     await new Promise(resolve => window.setTimeout(resolve, retryAfter * 1_000));
-    response = await fetch(url);
+    response = await fetch(url, options);
   }
   return response;
 }
@@ -137,6 +139,9 @@ export default function Audit() {
   const { isAuthenticated, loading: authLoading } = useAuth({ redirectOnUnauthenticated: true });
   const [runs, setRuns] = useState<AuditRun[]>([]);
   const [sigefCoverage, setSigefCoverage] = useState<SigefCoverage | null>(null);
+  const [sourceImportRuns, setSourceImportRuns] = useState<SourceImportRun[]>([]);
+  const [cguSummary, setCguSummary] = useState<CguSummary | null>(null);
+  const [cguImporting, setCguImporting] = useState(false);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [schools, setSchools] = useState<School[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
@@ -154,20 +159,36 @@ export default function Audit() {
     if (!isAuthenticated) return;
     setLoading(true); setError(null);
     try {
-      const [response, coverageResponse] = await Promise.all([
+      const cguReferencePeriod = new Date().toISOString().slice(0, 7);
+      const [response, coverageResponse, sourceImportsResponse] = await Promise.all([
         operationalFetch("/api/pdde/audit/runs"),
         operationalFetch("/api/pdde/audit/sigef-coverage"),
+        operationalFetch(`/api/pdde/import/runs?referencePeriod=${cguReferencePeriod}`),
       ]);
-      if (!response.ok || !coverageResponse.ok) throw new Error("Não foi possível carregar o histórico de execuções.");
-      const [payload, coveragePayload] = await Promise.all([
+      if (!response.ok || !coverageResponse.ok || !sourceImportsResponse.ok) throw new Error("Não foi possível carregar o histórico de execuções.");
+      const [payload, coveragePayload, sourceImportsPayload] = await Promise.all([
         response.json() as Promise<{ runs: AuditRun[] }>,
         coverageResponse.json() as Promise<{ coverage: SigefCoverage }>,
+        sourceImportsResponse.json() as Promise<{ runs: SourceImportRun[]; cguSummary: CguSummary | null }>,
       ]);
       setRuns(payload.runs);
       setSigefCoverage(coveragePayload.coverage);
+      setSourceImportRuns(sourceImportsPayload.runs);
+      setCguSummary(sourceImportsPayload.cguSummary);
       setSelectedRunId(current => current && payload.runs.some(run => run.id === current) ? current : primaryAuditRunId(payload.runs));
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao carregar auditoria."); }
     finally { setLoading(false); }
+  };
+
+  const importCguTransfers = async () => {
+    setCguImporting(true); setError(null);
+    try {
+      const response = await operationalFetch("/api/pdde/import/cgu-transferencias", { method: "POST" }, 0);
+      const payload = await response.json() as { imports?: Array<{ referencePeriod: string; ok: boolean; message?: string }>; message?: string };
+      if (!response.ok) throw new Error(payload.message ?? payload.imports?.filter(item => !item.ok).map(item => `${item.referencePeriod}: ${item.message ?? "falha"}`).join(" · ") ?? "Não foi possível importar transferências CGU.");
+      await loadRuns();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao atualizar a fonte CGU."); }
+    finally { setCguImporting(false); }
   };
 
   useEffect(() => { void loadRuns(); }, [isAuthenticated]);
@@ -240,6 +261,17 @@ export default function Audit() {
         <div className="audit-reference-primary"><span>REFERÊNCIA EXIBIDA</span><strong>{selectedRunIsPrimary ? "PDDEInfo · execução aprovada" : "Evidência complementar"}</strong><small>{selectedRunIsPrimary ? "Os 163 registros aprovados do PDDEInfo permanecem como leitura principal da auditoria." : "Esta execução parcial é complementar. Selecione a referência PDDEInfo aprovada para consultar a lista completa de escolas."}</small></div>
         <SigefCoverageIndicator coverage={sigefCoverage} />
         <label className="audit-reference-select" htmlFor="audit-run-select">Execução disponível<select id="audit-run-select" value={selectedRunId ?? ""} onChange={event => setSelectedRunId(event.target.value || null)}>{runs.map(run => <option key={run.id} value={run.id}>{auditRunOptionLabel(run)}</option>)}</select></label>
+      </section>
+
+      <section className="audit-panel" aria-label="Atualidade das fontes">
+        <div className="audit-panel-heading"><CalendarClock size={17} /><h2>Atualidade das fontes</h2><span>acompanhamento complementar</span></div>
+        <div className="audit-source-record-grid">
+          <article><strong>PDDEInfo</strong><span>{selectedRunIsPrimary ? `${selectedRun?.processedCount ?? 0}/163 UEx na referência aprovada` : "Referência aprovada disponível no seletor"}</span><small>Fonte primária para contas, parcelas e pagamentos registrados.</small></article>
+          <article><strong>CGU · Transferências</strong><span>{cguSummary ? `${cguSummary.coveredUex} UEx vinculadas no período ${cguSummary.referencePeriod}` : "Sem importação concluída para o mês atual"}</span><small>{cguSummary ? `${cguSummary.lineCount} linha(s) complementar(es) · ${displayMoney(cguSummary.totalAmountCents / 100)}` : "A atualização consulta o mês atual e o anterior."}</small><button type="button" className="audit-evidence-button" onClick={() => void importCguTransfers()} disabled={cguImporting || loading}>{cguImporting ? "Atualizando CGU…" : "Atualizar CGU"}</button></article>
+          <article><strong>SIGEF</strong><span>{sigefCoverage ? `${sigefCoverage.coveredUex}/${sigefCoverage.referenceMasterCount} UEx com evidência preservada` : "Calculando cobertura"}</span><small>Complementar e sujeito à defasagem da própria fonte.</small></article>
+        </div>
+        {sourceImportRuns.length > 0 && <small>Última execução complementar: {sourceImportRuns[0]!.source === "CGU_TRANSFERENCIAS" ? "CGU" : sourceImportRuns[0]!.source} · {sourceImportRuns[0]!.referencePeriod} · {sourceImportRuns[0]!.status} · {displayDate(sourceImportRuns[0]!.completedAt ?? sourceImportRuns[0]!.createdAt)}.</small>}
+        <p className="audit-panel-instruction">A transferência registrada pela CGU é evidência complementar. Ela não confirma crédito bancário e não preenche conta, parcela ou estado de pagamento do PDDEInfo.</p>
       </section>
 
       <section className="audit-summary-grid">

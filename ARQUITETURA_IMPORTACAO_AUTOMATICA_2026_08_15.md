@@ -21,6 +21,24 @@ A primeira etapa deve automatizar duas frentes independentes: a atualização da
 
 As duas abordagens podem coexistir. A atualização assistida preserva uma alternativa imediata e a atualização automática reduz a dependência da operação manual depois de validada.
 
+## Implementação entregue — atualização assistida (15/08/2026)
+
+A primeira versão operacional foi entregue no modo **assistido por botão**. A execução manual já existente do PDDEInfo permanece o caminho primário: ela consulta as 163 UEx, aplica as validações bloqueantes e só libera o Excel quando a referência estiver aprovada. A auditoria passou a exibir uma seção de **Atualidade das fontes**, que apresenta a referência PDDEInfo, a cobertura complementar SIGEF e a situação da CGU sem misturar seus significados.
+
+O botão **Atualizar CGU** solicita os arquivos mensais do mês corrente e do mês imediatamente anterior. O arquivo ZIP é lido diretamente em fluxo; o CSV Latin-1 é processado linha a linha, os cabeçalhos exigidos são verificados e apenas linhas com órgão SIAFI `26298`, ação `0515` e CNPJ presente na referência PDDEInfo aprovada de 163/163 UEx são elegíveis para persistência. Linhas fora da lista-mestre não são inseridas.
+
+| Controle implantado | Comportamento da versão assistida |
+|---|---|
+| Histórico de importação | `source_import_runs` registra fonte, período, URL, SHA-256, estado, contadores, cursor técnico, início e conclusão. |
+| Linhas complementares | `cgu_transfer_lines` armazena somente transferência ligada deterministamente a INEP e CNPJ da referência aprovada. |
+| Idempotência | A chave `CGU_TRANSFERENCIAS:período:sha256` impede reprocessar o mesmo artefato; o índice único por execução e fingerprint impede duplicata de linha. |
+| Rastreabilidade | Ao concluir, a importação adiciona evento imutável à execução PDDEInfo de referência, incluindo URL, hash, cobertura e ressalva de interpretação. |
+| Segurança semântica | A CGU não altera conta, agência, parcela, valor pago registrado, saldo ou confirmação de crédito bancário do PDDEInfo. |
+
+> **Limite deliberado da versão inicial:** o hash SHA-256, a URL de origem e os campos normalizados são preservados na base; a cópia integral do ZIP em armazenamento de objetos ainda não foi habilitada. Assim, a origem pública e a identidade criptográfica ficam registradas, mas a retenção independente do arquivo bruto será uma evolução própria, antes de qualquer rotina automática recorrente.
+
+Não foi ativado temporizador, cron em memória nem ciclo em segundo plano. A eventual evolução para execução periódica deve adotar a rotina persistida indicada nas seções seguintes, com verificação de hash novo, exclusão mútua e registro de falha transitória quando o arquivo mensal ainda não estiver publicado.
+
 ## Desenho técnico recomendado
 
 ### 1. Fila de importações persistida
