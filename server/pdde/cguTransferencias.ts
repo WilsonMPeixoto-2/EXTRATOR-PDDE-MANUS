@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { Transform, Readable } from "node:stream";
-import { createInterface } from "node:readline";
+import { parse } from "csv-parse";
 import unzipper from "unzipper";
 import {
   appendAuditTrail,
@@ -38,24 +38,16 @@ function normalizeCnpj(value: string) {
   return value.replace(/\D/g, "");
 }
 
-function parseCsvLine(line: string) {
-  const fields: string[] = [];
-  let value = "";
-  let quoted = false;
-  for (let index = 0; index < line.length; index += 1) {
-    const char = line[index]!;
-    if (char === '"') {
-      if (quoted && line[index + 1] === '"') {
-        value += '"';
-        index += 1;
-      } else quoted = !quoted;
-    } else if (char === ";" && !quoted) {
-      fields.push(value);
-      value = "";
-    } else value += char;
-  }
-  fields.push(value);
-  return fields;
+/** Cria um parser incremental para o CSV Latin-1 da CGU sem pressupor que uma linha física corresponde a um registro lógico. */
+export function createCguCsvParser(input: NodeJS.ReadableStream) {
+  return input.pipe(parse({
+    bom: true,
+    delimiter: ";",
+    quote: '"',
+    escape: '"',
+    skip_empty_lines: true,
+    relax_column_count: false,
+  }));
 }
 
 function validateReferencePeriod(referencePeriod: string) {
@@ -149,16 +141,15 @@ export async function collectCguTransfers(
   const archiveStream = Readable.fromWeb(response.body as never).pipe(hashingStream);
   const csvStream = archiveStream.pipe(unzipper.ParseOne(/\.csv$/i));
   csvStream.setEncoding("latin1");
-  const lines = createInterface({ input: csvStream, crlfDelay: Infinity });
+  const records = createCguCsvParser(csvStream);
 
   let headerIndex: Map<string, number> | null = null;
   let totalRows = 0;
   const matchedLines: CguTransferLineInput[] = [];
   let unlinkedRows = 0;
 
-  for await (const line of lines) {
-    if (!line.trim()) continue;
-    const fields = parseCsvLine(line);
+  for await (const rawRecord of records) {
+    const fields = (rawRecord as unknown[]).map(value => String(value));
     if (!headerIndex) {
       headerIndex = new Map(fields.map((header, index) => [normalizeHeader(header), index]));
       const missing = CGU_REQUIRED_HEADERS.filter(header => !headerIndex!.has(header));
