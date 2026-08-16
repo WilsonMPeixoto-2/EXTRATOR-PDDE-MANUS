@@ -2,7 +2,9 @@
 
 ## Inteligência Financeira PDDE | 4ª CRE
 
-Este documento registra a decisão de produto para a nova Home e funciona como critério de avaliação para cada tela, componente e visualização. O objetivo não é impor um template único, mas preservar uma lógica comum de leitura, ação e profundidade.
+> **Fonte normativa:** [`docs/VISUAL_PRODUCT_CONSTITUTION_2026.md`](./docs/VISUAL_PRODUCT_CONSTITUTION_2026.md)
+
+Este documento permanece como resumo operacional da decisão de produto para a Home C. A Constituição Visual oficial é a referência completa para semântica financeira, evidências, acionabilidade, estados incompletos, acessibilidade e composição por mídia. Em caso de divergência, prevalece a Constituição.
 
 > **Sofisticação invisível:** o sistema pode ser complexo por trás; a interface deve transformar essa complexidade em uma experiência natural, investigável e proporcional à tarefa humana.
 
