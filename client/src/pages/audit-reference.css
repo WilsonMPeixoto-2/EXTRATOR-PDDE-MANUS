@@ -106,3 +106,7 @@
   .audit-sigef-stats span:last-child,
   .audit-sigef-coverage footer small { text-align: left; }
 }
+
+.audit-unit-link { display: inline-block; margin-top: 5px; color: #2d776e; font-size: 10px; font-weight: 800; text-decoration: none; text-underline-offset: 3px; }
+.audit-unit-link:hover, .audit-unit-link:focus-visible { color: #15594f; text-decoration: underline; }
+.high-contrast .audit-unit-link { color: #fff; }
