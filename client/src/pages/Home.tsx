@@ -59,6 +59,44 @@ type RestoredRun = {
   persisted?: boolean;
 };
 
+type FinanceSnapshot = {
+  runId: string;
+  completedAt: string | null;
+  schoolCount: number;
+  totalExpected: number;
+  totalPaid: number;
+  accountedSchools: number;
+  missingBasicAccounts: number;
+  firstInstallmentPaid: number;
+  secondInstallmentExpected: number;
+};
+
+type HomeFinanceSummary = {
+  reference: FinanceSnapshot | null;
+  history: FinanceSnapshot[];
+  note: string;
+};
+
+const formatCurrency = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 2 });
+const formatShortDate = (value: string | null) => value ? new Date(value).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }).replace(".", "") : "—";
+
+function FinanceTrend({ snapshots }: { snapshots: FinanceSnapshot[] }) {
+  if (snapshots.length < 2) return <div className="trend-empty"><span>EVOLUÇÃO TEMPORAL</span><strong>A trajetória aparecerá após duas execuções aprovadas.</strong><small>Não transformamos uma fotografia isolada em uma tendência artificial.</small></div>;
+  const max = Math.max(...snapshots.map(snapshot => snapshot.totalPaid), 1);
+  const points = snapshots.map((snapshot, index) => {
+    const x = snapshots.length === 1 ? 320 : 28 + (index * 584) / (snapshots.length - 1);
+    const y = 142 - (snapshot.totalPaid / max) * 104;
+    return { snapshot, x, y };
+  });
+  const path = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
+  return <div className="trend-visual"><div className="trend-legend"><span><i className="trend-dot trend-dot-paid" />Pago informado</span><small>{snapshots.length} execuções aprovadas · {formatShortDate(snapshots[0]?.completedAt)} — {formatShortDate(snapshots.at(-1)?.completedAt ?? null)}</small></div><svg viewBox="0 0 640 180" role="img" aria-label="Evolução do total pago informado nas execuções aprovadas"><path className="trend-grid-line" d="M28 142 H612 M28 90 H612 M28 38 H612" /><path className="trend-line" d={path} />{points.map(point => <g key={point.snapshot.runId} className="trend-point"><circle cx={point.x} cy={point.y} r="5" /><title>{`${formatShortDate(point.snapshot.completedAt)} · ${formatCurrency(point.snapshot.totalPaid)}`}</title><text x={point.x} y="168" textAnchor="middle">{formatShortDate(point.snapshot.completedAt)}</text></g>)}</svg><small className="trend-note">{snapshots.length > 0 ? "A série compara execuções aprovadas do PDDEInfo; não representa saldo bancário mensal." : ""}</small></div>;
+}
+
+function ActionRow({ label, value, hint, tone, onClick }: { label: string; value: number; hint: string; tone: "attention" | "positive" | "neutral"; onClick?: () => void }) {
+  const content = <><span className={`action-row-marker action-row-marker-${tone}`} /><div><strong>{label}</strong><small>{hint}</small></div><b>{value}</b><span className="action-row-arrow">›</span></>;
+  return onClick ? <button type="button" className="action-row action-row-clickable" onClick={onClick}>{content}</button> : <div className="action-row">{content}</div>;
+}
+
 function MetricCard({ label, value, hint, accent, onClick, action }: { label: string; value: string | number; hint: string; accent: "teal" | "gold" | "plum" | "blue"; onClick?: () => void; action?: string }) {
   const content = <>
     <span className="metric-label">{label}</span>
@@ -101,6 +139,8 @@ export default function Home() {
   const [fatalError, setFatalError] = useState<string | null>(null);
   const [sources, setSources] = useState<SourceAutomation[]>([]);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const [financeSummary, setFinanceSummary] = useState<HomeFinanceSummary | null>(null);
+  const [portfolioSearch, setPortfolioSearch] = useState("");
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -108,6 +148,14 @@ export default function Home() {
       .then(response => response.json())
       .then(payload => setMaster(payload))
       .catch(() => setFatalError("Não foi possível validar a lista-mestre no servidor."));
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    fetch("/api/pdde/home/finance-summary")
+      .then(response => response.ok ? response.json() : Promise.reject(new Error("Resumo financeiro indisponível")))
+      .then(payload => setFinanceSummary(payload as HomeFinanceSummary))
+      .catch(() => setFinanceSummary(null));
   }, [isAuthenticated]);
 
   useEffect(() => {
@@ -121,6 +169,8 @@ export default function Home() {
   const progress = Math.round((completed / 163) * 100);
   const recentAudits = useMemo(() => audits.slice(-7).reverse(), [audits]);
   const ready = Boolean(validation);
+  const referenceSnapshot = financeSummary?.reference ?? null;
+  const referenceRunId = referenceSnapshot?.runId ?? activeRunId;
 
   const sourceMethodLabel = (method: SourceAutomation["collectionMethod"]) => ({
     http: "Consulta direta",
@@ -141,8 +191,13 @@ export default function Home() {
   } as Record<SourceAutomation["accessState"], string>)[state];
 
   const openAuditSubset = (subset: string) => {
-    if (!activeRunId) return;
-    window.location.assign(`/auditoria?run=${encodeURIComponent(activeRunId)}&subset=${encodeURIComponent(subset)}`);
+    if (!referenceRunId) return;
+    window.location.assign(`/auditoria?run=${encodeURIComponent(referenceRunId)}&subset=${encodeURIComponent(subset)}`);
+  };
+
+  const openPortfolioSearch = () => {
+    if (!referenceRunId || !portfolioSearch.trim()) return;
+    window.location.assign(`/auditoria?run=${encodeURIComponent(referenceRunId)}&school=${encodeURIComponent(portfolioSearch.trim())}`);
   };
 
   const appendEvent = (item: TimelineItem) => setEvents(current => [item, ...current].slice(0, 9));
@@ -271,8 +326,8 @@ export default function Home() {
         </div>
         <div className="side-section">
           <span className="side-caption">NAVEGAÇÃO</span>
-          <a className="side-nav side-nav-active" href="#operacao"><Gauge size={17} /><span>Execução</span></a>
-          <a className="side-nav" href="#validacoes"><ShieldCheck size={17} /><span>Validações</span></a>
+          <a className="side-nav side-nav-active" href="#inteligencia"><Gauge size={17} /><span>Inteligência financeira</span></a>
+          <a className="side-nav" href="#execucao"><ShieldCheck size={17} /><span>Execução</span></a>
           <a className="side-nav" href="/auditoria"><Activity size={17} /><span>Auditoria</span></a>
         </div>
         <div className="side-rule">
@@ -288,11 +343,27 @@ export default function Home() {
           <div className="topbar-controls"><HighContrastToggle /><div className="top-status"><span className="status-dot" />SERVIÇO DISPONÍVEL <span className="top-divider" /> USO INTERNO</div></div>
         </header>
 
-        <section className="hero-grid">
+        <section className="intelligence-home" id="inteligencia">
+          <section className="position-panel">
+            <div className="editorial-heading"><span>ABERTURA EDITORIAL-FINANCEIRA</span><h2>Posição financeira de 2026</h2><p>{referenceSnapshot ? `Referência aprovada em ${formatShortDate(referenceSnapshot.completedAt)} · ${referenceSnapshot.schoolCount} unidades consultadas` : "Aguardando uma execução aprovada para compor a fotografia financeira."}</p></div>
+            <div className="position-metrics">
+              <div className="position-metric position-metric-primary"><span>Previsto 2026</span><strong>{referenceSnapshot ? formatCurrency(referenceSnapshot.totalExpected) : "—"}</strong><small>valores previstos nas destinações extraídas</small></div>
+              <div className="position-metric position-metric-paid"><span>Pago informado</span><strong>{referenceSnapshot ? formatCurrency(referenceSnapshot.totalPaid) : "—"}</strong><small>registro no PDDEInfo · não confirma crédito bancário</small></div>
+              <div className="position-metric"><span>Contas PDDE informadas</span><strong>{referenceSnapshot ? `${referenceSnapshot.accountedSchools}/${referenceSnapshot.schoolCount}` : "—"}</strong><small>rótulo exato PDDE na fonte corrente</small></div>
+            </div>
+          </section>
+          <section className="home-middle-grid">
+            <article className="trend-panel"><div className="editorial-heading"><span>EVOLUÇÃO</span><h2>O que mudou entre as referências?</h2><p>{financeSummary?.note ?? "A evolução só aparece quando há mais de uma execução aprovada comparável."}</p></div><FinanceTrend snapshots={financeSummary?.history ?? []} /></article>
+            <article className="attention-panel"><div className="editorial-heading"><span>ACOMPANHAMENTO</span><h2>Onde vale olhar agora</h2><p>Todo item abaixo abre o conjunto real de unidades correspondente.</p></div><div className="action-list"><ActionRow label="Conta PDDE Básico a confirmar" value={referenceSnapshot?.missingBasicAccounts ?? 0} hint="unidades sem conta vigente informada" tone="attention" onClick={referenceRunId ? () => openAuditSubset("missing-basic-account") : undefined} /><ActionRow label="1ª parcela com registro" value={referenceSnapshot?.firstInstallmentPaid ?? 0} hint="unidades com pagamento registrado" tone="positive" onClick={referenceRunId ? () => openAuditSubset("first-installment-paid") : undefined} /><ActionRow label="2ª parcela prevista" value={referenceSnapshot?.secondInstallmentExpected ?? 0} hint="unidades que pedem acompanhamento" tone="neutral" onClick={referenceRunId ? () => openAuditSubset("second-installment-expected") : undefined} /></div></article>
+          </section>
+          <section className="portfolio-panel"><div><span>CARTEIRA</span><h2>As 163 unidades, prontas para investigação</h2><p>Busque por nome, INEP ou SME e entre diretamente no dossiê financeiro da escola.</p></div><div className="portfolio-actions"><form onSubmit={event => { event.preventDefault(); openPortfolioSearch(); }}><input value={portfolioSearch} onChange={event => setPortfolioSearch(event.target.value)} placeholder="Buscar unidade, INEP ou SME" aria-label="Buscar unidade, INEP ou SME" /><button type="submit" disabled={!referenceRunId || !portfolioSearch.trim()}>Buscar</button></form><button type="button" className="portfolio-link" onClick={() => openAuditSubset("all")} disabled={!referenceRunId}>Abrir carteira completa <span>›</span></button></div></section>
+        </section>
+
+        <section className="hero-grid" id="rotina-consulta">
           <div>
             <div className="eyebrow">ROTINA DE CONSULTA</div>
-            <h1>Execução de extração</h1>
-            <p className="hero-copy">Inicie a consulta das unidades selecionadas, acompanhe o processamento por lote e libere o arquivo somente após os controles obrigatórios.</p>
+            <h1>Extração auditável</h1>
+            <p className="hero-copy">Quando a referência precisar ser atualizada, inicie a consulta das unidades e libere o arquivo somente após os controles obrigatórios.</p>
             <div className="hero-actions">
               <Button className="run-button" onClick={startExtraction} disabled={running || !master.valid || authLoading || !isAuthenticated}>
                 {running ? <RefreshCw className="animate-spin" size={18} /> : <Play size={18} fill="currentColor" />} {running ? "Extração em curso" : "Iniciar extração"}
@@ -310,7 +381,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="metrics-row">
+        <section className="metrics-row" id="execucao">
           <MetricCard label="Unidades selecionadas" value={`${master.count}/163`} hint={master.valid ? "INEPs únicos verificados" : "verificando lista-mestre"} accent="teal" onClick={activeRunId ? () => openAuditSubset("all") : undefined} action={activeRunId ? "Abrir lista" : undefined} />
           <MetricCard label="Processamento" value={`${completed}/163`} hint={running ? `lote ${Math.max(1, Math.ceil(completed / 10))} em andamento` : "não iniciado"} accent="gold" />
           <MetricCard label="Contas PDDE" value={validation ? `${163 - validation.missingBasicAccounts}/163` : "—"} hint="informadas no PDDEInfo" accent="plum" onClick={activeRunId ? () => openAuditSubset("missing-basic-account") : undefined} action={activeRunId ? "Ver não informadas" : undefined} />

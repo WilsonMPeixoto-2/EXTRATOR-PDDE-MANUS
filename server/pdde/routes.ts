@@ -1,7 +1,7 @@
 import type { Express, Response } from "express";
 import type { Request as ExpressRequest, Response as ExpressResponse } from "express";
 import { getRun, masterListSummary, registerSecondaryOpenDataControl, runExtraction } from "./run";
-import { appendAuditTrail, completeAuditRun, getCguTransferSummary, getSigefAuditCoverage, listSourceImportRuns } from "../db";
+import { appendAuditTrail, completeAuditRun, getCguTransferSummary, getHomeFinanceSummary, getSigefAuditCoverage, listSourceImportRuns } from "../db";
 import { sourceAutomationCatalog } from "./sources";
 import { sdk } from "../_core/sdk";
 import { decidePddeAccess, type PddeResource } from "./access";
@@ -116,6 +116,11 @@ export function registerPddeRoutes(app: Express) {
     const payload = restoredRunPayload(await getPersistedRunAuditOverview(latestApproved.id));
     if (!payload) return response.status(404).json({ message: "A execução aprovada não pôde ser recuperada." });
     return response.json(payload);
+  });
+
+  app.get("/api/pdde/home/finance-summary", async (request, response) => {
+    if (!await authorize(request, response, "run-status")) return;
+    response.json(await getHomeFinanceSummary());
   });
 
   app.get("/api/pdde/audit/runs", async (request, response) => {

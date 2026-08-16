@@ -149,6 +149,7 @@ export default function Audit() {
   const [cguSummary, setCguSummary] = useState<CguSummary | null>(null);
   const [cguImporting, setCguImporting] = useState(false);
   const requestedRunId = useMemo(() => new URLSearchParams(window.location.search).get("run"), []);
+  const requestedSchoolQuery = useMemo(() => new URLSearchParams(window.location.search).get("school") ?? "", []);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [schoolSubset, setSchoolSubset] = useState<AuditSchoolSubset>(initialAuditSubset);
   const [schools, setSchools] = useState<School[]>([]);
@@ -158,7 +159,7 @@ export default function Audit() {
   const [dossier, setDossier] = useState<Dossier | null>(null);
   const [selectedInep, setSelectedInep] = useState<string | null>(null);
   const [programFilter, setProgramFilter] = useState("");
-  const [schoolFilter, setSchoolFilter] = useState("");
+  const [schoolFilter, setSchoolFilter] = useState(requestedSchoolQuery);
   const [fieldFilter, setFieldFilter] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

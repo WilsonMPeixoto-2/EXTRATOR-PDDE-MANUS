@@ -274,6 +274,88 @@ export async function getSigefAuditCoverage() {
   };
 }
 
+export type HomeFinanceSnapshot = {
+  runId: string;
+  completedAt: string | null;
+  schoolCount: number;
+  totalExpected: number;
+  totalPaid: number;
+  accountedSchools: number;
+  missingBasicAccounts: number;
+  firstInstallmentPaid: number;
+  secondInstallmentExpected: number;
+};
+
+function buildHomeFinanceSnapshot(run: { id: string; completedAt: Date | null; validationJson: unknown }, schools: Array<{ inep: string; status: string }>, observations: Array<{ inep: string; fieldPath: string; logicalKey: string; rawValue: string | null; normalizedValueJson: unknown }>): HomeFinanceSnapshot {
+  const accountRows = new Map<string, Map<number, { program: string; agency: string; account: string }>>();
+  const firstPaid = new Set<string>();
+  const secondExpected = new Set<string>();
+  let totalExpected = 0;
+  let totalPaid = 0;
+  for (const observation of observations) {
+    const accountMatch = observation.fieldPath.match(/^bankAccounts\\[(\\d+)\\]\\.(program|agency|account)$/);
+    if (accountMatch) {
+      const fields = accountRows.get(observation.inep) ?? new Map<number, { program: string; agency: string; account: string }>();
+      const account = fields.get(Number(accountMatch[1])) ?? { program: "", agency: "", account: "" };
+      const value = observation.rawValue ?? ((observation.normalizedValueJson as { value?: unknown } | null)?.value as string | undefined) ?? "";
+      account[accountMatch[2] as "program" | "agency" | "account"] = value;
+      fields.set(Number(accountMatch[1]), account);
+      accountRows.set(observation.inep, fields);
+    }
+    const paymentMatch = observation.fieldPath.match(/^payments\\[(\\d+)\\]\\.(expected|paid)$/);
+    if (!paymentMatch) continue;
+    const amount = observationNumber(observation.rawValue, observation.normalizedValueJson);
+    if (paymentMatch[2] === "expected") totalExpected += amount;
+    if (paymentMatch[2] === "paid") totalPaid += amount;
+    const label = normalizedObservationText(observation.logicalKey);
+    if (label.includes("PDDE BASICO") && label.includes("1A PARCELA") && paymentMatch[2] === "paid" && amount > 0) firstPaid.add(observation.inep);
+    if (label.includes("PDDE BASICO") && label.includes("2A PARCELA") && paymentMatch[2] === "expected" && amount > 0) secondExpected.add(observation.inep);
+  }
+  const successfulSchools = schools.filter(school => school.status === "success");
+  let accountedSchools = 0;
+  let missingBasicAccounts = 0;
+  for (const school of successfulSchools) {
+    const basic = Array.from(accountRows.get(school.inep)?.values() ?? []).find(account => normalizedObservationText(account.program) === "PDDE");
+    if (basic && (basic.agency.trim() || basic.account.trim())) accountedSchools += 1;
+    else missingBasicAccounts += 1;
+  }
+  const validation = run.validationJson as Partial<{ firstInstallmentPaid: number; secondInstallmentExpected: number; missingBasicAccounts: number }> | null;
+  return {
+    runId: run.id,
+    completedAt: run.completedAt?.toISOString() ?? null,
+    schoolCount: schools.length,
+    totalExpected,
+    totalPaid,
+    accountedSchools,
+    missingBasicAccounts: validation?.missingBasicAccounts ?? missingBasicAccounts,
+    firstInstallmentPaid: validation?.firstInstallmentPaid ?? firstPaid.size,
+    secondInstallmentExpected: validation?.secondInstallmentExpected ?? secondExpected.size,
+  };
+}
+
+export async function getHomeFinanceSummary() {
+  const db = await getAuditDbOrThrow();
+  const runs = await db.select({ id: extractionRuns.id, completedAt: extractionRuns.completedAt, validationJson: extractionRuns.validationJson })
+    .from(extractionRuns)
+    .where(eq(extractionRuns.status, "approved"))
+    .orderBy(desc(extractionRuns.completedAt), desc(extractionRuns.createdAt))
+    .limit(6);
+  const snapshots: HomeFinanceSnapshot[] = [];
+  for (const run of runs) {
+    const [schools, observations] = await Promise.all([
+      db.select({ inep: schoolConsultations.inep, status: schoolConsultations.status }).from(schoolConsultations).where(eq(schoolConsultations.runId, run.id)),
+      db.select({ inep: fieldObservations.inep, fieldPath: fieldObservations.fieldPath, logicalKey: fieldObservations.logicalKey, rawValue: fieldObservations.rawValue, normalizedValueJson: fieldObservations.normalizedValueJson }).from(fieldObservations).where(eq(fieldObservations.runId, run.id)),
+    ]);
+    snapshots.push(buildHomeFinanceSnapshot(run, schools, observations));
+  }
+  const latest = snapshots[0] ?? null;
+  return {
+    reference: latest,
+    history: snapshots.toReversed(),
+    note: "A evolução representa fotografias de execuções aprovadas do PDDEInfo; não é uma série mensal de saldo bancário.",
+  };
+}
+
 export async function getPersistedAuditRun(runId: string) {
   const db = await getAuditDbOrThrow();
   const rows = await db.select().from(extractionRuns).where(eq(extractionRuns.id, runId)).limit(1);
