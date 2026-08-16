@@ -72,6 +72,21 @@ function sumMoney(values: Array<string | null | undefined>) {
   return parsed.length ? parsed.reduce((sum, value) => sum + value, 0) : null;
 }
 
+function dateSortValue(value: string | null | undefined) {
+  if (!value) return Number.POSITIVE_INFINITY;
+  const br = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const iso = br ? `${br[3]}-${br[2]}-${br[1]}` : value;
+  const parsed = Date.parse(iso);
+  return Number.isNaN(parsed) ? Number.POSITIVE_INFINITY : parsed;
+}
+
+type TimelineEvent = {
+  date: string;
+  label: string;
+  detail: string;
+  tone: "positive" | "neutral" | "attention";
+};
+
 function StatePill({ state }: { state: string | null | undefined }) {
   const label = state ? stateLabels[state] ?? state : "SEM ESTADO INFORMADO";
   const tone = state === "PAGAMENTO_INFORMADO_PDDEINFO" || state === "CREDITO_CONFIRMADO_EXTRATO_BB" || state === "CREDITO_LOCALIZADO_SIGEF" ? "positive" : state === "DIVERGENCIA_ENTRE_FONTES" || state === "REVISAO_NECESSARIA" ? "attention" : "neutral";
@@ -112,6 +127,27 @@ function ProgramsSection({ financial }: { financial: FinancialSchoolDossier }) {
         <StatePill state={payment.state} />
       </article>;
     })}</div> : <div className="unit-empty"><Info size={17} /><div><strong>Nenhum repasse foi exibido na referência corrente.</strong><span>A unidade pode não ter registros compatíveis na consulta PDDEInfo de 2026.</span></div></div>}
+  </section>;
+}
+
+function TimelineSection({ financial, movements }: { financial: FinancialSchoolDossier; movements: SigefMovementDossierLine[] }) {
+  const events: TimelineEvent[] = [
+    ...financial.payments.filter(payment => payment.paymentDate).map(payment => ({
+      date: payment.paymentDate as string,
+      label: "Pagamento informado",
+      detail: `${payment.destination ?? "Destinação não informada"} · ${formatMoney(parseMoney(payment.paid) ?? parseMoney(payment.expected))}`,
+      tone: "positive" as const,
+    })),
+    ...movements.map(movement => ({
+      date: movement.date,
+      label: movement.credit > 0 ? "Crédito observado no SIGEF" : "Movimentação complementar",
+      detail: `${movement.historic} · ${formatMoney(movement.credit > 0 ? movement.credit : movement.debit)}`,
+      tone: movement.credit > 0 ? "positive" as const : "neutral" as const,
+    })),
+  ].toSorted((left, right) => dateSortValue(left.date) - dateSortValue(right.date));
+  return <section className="unit-section unit-timeline-section">
+    <div className="unit-section-heading"><span>TRAJETÓRIA OBSERVADA</span><h2>Momentos financeiros da referência</h2><p>Eventos identificados nas fontes preservadas. A linha não preenche períodos que não foram observados.</p></div>
+    {events.length ? <div className="unit-timeline" aria-label="Linha temporal de eventos financeiros observados">{events.map((event, index) => <article className="unit-timeline-event" key={`${event.date}-${event.label}-${index}`}><div className={`unit-timeline-dot unit-timeline-dot-${event.tone}`} /><time>{event.date}</time><div><strong>{event.label}</strong><span>{event.detail}</span></div></article>)}</div> : <div className="unit-empty"><Info size={17} /><div><strong>A trajetória aparecerá quando houver eventos datados preservados.</strong><span>A ausência de eventos não permite desenhar uma evolução contínua.</span></div></div>}
   </section>;
 }
 
@@ -185,6 +221,7 @@ export default function Unit() {
       <PrimaryPosition dossier={dossier} financial={financial} />
       {findings.length > 0 && <section className="unit-attention"><div><span>ACOMPANHAMENTO</span><h2>Há {findings.length} ponto(s) que merecem leitura</h2><p>O sistema apresenta a condição observada sem transformar automaticamente a evidência em acusação ou conclusão.</p></div><div className="unit-attention-list">{findings.slice(0, 4).map(finding => <article key={finding.id}><ShieldAlert size={15} /><span>{finding.message}</span></article>)}</div></section>}
       <ProgramsSection financial={financial} />
+      <TimelineSection financial={financial} movements={movements} />
       <AccountsSection financial={financial} />
       <MovementsSection movements={movements} />
       <TechnicalDetails dossier={dossier} runId={runId} onOpenArtifact={(artifactRunId, artifactId) => void openArtifact(artifactRunId, artifactId)} />
