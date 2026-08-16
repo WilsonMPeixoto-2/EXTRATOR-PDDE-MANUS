@@ -138,3 +138,11 @@ A próxima implementação será considerada pronta somente quando:
 ## 6. Próximo marco
 
 O próximo trabalho de implementação deve começar pela página de unidade, porque ela é o ponto em que a arquitetura de entidades, profundidade sob demanda, semântica financeira e visualização temporal se encontram. A Home C permanece como porta de entrada para a investigação; a página de unidade será o primeiro teste completo da Constituição Visual.
+
+## 7. Estado de implementação do primeiro marco
+
+A rota `/unidade/:runId/:inep` foi implementada no frontend e conectada ao dossiê persistido da auditoria. A primeira composição já apresenta identidade da unidade, posição financeira 2026, programas e parcelas, contas vinculadas, acompanhamento, eventos temporais observados, movimentações SIGEF complementares e rastreabilidade recolhida.
+
+A timeline usa apenas datas de pagamento informado e movimentos SIGEF efetivamente preservados. Ela não interpola meses, não desenha continuidade quando há lacuna e usa a expressão “crédito observado no SIGEF” para não confundir movimento retornado com repasse confirmado.
+
+O código está no `main` no commit `3f00da7`. O domínio público ainda responde com um bundle anterior e não expõe a nova rota até a sincronização do deploy.

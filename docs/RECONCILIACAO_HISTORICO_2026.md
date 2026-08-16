@@ -61,3 +61,9 @@ O próximo marco funcional é a página de unidade, com posição financeira 202
 [2]: https://www.fnde.gov.br/pddeinfo/consultasaldoentidade/consultasaldoentidade/consultasaldoentidade — Consulta de Saldo das Entidades, com referências mensais de 2026.  
 [3]: https://www.fnde.gov.br/pddeinfo/situacaoprestacaoconta/situacaoprestacaoconta/situacaoprestacaoconta — Situação de Prestação de Contas.  
 [4]: https://www.fnde.gov.br/pddeinfo/situacaoatendimentoentidade/situacaoatendimentoentidade/situacaoatendimentoentidade — Situação de Atendimento da Entidade.
+
+## 7. Ambiente publicado
+
+Em 16 de agosto de 2026, o domínio público `https://pddeinfo4cre-zn9f2kak.manus.space/` respondeu com HTTP 200 e o título correto do projeto. A inspeção do bundle JavaScript servido pelo domínio, porém, não encontrou a rota `/unidade/:runId/:inep` nem a marca textual da seção `TRAJETÓRIA OBSERVADA` implementadas neste marco.
+
+Isso significa que o repositório `main` está atualizado no commit `3f00da7`, mas o ambiente público ainda serve uma versão anterior do bundle. A nova página deve ser considerada disponível no código versionado, não declarada como publicada no site até que o mecanismo de deploy do espaço sincronize o commit atual.
