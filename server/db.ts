@@ -286,14 +286,14 @@ export type HomeFinanceSnapshot = {
   secondInstallmentExpected: number;
 };
 
-function buildHomeFinanceSnapshot(run: { id: string; completedAt: Date | null; validationJson: unknown }, schools: Array<{ inep: string; status: string }>, observations: Array<{ inep: string; fieldPath: string; logicalKey: string; rawValue: string | null; normalizedValueJson: unknown }>): HomeFinanceSnapshot {
+export function buildHomeFinanceSnapshot(run: { id: string; completedAt: Date | null; validationJson: unknown }, schools: Array<{ inep: string; status: string }>, observations: Array<{ inep: string; fieldPath: string; logicalKey: string; rawValue: string | null; normalizedValueJson: unknown }>): HomeFinanceSnapshot {
   const accountRows = new Map<string, Map<number, { program: string; agency: string; account: string }>>();
   const firstPaid = new Set<string>();
   const secondExpected = new Set<string>();
   let totalExpected = 0;
   let totalPaid = 0;
   for (const observation of observations) {
-    const accountMatch = observation.fieldPath.match(/^bankAccounts\\[(\\d+)\\]\\.(program|agency|account)$/);
+    const accountMatch = observation.fieldPath.match(/^bankAccounts\[(\d+)\]\.(program|agency|account)$/);
     if (accountMatch) {
       const fields = accountRows.get(observation.inep) ?? new Map<number, { program: string; agency: string; account: string }>();
       const account = fields.get(Number(accountMatch[1])) ?? { program: "", agency: "", account: "" };
@@ -302,7 +302,7 @@ function buildHomeFinanceSnapshot(run: { id: string; completedAt: Date | null; v
       fields.set(Number(accountMatch[1]), account);
       accountRows.set(observation.inep, fields);
     }
-    const paymentMatch = observation.fieldPath.match(/^payments\\[(\\d+)\\]\\.(expected|paid)$/);
+    const paymentMatch = observation.fieldPath.match(/^payments\[(\d+)\]\.(expected|paid)$/);
     if (!paymentMatch) continue;
     const amount = observationNumber(observation.rawValue, observation.normalizedValueJson);
     if (paymentMatch[2] === "expected") totalExpected += amount;
@@ -416,7 +416,7 @@ export async function listRunSchools(runId: string) {
   };
   for (const observation of observations) {
     const summary = ensureSummary(observation.inep);
-    const accountMatch = observation.fieldPath.match(/^bankAccounts\\[(\\d+)\\]\\.(program|agency|account)$/);
+    const accountMatch = observation.fieldPath.match(/^bankAccounts\[(\d+)\]\.(program|agency|account)$/);
     if (accountMatch) {
       const index = Number(accountMatch[1]);
       const fields = accountRows.get(observation.inep) ?? new Map<number, { program: string; agency: string; account: string }>();
@@ -426,7 +426,7 @@ export async function listRunSchools(runId: string) {
       fields.set(index, account);
       accountRows.set(observation.inep, fields);
     }
-    const paymentPath = observation.fieldPath.match(/^payments\\[(\\d+)\\]\\.(expected|paid)$/);
+    const paymentPath = observation.fieldPath.match(/^payments\[(\d+)\]\.(expected|paid)$/);
     if (paymentPath) {
       const label = normalizedObservationText(observation.logicalKey);
       const amount = observationNumber(observation.rawValue, observation.normalizedValueJson);
@@ -446,10 +446,15 @@ export async function listRunSchools(runId: string) {
   return schools.map(school => {
     const summary = financialByInep.get(school.inep);
     const attentionRequired = school.status === "failed" || summary?.basicAccountStatus === "nao-informada";
+    const basicAccount = Array.from(accountRows.get(school.inep)?.values() ?? [])
+      .find(account => normalizedObservationText(account.program) === "PDDE");
     return {
       ...school,
       schoolName: nameByInep.get(school.inep) ?? null,
       basicAccountStatus: summary?.basicAccountStatus ?? null,
+      basicAccount: basicAccount && (basicAccount.agency.trim() || basicAccount.account.trim())
+        ? { agency: basicAccount.agency || null, account: basicAccount.account || null }
+        : null,
       firstInstallmentPaid: summary?.firstInstallmentPaid ?? null,
       secondInstallmentExpected: summary?.secondInstallmentExpected ?? null,
       attentionRequired,

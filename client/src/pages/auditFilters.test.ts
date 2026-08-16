@@ -30,7 +30,7 @@ describe("filtros da auditoria", () => {
     expect(filterAuditSchoolsBySubset(schools, "first-installment-paid").map(school => school.inep)).toEqual(["2"]);
     expect(filterAuditSchoolsBySubset(schools, "second-installment-expected").map(school => school.inep)).toEqual(["1", "2"]);
     expect(filterAuditSchoolsBySubset(schools, "attention-required").map(school => school.inep)).toEqual(["1"]);
-    expect(auditSchoolSubsetLabel("missing-basic-account")).toContain("não informada");
+    expect(auditSchoolSubsetLabel("missing-basic-account")).toContain("não exibida");
   });
 
   it("traduz estados técnicos para a linguagem operacional da auditoria", () => {

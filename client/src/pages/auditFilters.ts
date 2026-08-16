@@ -94,7 +94,7 @@ export function filterAuditSchoolsBySubset<T extends AuditSchoolFilterItem>(scho
 export function auditSchoolSubsetLabel(subset: AuditSchoolSubset): string {
   return ({
     all: "Todas as unidades",
-    "missing-basic-account": "Conta PDDE Básico não informada",
+    "missing-basic-account": "Conta do PDDE não exibida",
     "first-installment-paid": "1ª parcela com pagamento registrado",
     "second-installment-expected": "2ª parcela prevista",
     "attention-required": "Unidades que exigem atenção",

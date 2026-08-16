@@ -328,4 +328,46 @@ button, a { -webkit-tap-highlight-color: transparent; }
 @media (max-width: 640px) { .position-panel, .trend-panel, .attention-panel { padding: 21px 18px; } .position-metrics { grid-template-columns: 1fr 1fr; gap: 20px 0; } .position-metric { min-height: 82px; padding: 0 12px; } .position-metric:nth-child(3) { grid-column: 1 / -1; padding-left: 0; border-left: 0; border-top: 1px solid #dce7e8; padding-top: 17px; } .position-metric strong { font-size: 25px; } .position-metric small { font-size: 9px; } .trend-legend { align-items: flex-start; flex-direction: column; gap: 7px; } .portfolio-panel { padding: 22px 18px; } .portfolio-actions form { flex-direction: column; } .portfolio-actions button { width: 100%; } .portfolio-actions .portfolio-link { justify-self: start; } }
 .high-contrast .position-panel, .high-contrast .trend-panel, .high-contrast .attention-panel { background: #000 !important; border-color: #fff !important; }
 .high-contrast .editorial-heading h2, .high-contrast .position-metric strong, .high-contrast .trend-empty strong, .high-contrast .action-row strong, .high-contrast .action-row b { color: #fff !important; }
+
+/* Resultado principal: a lista de escolas é o caminho natural depois da extração. */
+.school-results-panel { overflow: hidden; background: #fff; border: 1px solid #d8e4e5; border-radius: 12px; box-shadow: 0 8px 22px rgba(29, 61, 70, .055); }
+.school-results-heading { display: flex; justify-content: space-between; gap: 20px; align-items: end; padding: 24px 28px 18px; border-bottom: 1px solid #e2ebec; background: linear-gradient(135deg, #f8fcfb 0%, #fff 72%); }
+.school-results-heading > div > span { display: block; color: #66838b; font: 800 9px "IBM Plex Mono", monospace; letter-spacing: .14em; }
+.school-results-heading h2 { margin: 7px 0 5px; color: #173a43; font: 700 clamp(22px, 2vw, 29px)/1.1 "DM Sans", Arial, sans-serif; letter-spacing: -.035em; }
+.school-results-heading p { max-width: 680px; margin: 0; color: #637980; font-size: 12px; line-height: 1.55; }
+.school-results-heading > strong { flex: 0 0 auto; color: #1a605a; font: 750 31px/1 "DM Sans", Arial, sans-serif; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.school-results-heading > strong small { display: block; margin-top: 5px; color: #6d8289; font: 600 10px Arial, sans-serif; letter-spacing: 0; }
+.school-results-controls { display: grid; grid-template-columns: minmax(260px, 1fr) auto; gap: 12px; align-items: center; padding: 15px 28px; border-bottom: 1px solid #e4ecee; background: #fcfdfd; }
+.school-results-controls > input { width: 100%; height: 40px; padding: 0 13px; color: #294e5b; border: 1px solid #cadbdd; border-radius: 7px; background: #fff; font-size: 12px; }
+.school-results-controls > input:focus { outline: 3px solid rgba(73, 135, 138, .2); border-color: #5a9998; }
+.school-result-filters { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
+.school-result-filters button { min-height: 34px; padding: 0 10px; color: #48656e; border: 1px solid #d4e0e2; border-radius: 99px; background: #fff; font: 700 10px Arial, sans-serif; transition: .15s ease; }
+.school-result-filters button:hover, .school-result-filters .school-filter-active { color: #174c54; border-color: #77a6a3; background: #e8f3f1; }
+.school-result-filters b { margin-left: 5px; font-variant-numeric: tabular-nums; }
+.school-result-list { max-height: 560px; overflow: auto; }
+.school-result-row { display: grid; grid-template-columns: minmax(220px, 1.15fr) minmax(150px, .75fr) minmax(165px, .75fr) minmax(145px, .65fr) auto; gap: 14px; align-items: center; padding: 15px 28px; border-bottom: 1px solid #e7eeef; transition: background .15s ease; }
+.school-result-row:hover { background: #f7fbfa; }
+.school-result-row:last-child { border-bottom: 0; }
+.school-result-identity strong { display: block; color: #234957; font-size: 13px; line-height: 1.35; }
+.school-result-identity span { display: block; margin-top: 4px; color: #71858c; font: 600 10px "IBM Plex Mono", monospace; }
+.school-result-programs { display: flex; flex-wrap: wrap; gap: 5px; }
+.school-result-programs span { display: inline-flex; padding: 4px 6px; color: #3c6670; border-radius: 4px; background: #edf4f4; font: 700 9px Arial, sans-serif; letter-spacing: .02em; }
+.school-account-status { display: inline-flex; width: max-content; max-width: 100%; padding: 5px 7px; border-radius: 4px; font: 700 10px/1.25 Arial, sans-serif; }
+.school-account-informada { color: #17664f; background: #e0f2e9; }
+.school-account-nao-informada { color: #8a5b19; background: #fff2dc; }
+.school-account-unknown { color: #5b7180; background: #edf2f4; }
+.school-account-summary { display: flex; min-width: 0; flex-direction: column; gap: 4px; }.school-account-summary small { overflow: hidden; color: #647c84; font: 600 9px "IBM Plex Mono", monospace; text-overflow: ellipsis; white-space: nowrap; }
+.school-payment-summary { display: flex; flex-wrap: wrap; gap: 5px; }.school-payment-summary span { display: inline-flex; padding: 4px 6px; color: #587078; border-radius: 4px; background: #eef3f4; font: 700 9px/1.2 Arial, sans-serif; }.school-payment-summary .school-payment-paid { color: #17664f; background: #e0f2e9; }
+.school-result-row > button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 0 11px; color: #fff; border: 0; border-radius: 6px; background: #265c6b; font: 700 10px Arial, sans-serif; white-space: nowrap; }
+.school-result-row > button:hover { background: #1c4a58; }
+.school-result-row > button:disabled { color: #71838b; background: #e6edef; cursor: not-allowed; }
+.school-result-row > button span { color: #b9d5d0; font-size: 17px; line-height: 1; }
+.school-result-empty { padding: 28px; margin: 0; color: #677e86; font-size: 12px; text-align: center; }
+.update-status-card { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 16px; padding: 13px 16px; border: 1px solid #d9e4e6; border-radius: 8px; background: #f8fbfb; }
+.update-status-card > div { display: flex; align-items: baseline; gap: 10px; }.update-status-card span { color: #6a8188; font: 800 9px "IBM Plex Mono", monospace; letter-spacing: .09em; }.update-status-card strong { color: #365b66; font-size: 12px; }
+.update-status-card .fatal-notice { margin: 0; }
+.side-rule { display: none; }
+@media (max-width: 1050px) { .school-result-row { grid-template-columns: minmax(220px, 1fr) minmax(150px, .75fr) minmax(165px, .8fr) auto; }.school-payment-summary { grid-column: 1 / -1; } } @media (max-width: 900px) { .school-results-controls { grid-template-columns: 1fr; } .school-result-filters { justify-content: flex-start; } .school-result-row { grid-template-columns: 1fr auto; gap: 10px 14px; } .school-result-programs, .school-account-summary, .school-payment-summary { grid-column: 1; } .school-result-row > button { grid-column: 2; grid-row: 1 / span 3; } }
+@media (max-width: 640px) { .school-results-heading { align-items: flex-start; flex-direction: column; padding: 20px 18px 16px; } .school-results-heading > strong { font-size: 27px; } .school-results-controls { padding: 13px 18px; } .school-result-list { max-height: none; } .school-result-row { grid-template-columns: 1fr; padding: 14px 18px; } .school-result-row > button { width: 100%; grid-column: auto; grid-row: auto; } .school-result-filters { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }.school-result-filters button { flex: 0 0 auto; } .update-status-card { align-items: flex-start; flex-direction: column; } }
+.high-contrast .school-results-panel, .high-contrast .school-results-heading, .high-contrast .school-results-controls, .high-contrast .school-result-row, .high-contrast .update-status-card { background: #000 !important; border-color: #fff !important; }.high-contrast .school-results-heading h2, .high-contrast .school-result-identity strong { color: #fff !important; }.high-contrast .school-result-filters button, .high-contrast .school-results-controls > input { color: #fff; border-color: #fff; background: #000; }
 .high-contrast .editorial-heading p, .high-contrast .position-metric span, .high-contrast .position-metric small, .high-contrast .trend-empty small, .high-contrast .action-row small { color: #ddd !important; }

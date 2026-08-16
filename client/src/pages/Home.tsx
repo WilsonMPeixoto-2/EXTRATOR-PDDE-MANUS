@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { accountStatusLabel, filterHomeSchools, type HomeSchool, type HomeSchoolFilter } from "./homeSchools";
 
 type Validation = {
   passed: boolean;
@@ -34,19 +35,9 @@ type TimelineItem = {
   kind: "info" | "success" | "error";
 };
 
-type SourceAutomation = {
-  source: string;
-  label: string;
-  accessState: "AUTONOMOUS_AVAILABLE" | "AUTONOMOUS_COMPLETED" | "PILOT_PENDING" | "PILOT_COMPLETED_WITH_LIMITATIONS" | "CAPTCHA_REQUIRED" | "AUTHORIZATION_REQUIRED" | "SOURCE_UNAVAILABLE" | "SCHEMA_CHANGED";
-  autonomous: boolean;
-  collectionMethod: string;
-  detail: string;
-  baseUrl: string;
-};
-
 const initialEvents: TimelineItem[] = [
   { timestamp: "PRONTO", message: "Lista-mestre embutida e validação preventiva disponível.", kind: "info" },
-  { timestamp: "REGRA", message: "Conta do PDDE Básico só é aceita quando o rótulo bancário é exatamente PDDE.", kind: "info" },
+  { timestamp: "PRONTO", message: "Após a consulta, a lista de escolas fica disponível nesta página.", kind: "info" },
 ];
 
 const ACTIVE_RUN_STORAGE_KEY = "pddeinfo-4cre:last-run-id";
@@ -137,10 +128,34 @@ export default function Home() {
   const [audits, setAudits] = useState<Audit[]>([]);
   const [events, setEvents] = useState<TimelineItem[]>(initialEvents);
   const [fatalError, setFatalError] = useState<string | null>(null);
-  const [sources, setSources] = useState<SourceAutomation[]>([]);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [financeSummary, setFinanceSummary] = useState<HomeFinanceSummary | null>(null);
-  const [portfolioSearch, setPortfolioSearch] = useState("");
+  const [homeSchools, setHomeSchools] = useState<HomeSchool[]>([]);
+  const [homeSchoolsState, setHomeSchoolsState] = useState<"loading" | "ready" | "unavailable">("loading");
+  const [schoolSearch, setSchoolSearch] = useState("");
+  const [schoolFilter, setSchoolFilter] = useState<HomeSchoolFilter>("all");
+
+  const reloadHomeResults = useCallback(async () => {
+    if (!isAuthenticated) return;
+    setHomeSchoolsState("loading");
+    const [summary, schools] = await Promise.allSettled([
+      fetch("/api/pdde/home/finance-summary"),
+      fetch("/api/pdde/home/schools"),
+    ]);
+    if (summary.status === "fulfilled" && summary.value.ok) {
+      setFinanceSummary(await summary.value.json() as HomeFinanceSummary);
+    } else {
+      setFinanceSummary(null);
+    }
+    if (schools.status === "fulfilled" && schools.value.ok) {
+      const payload = await schools.value.json() as { schools?: HomeSchool[] };
+      setHomeSchools(payload.schools ?? []);
+      setHomeSchoolsState("ready");
+    } else {
+      setHomeSchools([]);
+      setHomeSchoolsState("unavailable");
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -151,53 +166,25 @@ export default function Home() {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
-    fetch("/api/pdde/home/finance-summary")
-      .then(response => response.ok ? response.json() : Promise.reject(new Error("Resumo financeiro indisponível")))
-      .then(payload => setFinanceSummary(payload as HomeFinanceSummary))
-      .catch(() => setFinanceSummary(null));
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    fetch("/api/pdde/sources")
-      .then(response => response.json())
-      .then(payload => setSources(payload.sources ?? []))
-      .catch(() => setSources([]));
-  }, [isAuthenticated]);
+    void reloadHomeResults();
+  }, [reloadHomeResults]);
 
   const progress = Math.round((completed / 163) * 100);
-  const recentAudits = useMemo(() => audits.slice(-7).reverse(), [audits]);
   const ready = Boolean(validation);
   const referenceSnapshot = financeSummary?.reference ?? null;
   const referenceRunId = referenceSnapshot?.runId ?? activeRunId;
-
-  const sourceMethodLabel = (method: SourceAutomation["collectionMethod"]) => ({
-    http: "Consulta direta",
-    "file-import": "Arquivo autorizado",
-    "browser-script": "Navegação autorizada",
-    "institutional-channel": "Canal institucional",
-  } as Record<SourceAutomation["collectionMethod"], string>)[method];
-
-  const sourceStateLabel = (state: SourceAutomation["accessState"]) => ({
-    AUTONOMOUS_AVAILABLE: "Disponível",
-    AUTONOMOUS_COMPLETED: "Concluída",
-    PILOT_PENDING: "Em avaliação",
-    PILOT_COMPLETED_WITH_LIMITATIONS: "Complementar em teste",
-    CAPTCHA_REQUIRED: "Acesso externo pendente",
-    AUTHORIZATION_REQUIRED: "Autorização necessária",
-    SOURCE_UNAVAILABLE: "Indisponível",
-    SCHEMA_CHANGED: "Fonte alterada",
-  } as Record<SourceAutomation["accessState"], string>)[state];
-
-  const openAuditSubset = (subset: string) => {
-    if (!referenceRunId) return;
-    window.location.assign(`/auditoria?run=${encodeURIComponent(referenceRunId)}&subset=${encodeURIComponent(subset)}`);
+  const visibleHomeSchools = useMemo(
+    () => filterHomeSchools(homeSchools, schoolSearch, schoolFilter),
+    [homeSchools, schoolSearch, schoolFilter],
+  );
+  const schoolFilterCount = (filter: HomeSchoolFilter) => filterHomeSchools(homeSchools, "", filter).length;
+  const chooseSchoolFilter = (filter: HomeSchoolFilter) => {
+    setSchoolFilter(filter);
+    window.setTimeout(() => document.getElementById("escolas-consultadas")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
   };
-
-  const openPortfolioSearch = () => {
-    if (!referenceRunId || !portfolioSearch.trim()) return;
-    window.location.assign(`/auditoria?run=${encodeURIComponent(referenceRunId)}&school=${encodeURIComponent(portfolioSearch.trim())}`);
+  const openSchool = (inep: string) => {
+    if (!referenceRunId) return;
+    window.location.assign(`/unidade/${encodeURIComponent(referenceRunId)}/${encodeURIComponent(inep)}`);
   };
 
   const appendEvent = (item: TimelineItem) => setEvents(current => [item, ...current].slice(0, 9));
@@ -296,6 +283,7 @@ export default function Home() {
         setValidation(payload.validation);
         setDownloadUrl(payload.downloadUrl);
         setRunning(false);
+        void reloadHomeResults();
         appendEvent({
           timestamp: payload.validation.passed ? "APROVADO" : "BLOQUEADO",
           message: payload.validation.passed ? "Todas as validações bloquearam corretamente e o Excel V2 foi liberado." : "A validação não foi aprovada. O download permanece bloqueado.",
@@ -330,10 +318,6 @@ export default function Home() {
           <a className="side-nav" href="#execucao"><ShieldCheck size={17} /><span>Execução</span></a>
           <a className="side-nav" href="/auditoria"><Activity size={17} /><span>Auditoria</span></a>
         </div>
-        <div className="side-rule">
-          <LockKeyhole size={16} />
-          <p><strong>Controle obrigatório</strong>Conta do PDDE Básico somente é aceita quando o programa bancário é exatamente PDDE.</p>
-        </div>
         <div className="side-footer"><span className="pulse-dot" />AMBIENTE OPERACIONAL</div>
       </aside>
 
@@ -343,27 +327,27 @@ export default function Home() {
           <div className="topbar-controls"><HighContrastToggle /><div className="top-status"><span className="status-dot" />SERVIÇO DISPONÍVEL <span className="top-divider" /> USO INTERNO</div></div>
         </header>
 
-        <section className="intelligence-home" id="inteligencia">
-          <section className="position-panel">
-            <div className="editorial-heading"><span>ABERTURA EDITORIAL-FINANCEIRA</span><h2>Posição financeira de 2026</h2><p>{referenceSnapshot ? `Referência aprovada em ${formatShortDate(referenceSnapshot.completedAt)} · ${referenceSnapshot.schoolCount} unidades consultadas` : "Aguardando uma execução aprovada para compor a fotografia financeira."}</p></div>
+          <section className="intelligence-home" id="inteligencia">
+            <section className="position-panel">
+            <div className="editorial-heading"><span>RESULTADO DA ÚLTIMA CONSULTA</span><h2>Escolas e dados encontrados</h2><p>{referenceSnapshot ? `${referenceSnapshot.schoolCount} escolas consultadas. Escolha uma unidade abaixo para ver suas contas, programas e parcelas.` : "Assim que a consulta terminar, as escolas aparecerão aqui."}</p></div>
             <div className="position-metrics">
-              <div className="position-metric position-metric-primary"><span>Previsto 2026</span><strong>{referenceSnapshot ? formatCurrency(referenceSnapshot.totalExpected) : "—"}</strong><small>valores previstos nas destinações extraídas</small></div>
-              <div className="position-metric position-metric-paid"><span>Pago informado</span><strong>{referenceSnapshot ? formatCurrency(referenceSnapshot.totalPaid) : "—"}</strong><small>registro no PDDEInfo · não confirma crédito bancário</small></div>
-              <div className="position-metric"><span>Contas PDDE informadas</span><strong>{referenceSnapshot ? `${referenceSnapshot.accountedSchools}/${referenceSnapshot.schoolCount}` : "—"}</strong><small>rótulo exato PDDE na fonte corrente</small></div>
+              <div className="position-metric position-metric-primary"><span>Escolas consultadas</span><strong>{referenceSnapshot ? `${referenceSnapshot.schoolCount}` : "—"}</strong><small>registros disponíveis para abrir</small></div>
+              <div className="position-metric position-metric-paid"><span>Conta do PDDE encontrada</span><strong>{referenceSnapshot ? `${referenceSnapshot.accountedSchools}` : "—"}</strong><small>contas rotuladas como PDDE pela fonte</small></div>
+              <div className="position-metric"><span>Conta do PDDE não exibida</span><strong>{referenceSnapshot ? `${referenceSnapshot.missingBasicAccounts}` : "—"}</strong><small>não é uma falha da escola</small></div>
             </div>
           </section>
-          <section className="home-middle-grid">
-            <article className="trend-panel"><div className="editorial-heading"><span>EVOLUÇÃO</span><h2>O que mudou entre as referências?</h2><p>{financeSummary?.note ?? "A evolução só aparece quando há mais de uma execução aprovada comparável."}</p></div><FinanceTrend snapshots={financeSummary?.history ?? []} /></article>
-            <article className="attention-panel"><div className="editorial-heading"><span>ACOMPANHAMENTO</span><h2>Onde vale olhar agora</h2><p>Todo item abaixo abre o conjunto real de unidades correspondente.</p></div><div className="action-list"><ActionRow label="Conta PDDE Básico a confirmar" value={referenceSnapshot?.missingBasicAccounts ?? 0} hint="unidades sem conta vigente informada" tone="attention" onClick={referenceRunId ? () => openAuditSubset("missing-basic-account") : undefined} /><ActionRow label="1ª parcela com registro" value={referenceSnapshot?.firstInstallmentPaid ?? 0} hint="unidades com pagamento registrado" tone="positive" onClick={referenceRunId ? () => openAuditSubset("first-installment-paid") : undefined} /><ActionRow label="2ª parcela prevista" value={referenceSnapshot?.secondInstallmentExpected ?? 0} hint="unidades que pedem acompanhamento" tone="neutral" onClick={referenceRunId ? () => openAuditSubset("second-installment-expected") : undefined} /></div></article>
+          <section className="school-results-panel" id="escolas-consultadas">
+            <div className="school-results-heading"><div><span>ESCOLAS CONSULTADAS</span><h2>Abra uma escola para ver os detalhes</h2><p>A lista é a continuação da consulta. A Auditoria permanece reservada para evidências e conferências técnicas.</p></div><strong>{visibleHomeSchools.length}<small> de {homeSchools.length || referenceSnapshot?.schoolCount || 0} escolas</small></strong></div>
+            <div className="school-results-controls"><input value={schoolSearch} onChange={event => setSchoolSearch(event.target.value)} placeholder="Buscar por escola, INEP, SME ou programa" aria-label="Buscar por escola, INEP, SME ou programa" /><div className="school-result-filters"><button type="button" className={schoolFilter === "all" ? "school-filter-active" : ""} onClick={() => chooseSchoolFilter("all")}>Todas <b>{schoolFilterCount("all")}</b></button><button type="button" className={schoolFilter === "account-found" ? "school-filter-active" : ""} onClick={() => chooseSchoolFilter("account-found")}>Conta PDDE encontrada <b>{schoolFilterCount("account-found")}</b></button><button type="button" className={schoolFilter === "account-not-shown" ? "school-filter-active" : ""} onClick={() => chooseSchoolFilter("account-not-shown")}>Conta PDDE não exibida <b>{schoolFilterCount("account-not-shown")}</b></button></div></div>
+            <div className="school-result-list">{visibleHomeSchools.map(school => <article className="school-result-row" key={school.inep}><div className="school-result-identity"><strong>{school.schoolName ?? "Unidade escolar"}</strong><span>INEP {school.inep} · SME {school.sme}</span></div><div className="school-result-programs">{school.programsJson?.length ? school.programsJson.map((program: string) => <span key={program}>{program}</span>) : <span>Programa não exibido</span>}</div><div className="school-account-summary"><span className={`school-account-status school-account-${school.basicAccountStatus ?? "unknown"}`}>{accountStatusLabel(school.basicAccountStatus)}</span>{school.basicAccount && <small>Ag. {school.basicAccount.agency ?? "—"} · Conta {school.basicAccount.account ?? "—"}</small>}</div><div className="school-payment-summary">{school.firstInstallmentPaid && <span className="school-payment-paid">1ª parcela registrada</span>}{school.secondInstallmentExpected && <span>2ª parcela prevista</span>}{!school.firstInstallmentPaid && !school.secondInstallmentExpected && <span>Sem parcela exibida</span>}</div><button type="button" onClick={() => openSchool(school.inep)} disabled={!referenceRunId}>Abrir detalhes <span>›</span></button></article>)}{homeSchoolsState === "loading" && <p className="school-result-empty">Carregando as escolas da última consulta aprovada…</p>}{homeSchoolsState === "unavailable" && <p className="school-result-empty">Não foi possível carregar a lista agora. Atualize a página para tentar novamente.</p>}{homeSchoolsState === "ready" && !visibleHomeSchools.length && <p className="school-result-empty">Nenhuma escola corresponde à busca ou ao filtro atual.</p>}</div>
           </section>
-          <section className="portfolio-panel"><div><span>CARTEIRA</span><h2>As 163 unidades, prontas para investigação</h2><p>Busque por nome, INEP ou SME e entre diretamente no dossiê financeiro da escola.</p></div><div className="portfolio-actions"><form onSubmit={event => { event.preventDefault(); openPortfolioSearch(); }}><input value={portfolioSearch} onChange={event => setPortfolioSearch(event.target.value)} placeholder="Buscar unidade, INEP ou SME" aria-label="Buscar unidade, INEP ou SME" /><button type="submit" disabled={!referenceRunId || !portfolioSearch.trim()}>Buscar</button></form><button type="button" className="portfolio-link" onClick={() => openAuditSubset("all")} disabled={!referenceRunId}>Abrir carteira completa <span>›</span></button></div></section>
         </section>
 
         <section className="hero-grid" id="rotina-consulta">
           <div>
-            <div className="eyebrow">ROTINA DE CONSULTA</div>
-            <h1>Extração auditável</h1>
-            <p className="hero-copy">Quando a referência precisar ser atualizada, inicie a consulta das unidades e libere o arquivo somente após os controles obrigatórios.</p>
+          <div className="eyebrow">ATUALIZAÇÃO DOS DADOS</div>
+          <h1>Consultar as 163 escolas</h1>
+          <p className="hero-copy">Use esta ação quando precisar atualizar os resultados. Ao terminar, a lista de escolas acima será renovada.</p>
             <div className="hero-actions">
               <Button className="run-button" onClick={startExtraction} disabled={running || !master.valid || authLoading || !isAuthenticated}>
                 {running ? <RefreshCw className="animate-spin" size={18} /> : <Play size={18} fill="currentColor" />} {running ? "Extração em curso" : "Iniciar extração"}
@@ -377,73 +361,24 @@ export default function Home() {
             </div>
           </div>
           <div className="hero-seal">
-            <div className="seal-copy"><span>REFERÊNCIA DA EXECUÇÃO</span><strong>Financeiro 4ª CRE V2</strong><dl><div><dt>Unidades</dt><dd>163 selecionadas</dd></div><div><dt>Fonte</dt><dd>PDDEInfo / 2026</dd></div><div><dt>Saída</dt><dd>Excel condicionado</dd></div></dl></div>
+            <div className="seal-copy"><span>CONSULTA ATUAL</span><strong>Dados das 163 escolas</strong><dl><div><dt>Unidades</dt><dd>163 selecionadas</dd></div><div><dt>Fonte</dt><dd>PDDEInfo / 2026</dd></div><div><dt>Detalhes</dt><dd>Disponíveis por escola</dd></div></dl></div>
           </div>
         </section>
 
         <section className="metrics-row" id="execucao">
-          <MetricCard label="Unidades selecionadas" value={`${master.count}/163`} hint={master.valid ? "INEPs únicos verificados" : "verificando lista-mestre"} accent="teal" onClick={activeRunId ? () => openAuditSubset("all") : undefined} action={activeRunId ? "Abrir lista" : undefined} />
+              <MetricCard label="Unidades selecionadas" value={`${master.count}/163`} hint={master.valid ? "INEPs únicos verificados" : "verificando lista-mestre"} accent="teal" onClick={referenceRunId ? () => chooseSchoolFilter("all") : undefined} action={referenceRunId ? "Ver escolas" : undefined} />
           <MetricCard label="Processamento" value={`${completed}/163`} hint={running ? `lote ${Math.max(1, Math.ceil(completed / 10))} em andamento` : "não iniciado"} accent="gold" />
-          <MetricCard label="Contas PDDE" value={validation ? `${163 - validation.missingBasicAccounts}/163` : "—"} hint="informadas no PDDEInfo" accent="plum" onClick={activeRunId ? () => openAuditSubset("missing-basic-account") : undefined} action={activeRunId ? "Ver não informadas" : undefined} />
+              <MetricCard label="Contas PDDE" value={validation ? `${163 - validation.missingBasicAccounts}/163` : "—"} hint="encontradas no PDDEInfo" accent="plum" onClick={referenceRunId ? () => chooseSchoolFilter("account-not-shown") : undefined} action={referenceRunId ? "Ver lista" : undefined} />
           <MetricCard label="Arquivo" value={validation ? (validation.passed ? "LIBERADO" : "BLOQUEADO") : "PENDENTE"} hint="dependente das validações" accent="blue" />
         </section>
 
-        <section className="workspace-grid">
-          <article className="process-card">
-            <div className="panel-title"><div><span>PROCESSAMENTO</span><h2>Consulta das unidades</h2></div><Badge className={running ? "badge-running" : "badge-idle"}>{running ? "EM EXECUÇÃO" : validation?.passed ? "CONCLUÍDA" : "AGUARDANDO"}</Badge></div>
-            <div className="progress-header"><span>{running ? "Consulta ao PDDEInfo em lotes de 10 unidades" : "Aguardando início da execução"}</span><strong>{progress}%</strong></div>
-            <Progress value={progress} className="extract-progress" />
-            <div className="lot-map">
-              {Array.from({ length: 17 }, (_, index) => {
-                const start = index * 10;
-                const done = completed >= Math.min(start + 10, 163);
-                const active = running && completed > start && !done;
-                return <span key={index} className={done ? "lot-complete" : active ? "lot-active" : "lot-pending"}>{String(index + 1).padStart(2, "0")}</span>;
-              })}
-            </div>
-            <div className="event-log">
-              <div className="log-heading"><span>LOG DE EVENTOS</span><span>DATA DA FONTE: 2026</span></div>
-              {events.map((event, index) => <div className="log-item" key={`${event.timestamp}-${index}`}><span className={`log-indicator log-${event.kind}`} /><code>{event.timestamp}</code><p>{event.message}</p></div>)}
-            </div>
-          </article>
-
-          <article className="policy-card">
-            <div className="policy-symbol"><ShieldCheck size={24} /></div>
-            <span className="policy-kicker">REGRA DE ASSOCIAÇÃO</span>
-            <h2>Vínculo da<br />conta PDDE</h2>
-            <p>A conta do PDDE Básico é preenchida somente quando o rótulo bancário é exatamente <strong>PDDE</strong>.</p>
-            <div className="policy-rule"><span>RÓTULO ACEITO</span><strong>PDDE</strong></div>
-            <div className="policy-denied"><span>REJEITADOS PARA BÁSICO</span><p>PDDE QUALIDADE<br />PDDE EQUIDADE<br />EDUCAÇÃO INTEGRAL</p></div>
-          </article>
+        <section className="update-status-card" aria-label="Situação da atualização">
+          <div><span>ATUALIZAÇÃO</span><strong>{running ? `Consultando ${completed} de 163 escolas` : validation?.passed ? "Consulta concluída" : "Pronto para atualizar"}</strong></div>
+          {fatalError && <p className="fatal-notice"><CircleAlert size={17} />{fatalError}</p>}
+          {validation && !validation.passed && <p className="fatal-notice"><CircleAlert size={17} />{validation.errors.join(" ")}</p>}
         </section>
 
-        <section className="validation-card" id="validacoes">
-          <div className="validation-heading"><div><span>CONTROLES DE LIBERAÇÃO</span><h2>Validações da execução</h2></div><p>O arquivo permanece bloqueado enquanto houver requisito obrigatório pendente ou reprovado.</p></div>
-          <div className="validation-grid">
-            <ValidationItem label="INEPs únicos" value={validation?.uniqueIneps ?? "—"} expected="163" ready={ready} onClick={activeRunId ? () => openAuditSubset("all") : undefined} />
-            <ValidationItem label="1ª parcela com pagamento registrado" value={validation?.firstInstallmentPaid ?? "—"} expected="111" ready={ready} onClick={activeRunId ? () => openAuditSubset("first-installment-paid") : undefined} />
-            <ValidationItem label="2ª parcela prevista" value={validation?.secondInstallmentExpected ?? "—"} expected="163" ready={ready} onClick={activeRunId ? () => openAuditSubset("second-installment-expected") : undefined} />
-            <ValidationItem label="Conta PDDE não informada" value={validation?.missingBasicAccounts ?? "—"} expected="47" ready={ready} onClick={activeRunId ? () => openAuditSubset("missing-basic-account") : undefined} />
-          </div>
-          {fatalError && <div className="fatal-notice"><CircleAlert size={17} />{fatalError}</div>}
-          {validation && !validation.passed && <div className="fatal-notice"><CircleAlert size={17} />{validation.errors.join(" ")}</div>}
-        </section>
-
-        <section className="audit-card" id="auditoria">
-          <div className="panel-title"><div><span>REGISTRO DE CONSULTAS</span><h2>Ocorrências recentes</h2></div><div className="audit-meta"><FileSpreadsheet size={16} /> Pagamento: <strong>registro no PDDEInfo, sem confirmação bancária</strong></div></div>
-          <div className="audit-table-wrap"><table className="audit-table"><thead><tr><th>INEP</th><th>SME</th><th>STATUS</th><th>TENTATIVAS</th><th>PROGRAMAS IDENTIFICADOS</th><th>OCORRÊNCIA</th></tr></thead><tbody>{recentAudits.length ? recentAudits.map(audit => <tr key={`${audit.inep}-${audit.sme}`}><td className="mono">{audit.inep}</td><td className="mono">{audit.sme}</td><td><span className={`table-status ${audit.status === "SUCCESS" ? "table-ok" : "table-error"}`}>{audit.status === "SUCCESS" ? "SUCESSO" : "FALHA"}</span></td><td>{audit.attempts}</td><td>{audit.programsFound.join(" · ") || "—"}</td><td>{audit.exception ?? "Consulta registrada"}</td></tr>) : <tr><td colSpan={6} className="empty-audit"><UsersRound size={18} /> A auditoria por unidade aparecerá aqui durante a extração.</td></tr>}</tbody></table></div>
-        </section>
-
-        <section className="source-card" aria-labelledby="fontes-title">
-          <div className="panel-title"><div><span>FONTES E AUTONOMIA</span><h2 id="fontes-title">Situação de coleta</h2></div><p className="source-intro">Cada fonte informa se já é consultada automaticamente ou se depende de validação de acesso.</p></div>
-          <div className="source-table-wrap"><table className="source-table"><thead><tr><th>FONTE</th><th>MÉTODO</th><th>SITUAÇÃO</th><th>OBSERVAÇÃO OPERACIONAL</th></tr></thead><tbody>{sources.map(source => {
-            const stateLabel = sourceStateLabel(source.accessState);
-            const stateClass = source.accessState === "AUTONOMOUS_AVAILABLE" || source.accessState === "AUTONOMOUS_COMPLETED" ? "source-ready" : source.accessState === "CAPTCHA_REQUIRED" || source.accessState === "AUTHORIZATION_REQUIRED" ? "source-blocked" : "source-pilot";
-            return <tr key={source.source}><td><strong>{source.label}</strong></td><td className="source-method">{sourceMethodLabel(source.collectionMethod)}</td><td><span className={`source-status ${stateClass}`}>{stateLabel}</span></td><td>{source.detail}</td></tr>;
-          })}{!sources.length && <tr><td colSpan={4} className="empty-audit">Nenhuma fonte disponível no momento.</td></tr>}</tbody></table></div>
-        </section>
-
-        <footer className="footer-line"><span>EXTRATOR FINANCEIRO PDDEINFO · 4ª CRE</span><span>ARQUIVO V2 · CONTAS COMO TEXTO · DATAS EM CALENDÁRIO</span></footer>
+        <footer className="footer-line"><span>EXTRATOR FINANCEIRO PDDEINFO · 4ª CRE</span><span>Selecione uma escola para ver informações completas.</span></footer>
       </main>
     </div>
   );
