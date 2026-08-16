@@ -1,4 +1,14 @@
-export type AuditSchoolFilterItem = { inep: string; sme?: string | null; schoolName?: string | null; programsJson?: string[] | null };
+export type AuditSchoolFilterItem = {
+  inep: string;
+  sme?: string | null;
+  schoolName?: string | null;
+  programsJson?: string[] | null;
+  basicAccountStatus?: "informada" | "nao-informada" | null;
+  firstInstallmentPaid?: boolean | null;
+  secondInstallmentExpected?: boolean | null;
+  attentionRequired?: boolean | null;
+};
+export type AuditSchoolSubset = "all" | "missing-basic-account" | "first-installment-paid" | "second-installment-expected" | "attention-required";
 export type AuditRunFilterItem = { id: string; status: string; startedAt?: string | null; completedAt?: string | null };
 export type AuditRunSelectionItem = AuditRunFilterItem & { masterCount: number; processedCount: number; parserVersion: string };
 export type AuditObservationFilterItem = {
@@ -71,6 +81,24 @@ export function filterAuditSchools<T extends AuditSchoolFilterItem>(schools: T[]
     const matchesSchool = !normalizedSchoolQuery || [school.inep, school.sme ?? "", school.schoolName ?? ""].some(value => includesNormalized(value, normalizedSchoolQuery));
     return matchesProgram && matchesSchool;
   });
+}
+
+export function filterAuditSchoolsBySubset<T extends AuditSchoolFilterItem>(schools: T[], subset: AuditSchoolSubset): T[] {
+  if (subset === "all") return schools;
+  if (subset === "missing-basic-account") return schools.filter(school => school.basicAccountStatus === "nao-informada");
+  if (subset === "first-installment-paid") return schools.filter(school => school.firstInstallmentPaid === true);
+  if (subset === "second-installment-expected") return schools.filter(school => school.secondInstallmentExpected === true);
+  return schools.filter(school => school.attentionRequired === true);
+}
+
+export function auditSchoolSubsetLabel(subset: AuditSchoolSubset): string {
+  return ({
+    all: "Todas as unidades",
+    "missing-basic-account": "Conta PDDE Básico não informada",
+    "first-installment-paid": "1ª parcela com pagamento registrado",
+    "second-installment-expected": "2ª parcela prevista",
+    "attention-required": "Unidades que exigem atenção",
+  } as Record<AuditSchoolSubset, string>)[subset];
 }
 
 export function operationalRunStatus(status: string): string {

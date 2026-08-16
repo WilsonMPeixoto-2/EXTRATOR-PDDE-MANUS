@@ -174,7 +174,7 @@ describe("vinculação bancária por programa", () => {
 
     expect(sheet?.getCell("F4").value).toBe("PDDE Básico — Agência");
     expect(sheet?.getCell("G4").value).toBe("PDDE Básico — Conta");
-    expect(sheet?.getCell("H4").value).toBe("PDDE Básico — Status da conta");
+    expect(sheet?.getCell("H4").value).toBe("PDDE Básico — Situação");
     expect(sheet?.getCell("I4").value).toBe("PDDE Básico — 1ª parcela prevista");
     expect(sheet?.getCell("L4").value).toBe("PDDE Básico — 2ª parcela prevista");
     expect(financialHeaders.slice(0, 14).every(header => !header.includes("Fonte da conta") && !header.includes("Completude das fontes"))).toBe(true);
@@ -187,6 +187,8 @@ describe("vinculação bancária por programa", () => {
     expect(String(audit?.getCell("K14").value)).toContain("SIGEF/extrato: NÃO DISPONÍVEL NESTA EXECUÇÃO PDDEInfo");
     expect(String(audit?.getCell("K14").value)).toContain("Associação externa: NÃO COMPROVADA");
     expect(sheet?.getCell("G5").numFmt).toBe("@");
+    expect(sheet?.getCell("J5").font?.color?.argb).toBe("FF176B50");
+    expect(sheet?.getCell("I5").fill?.fgColor?.argb).toBe("FFEAF2F8");
   });
 
   it("neutraliza texto externo que poderia ser interpretado como fórmula no Excel", async () => {

@@ -14,7 +14,7 @@ describe("catálogo de automação por fonte", () => {
     const liberacoes = sourceDefinition("SIGEF_LIBERACAO");
     expect(liberacoes).toMatchObject({ autonomous: true, accessState: "AUTONOMOUS_AVAILABLE", collectionMethod: "http" });
     expect(liberacoes.baseUrl).toContain("internet_fnde.liberacoes_01_pc");
-    expect(liberacoes.detail).toContain("CAPTCHA");
+    expect(liberacoes.detail).toContain("Consulta complementar disponível");
   });
 
   it("exibe todas as fontes previstas sem depender de serviço externo", () => {
@@ -36,7 +36,7 @@ describe("catálogo de automação por fonte", () => {
     const cgu = sourceDefinition("DADOS_ABERTOS");
     expect(cgu.autonomous).toBe(false);
     expect(cgu.baseUrl).toContain("portaldatransparencia.gov.br/download-de-dados/transferencias");
-    expect(cgu.detail).toContain("95 UEx");
+    expect(cgu.detail).toContain("Fonte complementar em teste");
     expect(cgu.detail).toContain("não confirma crédito bancário");
   });
 
@@ -46,8 +46,7 @@ describe("catálogo de automação por fonte", () => {
     expect(contaCorrente).toMatchObject({ accessState: "CAPTCHA_REQUIRED", autonomous: false, collectionMethod: "institutional-channel" });
     expect(contaCorrente.baseUrl).toContain("extrato-conta-corrente");
     expect(extrato).toMatchObject({ accessState: "AUTONOMOUS_AVAILABLE", autonomous: true, collectionMethod: "http" });
-    expect(extrato.detail).toContain("programa 02");
-    expect(extrato.detail).toContain("quinze UEx");
+    expect(extrato.detail).toContain("unidades cuja conta PDDE Básico já foi identificada");
     expect(extrato.detail).toContain("2026");
   });
 

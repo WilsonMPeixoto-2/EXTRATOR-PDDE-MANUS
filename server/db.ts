@@ -290,20 +290,89 @@ export async function getPersistedRunAuditOverview(runId: string) {
   return { run: runs[0] ?? null, artifacts, events };
 }
 
+function normalizedObservationText(value: string | null | undefined): string {
+  return (value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ª/g, "A").toUpperCase().trim();
+}
+
+function observationNumber(rawValue: string | null, normalizedValueJson: unknown): number {
+  const normalized = normalizedValueJson as { value?: unknown } | null;
+  if (typeof normalized?.value === "number") return normalized.value;
+  const raw = (rawValue ?? "").replace(/\./g, "").replace(",", ".").replace(/[^0-9.-]/g, "");
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : 0;
+}
+
+type SchoolFinancialSummary = {
+  basicAccountStatus: "informada" | "nao-informada" | null;
+  firstInstallmentPaid: boolean | null;
+  secondInstallmentExpected: boolean | null;
+  attentionRequired: boolean | null;
+};
+
 export async function listRunSchools(runId: string) {
   const db = await getAuditDbOrThrow();
-  const [schools, schoolNames] = await Promise.all([
+  const [schools, schoolNames, observations] = await Promise.all([
     db.select().from(schoolConsultations).where(eq(schoolConsultations.runId, runId)).orderBy(schoolConsultations.inep),
     db.select({ inep: fieldObservations.inep, rawValue: fieldObservations.rawValue, normalizedValueJson: fieldObservations.normalizedValueJson })
       .from(fieldObservations)
       .where(and(eq(fieldObservations.runId, runId), eq(fieldObservations.fieldPath, "schoolName"))),
+    db.select({ inep: fieldObservations.inep, fieldPath: fieldObservations.fieldPath, logicalKey: fieldObservations.logicalKey, rawValue: fieldObservations.rawValue, normalizedValueJson: fieldObservations.normalizedValueJson })
+      .from(fieldObservations)
+      .where(eq(fieldObservations.runId, runId)),
   ]);
   const nameByInep = new Map(schoolNames.map(item => {
     const normalized = item.normalizedValueJson as { value?: unknown } | null;
     const schoolName = item.rawValue ?? (typeof normalized?.value === "string" ? normalized.value : null);
     return [item.inep, schoolName];
   }));
-  return schools.map(school => ({ ...school, schoolName: nameByInep.get(school.inep) ?? null }));
+  const financialByInep = new Map<string, SchoolFinancialSummary>();
+  const accountRows = new Map<string, Map<number, { program: string; agency: string; account: string }>>();
+  const ensureSummary = (inep: string) => {
+    const current = financialByInep.get(inep) ?? { basicAccountStatus: null, firstInstallmentPaid: null, secondInstallmentExpected: null, attentionRequired: null };
+    financialByInep.set(inep, current);
+    return current;
+  };
+  for (const observation of observations) {
+    const summary = ensureSummary(observation.inep);
+    const accountMatch = observation.fieldPath.match(/^bankAccounts\\[(\\d+)\\]\\.(program|agency|account)$/);
+    if (accountMatch) {
+      const index = Number(accountMatch[1]);
+      const fields = accountRows.get(observation.inep) ?? new Map<number, { program: string; agency: string; account: string }>();
+      const account = fields.get(index) ?? { program: "", agency: "", account: "" };
+      const text = observation.rawValue ?? ((observation.normalizedValueJson as { value?: unknown } | null)?.value as string | undefined) ?? "";
+      account[accountMatch[2] as "program" | "agency" | "account"] = text;
+      fields.set(index, account);
+      accountRows.set(observation.inep, fields);
+    }
+    const paymentPath = observation.fieldPath.match(/^payments\\[(\\d+)\\]\\.(expected|paid)$/);
+    if (paymentPath) {
+      const label = normalizedObservationText(observation.logicalKey);
+      const amount = observationNumber(observation.rawValue, observation.normalizedValueJson);
+      const isFirst = label.includes("PDDE BASICO") && label.includes("1A PARCELA");
+      const isSecond = label.includes("PDDE BASICO") && label.includes("2A PARCELA");
+      if (isFirst && paymentPath[2] === "paid") summary.firstInstallmentPaid = (summary.firstInstallmentPaid === true) || amount > 0;
+      if (isSecond && paymentPath[2] === "expected") summary.secondInstallmentExpected = (summary.secondInstallmentExpected === true) || amount > 0;
+    }
+  }
+  schools.forEach(school => {
+    const summary = financialByInep.get(school.inep) ?? ensureSummary(school.inep);
+    if (school.status !== "success") return;
+    const accounts = accountRows.get(school.inep);
+    const basic = accounts ? Array.from(accounts.values()).find((account: { program: string; agency: string; account: string }) => normalizedObservationText(account.program) === "PDDE") : undefined;
+    summary.basicAccountStatus = basic && (basic.agency.trim() || basic.account.trim()) ? "informada" : "nao-informada";
+  });
+  return schools.map(school => {
+    const summary = financialByInep.get(school.inep);
+    const attentionRequired = school.status === "failed" || summary?.basicAccountStatus === "nao-informada";
+    return {
+      ...school,
+      schoolName: nameByInep.get(school.inep) ?? null,
+      basicAccountStatus: summary?.basicAccountStatus ?? null,
+      firstInstallmentPaid: summary?.firstInstallmentPaid ?? null,
+      secondInstallmentExpected: summary?.secondInstallmentExpected ?? null,
+      attentionRequired,
+    };
+  });
 }
 
 export async function getSchoolAuditDossier(runId: string, inep: string) {

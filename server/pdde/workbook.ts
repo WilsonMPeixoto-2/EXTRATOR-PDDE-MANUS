@@ -6,16 +6,13 @@ import type { HistoricalFinding } from "./history";
 import { neutralizeSpreadsheetText } from "./money";
 
 const title = "4ª CRE • VISÃO FINANCEIRA POR UNIDADE ESCOLAR • PDDEINFO 2026 • VERSÃO 2";
-const missingAccountNote =
-  "Auditoria direta por INEP: o PDDEInfo não apresentou agência/conta para o programa PDDE. Campos de agência e conta mantidos vazios, sem uso de dados antigos ou inferências.";
-
 /**
  * A aba principal é uma base de análise. Metadados, origem e explicações
  * detalhadas ficam concentrados na aba obrigatória "Validação V2".
  */
 export const financialHeaders = [
   "Código INEP", "Código SME", "Unidade Escolar", "UEx", "CNPJ UEx",
-  "PDDE Básico — Agência", "PDDE Básico — Conta", "PDDE Básico — Status da conta",
+  "PDDE Básico — Agência", "PDDE Básico — Conta", "PDDE Básico — Situação",
   "PDDE Básico — 1ª parcela prevista", "PDDE Básico — 1ª parcela: pagamento registrado", "PDDE Básico — 1ª parcela: data da ordem",
   "PDDE Básico — 2ª parcela prevista", "PDDE Básico — 2ª parcela: pagamento registrado", "PDDE Básico — 2ª parcela: data da ordem",
   "PDDE Qualidade — Agência", "PDDE Qualidade — Conta", "PDDE Equidade — Agência", "PDDE Equidade — Conta", "Educação Integral — Agência", "Educação Integral — Conta",
@@ -30,6 +27,8 @@ export const financialHeaders = [
 
 const currencyColumns = [9, 10, 12, 13, 21, 22, 24, 25, 27, 28, 30, 31, 33, 34, 36, 37, 39, 40];
 const dateColumns = [11, 14, 23, 26, 29, 32, 35, 38, 41];
+const predictedColumns = [9, 12, 21, 24, 27, 30, 33, 36, 39];
+const paidColumns = [10, 13, 22, 25, 28, 31, 34, 37, 40];
 const textAccountColumns = [1, 2, 5, 6, 7, 15, 16, 17, 18, 19, 20];
 
 const evidenceStateLabels: Record<FieldState, string> = {
@@ -109,7 +108,7 @@ function buildRow(record: SchoolExtraction) {
 
   return [
     record.inep, record.sme, record.schoolName, record.uex, record.cnpj,
-    basic?.agency ?? "", basic?.account ?? "", missingBasic ? "Não informada pelo PDDEInfo" : "Informada pelo PDDEInfo",
+    basic?.agency ?? "", basic?.account ?? "", missingBasic ? "Não informada" : "Informada",
     ...first, ...second,
     quality?.agency ?? "", quality?.account ?? "", equity?.agency ?? "", equity?.account ?? "", integral?.agency ?? "", integral?.account ?? "",
     ...firstChildhood, ...secondChildhood, ...connected, ...community, ...adolescence, ...reading, ...srm,
@@ -178,7 +177,7 @@ export async function createV2Workbook(records: SchoolExtraction[], audits: Audi
   sheet.getCell("A1").alignment = { vertical: "middle" };
   sheet.getRow(1).height = 28;
   sheet.mergeCells(2, 1, 2, financialHeaders.length);
-  sheet.getCell("A2").value = "Base para análise por unidade, programa e parcela. PDDE Básico é o rótulo bancário exato “PDDE”; não se confunde com PDDE Qualidade ou PDDE Equidade. “Pagamento registrado” não confirma crédito bancário. Metadados e proveniência detalhada estão em “Validação V2”.";
+  sheet.getCell("A2").value = "Visão corrente de 2026 para conferência por unidade, conta, parcela e valor. Previsto aparece em azul claro; pagamento registrado aparece em verde. “Pagamento registrado” não confirma crédito bancário. Critérios e evidências detalhadas estão em “Validação V2”.";
   sheet.getCell("A2").font = { name: "Aptos", italic: true, color: { argb: "FF5D4037" } };
   sheet.getCell("A2").fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF4D6" } };
   sheet.getCell("A2").alignment = { vertical: "middle", wrapText: true };
@@ -210,12 +209,28 @@ export async function createV2Workbook(records: SchoolExtraction[], audits: Audi
   records.forEach((record, index) => {
     const row = sheet.getRow(index + 5);
     row.values = spreadsheetSafeRow(buildRow(record));
-    row.height = 28;
-    row.eachCell({ includeEmpty: true }, cell => {
+    row.height = 23;
+    row.eachCell({ includeEmpty: true }, (cell, column) => {
+      const baseColor = index % 2 === 1 ? "FFF6FAFA" : "FFFFFFFF";
       cell.font = { name: "Aptos", size: 9, color: { argb: "FF18323A" } };
-      cell.alignment = { vertical: "top", wrapText: true };
+      cell.alignment = { horizontal: column === 3 ? "left" : "right", vertical: "middle", wrapText: column === 3 };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: baseColor } };
       cell.border = { bottom: { style: "hair", color: { argb: "FFD6E2E6" } } };
-      if (index % 2 === 1) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF6FAFA" } };
+      if (predictedColumns.includes(column)) {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEAF2F8" } };
+        cell.font = { name: "Aptos", size: 9, color: { argb: "FF2E5870" } };
+      }
+      if (paidColumns.includes(column)) {
+        const paidValue = typeof cell.value === "number" ? cell.value : 0;
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: paidValue > 0 ? "FFE6F4EC" : "FFF4F7F8" } };
+        cell.font = { name: "Aptos", size: 9, bold: paidValue > 0, color: { argb: paidValue > 0 ? "FF176B50" : "FF5C707B" } };
+      }
+      if (column === 8) {
+        const missing = String(cell.value ?? "").toLowerCase().includes("não");
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: missing ? "FFFFF0D8" : "FFE6F4EC" } };
+        cell.font = { name: "Aptos", size: 9, bold: true, color: { argb: missing ? "FF8B5A1F" : "FF176B50" } };
+        cell.alignment = { horizontal: "center", vertical: "middle", wrapText: false };
+      }
     });
   });
   currencyColumns.forEach(column => { sheet.getColumn(column).numFmt = "R$ #,##0.00"; });

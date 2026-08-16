@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildFinancialSchoolDossier, buildObservationComparisons, buildSigefMovementDossier, evidenceStateExplanation, filterAuditObservations, filterAuditRuns, filterAuditSchools, isPrimaryPddeInfoAuditRun, operationalConsultationStatus, operationalRunStatus, primaryAuditRunId, sigefCoverageSummary } from "./auditFilters";
+import { auditSchoolSubsetLabel, buildFinancialSchoolDossier, buildObservationComparisons, buildSigefMovementDossier, evidenceStateExplanation, filterAuditObservations, filterAuditRuns, filterAuditSchools, filterAuditSchoolsBySubset, isPrimaryPddeInfoAuditRun, operationalConsultationStatus, operationalRunStatus, primaryAuditRunId, sigefCoverageSummary } from "./auditFilters";
 
 describe("filtros da auditoria", () => {
   it("filtra escolas pelo programa identificado na execução", () => {
@@ -18,6 +18,19 @@ describe("filtros da auditoria", () => {
     const schools = [{ inep: "33069247", sme: "0410001", schoolName: "EM EMA NEGRAO DE LIMA", programsJson: ["PDDE"] }, { inep: "33069248", sme: "0410002", schoolName: "EM ALBINO SOUZA CRUZ", programsJson: ["PNAE"] }];
     expect(filterAuditSchools(schools, "", "albino")).toEqual([schools[1]]);
     expect(filterAuditSchools(schools, "pdde", "ema")).toEqual([schools[0]]);
+  });
+
+  it("abre os subconjuntos financeiros correspondentes aos indicadores", () => {
+    const schools = [
+      { inep: "1", basicAccountStatus: "nao-informada" as const, firstInstallmentPaid: false, secondInstallmentExpected: true, attentionRequired: true },
+      { inep: "2", basicAccountStatus: "informada" as const, firstInstallmentPaid: true, secondInstallmentExpected: true, attentionRequired: false },
+      { inep: "3", basicAccountStatus: "informada" as const, firstInstallmentPaid: false, secondInstallmentExpected: false, attentionRequired: false },
+    ];
+    expect(filterAuditSchoolsBySubset(schools, "missing-basic-account").map(school => school.inep)).toEqual(["1"]);
+    expect(filterAuditSchoolsBySubset(schools, "first-installment-paid").map(school => school.inep)).toEqual(["2"]);
+    expect(filterAuditSchoolsBySubset(schools, "second-installment-expected").map(school => school.inep)).toEqual(["1", "2"]);
+    expect(filterAuditSchoolsBySubset(schools, "attention-required").map(school => school.inep)).toEqual(["1"]);
+    expect(auditSchoolSubsetLabel("missing-basic-account")).toContain("não informada");
   });
 
   it("traduz estados técnicos para a linguagem operacional da auditoria", () => {

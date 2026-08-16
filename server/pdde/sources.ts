@@ -20,7 +20,7 @@ const SOURCE_AUTOMATION_CATALOG: SourceAutomationDefinition[] = [
     accessState: "AUTONOMOUS_AVAILABLE",
     autonomous: true,
     collectionMethod: "http",
-    detail: "Consulta pública por INEP, com lote, retentativas, hash e parser versionado.",
+    detail: "Fonte principal para contas informadas e pagamentos registrados por unidade. Consulta disponível para o exercício de 2026.",
     baseUrl: "https://www.fnde.gov.br/pddeinfo/",
   },
   {
@@ -29,7 +29,7 @@ const SOURCE_AUTOMATION_CATALOG: SourceAutomationDefinition[] = [
     accessState: "PILOT_COMPLETED_WITH_LIMITATIONS",
     autonomous: false,
     collectionMethod: "http",
-    detail: "Piloto público concluído nos arquivos mensais de janeiro a julho de 2026: 97 transferências PDDE do FNDE vinculadas por CNPJ a 95 UEx da 4ª CRE. O arquivo confirma transferências por mês, CNPJ, órgão, ação e valor; não confirma crédito bancário, saldo, pagamentos ou movimentações. A integração de produção permanece desabilitada até a implementação de adaptador com preservação de arquivo, hash e validações.",
+    detail: "Fonte complementar em teste. Ajuda a conferir transferências por período, unidade e valor, mas não confirma crédito bancário, saldo ou pagamento registrado no PDDEInfo.",
     baseUrl: "https://portaldatransparencia.gov.br/download-de-dados/transferencias",
   },
   {
@@ -38,7 +38,7 @@ const SOURCE_AUTOMATION_CATALOG: SourceAutomationDefinition[] = [
     accessState: "AUTONOMOUS_AVAILABLE",
     autonomous: true,
     collectionMethod: "http",
-    detail: "Apenas a rota legada pública de Liberações foi comprovada em piloto controlado. A interface SIGEF moderna continua protegida por CAPTCHA e não é automatizada.",
+    detail: "Consulta complementar disponível em escopo controlado. Seus resultados não substituem a referência principal do PDDEInfo.",
     baseUrl: "https://www.fnde.gov.br/pls/simad/internet_fnde.liberacoes_01_pc",
   },
   {
@@ -47,7 +47,7 @@ const SOURCE_AUTOMATION_CATALOG: SourceAutomationDefinition[] = [
     accessState: "CAPTCHA_REQUIRED",
     autonomous: false,
     collectionMethod: "institutional-channel",
-    detail: "Formulário público exige mês/ano, CNPJ, banco e programa e aciona reCAPTCHA ao preencher os campos obrigatórios. O sistema não tenta contornar esse controle; retorno, cobertura e chave de conciliação permanecem não comprovados.",
+    detail: "Acesso externo exige validação institucional. Enquanto esse acesso não estiver autorizado, a fonte não é usada para completar contas ou confirmar créditos.",
     baseUrl: "https://www.fnde.gov.br/sigefweb/default/conta-corrente/extrato-conta-corrente",
   },
   {
@@ -56,7 +56,7 @@ const SOURCE_AUTOMATION_CATALOG: SourceAutomationDefinition[] = [
     accessState: "AUTONOMOUS_AVAILABLE",
     autonomous: true,
     collectionMethod: "http",
-    detail: "Piloto HTTP restrito ao detalhamento público de contas explicitamente rotuladas como PDDE no PDDEInfo, Banco do Brasil e programa 02. Prioriza 2026 e só permite 2025 como exercício subsidiário; períodos anteriores ou futuros são rejeitados antes da consulta. Limite de quinze UEx por execução, em grupos de três consultas simultâneas; HTML, JSON, hash e paginação ficam auditáveis. Não consulta formulário CAPTCHA, não infere contas e não habilita outros programas.",
+    detail: "Fonte complementar em teste para unidades cuja conta PDDE Básico já foi identificada. Prioriza 2026, não infere contas e não altera os dados principais do PDDEInfo.",
     baseUrl: "https://www.fnde.gov.br/sigefweb/index.php/conta-corrente/extrato-conta-corrente-detalhamento",
   },
   {
@@ -65,7 +65,7 @@ const SOURCE_AUTOMATION_CATALOG: SourceAutomationDefinition[] = [
     accessState: "AUTHORIZATION_REQUIRED",
     autonomous: false,
     collectionMethod: "file-import",
-    detail: "O sistema automatiza a leitura de arquivo autorizado; não obtém extratos sem credencial e autorização institucional.",
+    detail: "Permite conferir movimentações quando um extrato autorizado é fornecido. O sistema não acessa contas nem obtém arquivos sem autorização institucional.",
     baseUrl: "",
   },
 ];

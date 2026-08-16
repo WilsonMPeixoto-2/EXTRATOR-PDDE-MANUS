@@ -37,7 +37,7 @@ type TimelineItem = {
 type SourceAutomation = {
   source: string;
   label: string;
-  accessState: "AUTONOMOUS_AVAILABLE" | "AUTONOMOUS_COMPLETED" | "PILOT_PENDING" | "CAPTCHA_REQUIRED" | "AUTHORIZATION_REQUIRED" | "SOURCE_UNAVAILABLE" | "SCHEMA_CHANGED";
+  accessState: "AUTONOMOUS_AVAILABLE" | "AUTONOMOUS_COMPLETED" | "PILOT_PENDING" | "PILOT_COMPLETED_WITH_LIMITATIONS" | "CAPTCHA_REQUIRED" | "AUTHORIZATION_REQUIRED" | "SOURCE_UNAVAILABLE" | "SCHEMA_CHANGED";
   autonomous: boolean;
   collectionMethod: string;
   detail: string;
@@ -59,30 +59,30 @@ type RestoredRun = {
   persisted?: boolean;
 };
 
-function MetricCard({ label, value, hint, accent }: { label: string; value: string | number; hint: string; accent: "teal" | "gold" | "plum" | "blue" }) {
-  return (
-    <div className={`metric-card metric-card-${accent}`}>
-      <span className="metric-label">{label}</span>
-      <strong className="metric-value">{value}</strong>
-      <span className="metric-hint">{hint}</span>
-    </div>
-  );
+function MetricCard({ label, value, hint, accent, onClick, action }: { label: string; value: string | number; hint: string; accent: "teal" | "gold" | "plum" | "blue"; onClick?: () => void; action?: string }) {
+  const content = <>
+    <span className="metric-label">{label}</span>
+    <strong className="metric-value">{value}</strong>
+    <span className="metric-hint">{hint}</span>
+    {action && <span className="metric-action">{action}</span>}
+  </>;
+  return onClick ? <button type="button" className={`metric-card metric-card-${accent} metric-card-actionable`} onClick={onClick}>{content}</button> : <div className={`metric-card metric-card-${accent}`}>{content}</div>;
 }
 
-function ValidationItem({ label, value, expected, ready }: { label: string; value: string | number; expected: string; ready: boolean }) {
+function ValidationItem({ label, value, expected, ready, onClick }: { label: string; value: string | number; expected: string; ready: boolean; onClick?: () => void }) {
   const pass = ready && String(value) === expected;
-  return (
-    <div className="validation-item">
-      <div className={`validation-icon ${ready ? (pass ? "validation-pass" : "validation-fail") : "validation-wait"}`}>
-        {ready ? (pass ? <CheckCircle2 size={16} /> : <XCircle size={16} />) : <Timer size={16} />}
-      </div>
-      <div className="validation-copy">
-        <span>{label}</span>
-        <small>referência: {expected}</small>
-      </div>
-      <strong>{value}</strong>
+  const content = <>
+    <div className={`validation-icon ${ready ? (pass ? "validation-pass" : "validation-fail") : "validation-wait"}`}>
+      {ready ? (pass ? <CheckCircle2 size={16} /> : <XCircle size={16} />) : <Timer size={16} />}
     </div>
-  );
+    <div className="validation-copy">
+      <span>{label}</span>
+      <small>referência: {expected}</small>
+    </div>
+    <strong>{value}</strong>
+    {onClick && <span className="validation-action">Ver unidades</span>}
+  </>;
+  return onClick ? <button type="button" className="validation-item validation-item-actionable" onClick={onClick}>{content}</button> : <div className="validation-item">{content}</div>;
 }
 
 /**
@@ -121,6 +121,29 @@ export default function Home() {
   const progress = Math.round((completed / 163) * 100);
   const recentAudits = useMemo(() => audits.slice(-7).reverse(), [audits]);
   const ready = Boolean(validation);
+
+  const sourceMethodLabel = (method: SourceAutomation["collectionMethod"]) => ({
+    http: "Consulta direta",
+    "file-import": "Arquivo autorizado",
+    "browser-script": "Navegação autorizada",
+    "institutional-channel": "Canal institucional",
+  } as Record<SourceAutomation["collectionMethod"], string>)[method];
+
+  const sourceStateLabel = (state: SourceAutomation["accessState"]) => ({
+    AUTONOMOUS_AVAILABLE: "Disponível",
+    AUTONOMOUS_COMPLETED: "Concluída",
+    PILOT_PENDING: "Em avaliação",
+    PILOT_COMPLETED_WITH_LIMITATIONS: "Complementar em teste",
+    CAPTCHA_REQUIRED: "Acesso externo pendente",
+    AUTHORIZATION_REQUIRED: "Autorização necessária",
+    SOURCE_UNAVAILABLE: "Indisponível",
+    SCHEMA_CHANGED: "Fonte alterada",
+  } as Record<SourceAutomation["accessState"], string>)[state];
+
+  const openAuditSubset = (subset: string) => {
+    if (!activeRunId) return;
+    window.location.assign(`/auditoria?run=${encodeURIComponent(activeRunId)}&subset=${encodeURIComponent(subset)}`);
+  };
 
   const appendEvent = (item: TimelineItem) => setEvents(current => [item, ...current].slice(0, 9));
 
@@ -288,9 +311,9 @@ export default function Home() {
         </section>
 
         <section className="metrics-row">
-          <MetricCard label="Unidades selecionadas" value={`${master.count}/163`} hint={master.valid ? "INEPs únicos verificados" : "verificando lista-mestre"} accent="teal" />
+          <MetricCard label="Unidades selecionadas" value={`${master.count}/163`} hint={master.valid ? "INEPs únicos verificados" : "verificando lista-mestre"} accent="teal" onClick={activeRunId ? () => openAuditSubset("all") : undefined} action={activeRunId ? "Abrir lista" : undefined} />
           <MetricCard label="Processamento" value={`${completed}/163`} hint={running ? `lote ${Math.max(1, Math.ceil(completed / 10))} em andamento` : "não iniciado"} accent="gold" />
-          <MetricCard label="Contas PDDE" value={validation ? `${163 - validation.missingBasicAccounts}/163` : "—"} hint="informadas no PDDEInfo" accent="plum" />
+          <MetricCard label="Contas PDDE" value={validation ? `${163 - validation.missingBasicAccounts}/163` : "—"} hint="informadas no PDDEInfo" accent="plum" onClick={activeRunId ? () => openAuditSubset("missing-basic-account") : undefined} action={activeRunId ? "Ver não informadas" : undefined} />
           <MetricCard label="Arquivo" value={validation ? (validation.passed ? "LIBERADO" : "BLOQUEADO") : "PENDENTE"} hint="dependente das validações" accent="blue" />
         </section>
 
@@ -326,10 +349,10 @@ export default function Home() {
         <section className="validation-card" id="validacoes">
           <div className="validation-heading"><div><span>CONTROLES DE LIBERAÇÃO</span><h2>Validações da execução</h2></div><p>O arquivo permanece bloqueado enquanto houver requisito obrigatório pendente ou reprovado.</p></div>
           <div className="validation-grid">
-            <ValidationItem label="INEPs únicos" value={validation?.uniqueIneps ?? "—"} expected="163" ready={ready} />
-            <ValidationItem label="1ª parcela com pagamento registrado" value={validation?.firstInstallmentPaid ?? "—"} expected="111" ready={ready} />
-            <ValidationItem label="2ª parcela prevista" value={validation?.secondInstallmentExpected ?? "—"} expected="163" ready={ready} />
-            <ValidationItem label="Conta PDDE não informada" value={validation?.missingBasicAccounts ?? "—"} expected="47" ready={ready} />
+            <ValidationItem label="INEPs únicos" value={validation?.uniqueIneps ?? "—"} expected="163" ready={ready} onClick={activeRunId ? () => openAuditSubset("all") : undefined} />
+            <ValidationItem label="1ª parcela com pagamento registrado" value={validation?.firstInstallmentPaid ?? "—"} expected="111" ready={ready} onClick={activeRunId ? () => openAuditSubset("first-installment-paid") : undefined} />
+            <ValidationItem label="2ª parcela prevista" value={validation?.secondInstallmentExpected ?? "—"} expected="163" ready={ready} onClick={activeRunId ? () => openAuditSubset("second-installment-expected") : undefined} />
+            <ValidationItem label="Conta PDDE não informada" value={validation?.missingBasicAccounts ?? "—"} expected="47" ready={ready} onClick={activeRunId ? () => openAuditSubset("missing-basic-account") : undefined} />
           </div>
           {fatalError && <div className="fatal-notice"><CircleAlert size={17} />{fatalError}</div>}
           {validation && !validation.passed && <div className="fatal-notice"><CircleAlert size={17} />{validation.errors.join(" ")}</div>}
@@ -343,9 +366,9 @@ export default function Home() {
         <section className="source-card" aria-labelledby="fontes-title">
           <div className="panel-title"><div><span>FONTES E AUTONOMIA</span><h2 id="fontes-title">Situação de coleta</h2></div><p className="source-intro">Cada fonte informa se já é consultada automaticamente ou se depende de validação de acesso.</p></div>
           <div className="source-table-wrap"><table className="source-table"><thead><tr><th>FONTE</th><th>MÉTODO</th><th>SITUAÇÃO</th><th>OBSERVAÇÃO OPERACIONAL</th></tr></thead><tbody>{sources.map(source => {
-            const stateLabel = source.accessState === "AUTONOMOUS_AVAILABLE" ? "AUTÔNOMA" : source.accessState === "CAPTCHA_REQUIRED" ? "CAPTCHA EXTERNO" : source.accessState === "AUTHORIZATION_REQUIRED" ? "AUTORIZAÇÃO EXIGIDA" : "PILOTO PENDENTE";
-            const stateClass = source.accessState === "AUTONOMOUS_AVAILABLE" ? "source-ready" : source.accessState === "CAPTCHA_REQUIRED" || source.accessState === "AUTHORIZATION_REQUIRED" ? "source-blocked" : "source-pilot";
-            return <tr key={source.source}><td><strong>{source.label}</strong></td><td className="source-method">{source.collectionMethod}</td><td><span className={`source-status ${stateClass}`}>{stateLabel}</span></td><td>{source.detail}</td></tr>;
+            const stateLabel = sourceStateLabel(source.accessState);
+            const stateClass = source.accessState === "AUTONOMOUS_AVAILABLE" || source.accessState === "AUTONOMOUS_COMPLETED" ? "source-ready" : source.accessState === "CAPTCHA_REQUIRED" || source.accessState === "AUTHORIZATION_REQUIRED" ? "source-blocked" : "source-pilot";
+            return <tr key={source.source}><td><strong>{source.label}</strong></td><td className="source-method">{sourceMethodLabel(source.collectionMethod)}</td><td><span className={`source-status ${stateClass}`}>{stateLabel}</span></td><td>{source.detail}</td></tr>;
           })}{!sources.length && <tr><td colSpan={4} className="empty-audit">Nenhuma fonte disponível no momento.</td></tr>}</tbody></table></div>
         </section>
 

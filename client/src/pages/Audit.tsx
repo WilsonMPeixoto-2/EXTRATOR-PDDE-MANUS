@@ -5,10 +5,10 @@ import { HighContrastToggle } from "@/components/HighContrastToggle";
 import { AlertTriangle, ArrowLeft, CalendarClock, CircleHelp, FileCheck2, FileSearch, Layers3, RefreshCw, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Link } from "wouter";
-import { buildFinancialSchoolDossier, buildSigefMovementDossier, evidenceStateExplanation, filterAuditObservations, filterAuditSchools, isPrimaryPddeInfoAuditRun, operationalConsultationStatus, operationalRunStatus, primaryAuditRunId, sigefCoverageSummary } from "./auditFilters";
+import { auditSchoolSubsetLabel, buildFinancialSchoolDossier, buildSigefMovementDossier, evidenceStateExplanation, filterAuditObservations, filterAuditSchools, filterAuditSchoolsBySubset, isPrimaryPddeInfoAuditRun, operationalConsultationStatus, operationalRunStatus, primaryAuditRunId, sigefCoverageSummary, type AuditSchoolSubset } from "./auditFilters";
 
 type AuditRun = { id: string; status: "running" | "approved" | "partial" | "blocked" | "failed"; masterCount: number; processedCount: number; parserVersion: string; startedAt: string; completedAt: string | null; validationJson: { passed?: boolean; errors?: string[]; sourceLimitations?: string[] } };
-type School = { inep: string; sme: string; schoolName: string | null; status: "success" | "failed"; consultedAt: string; programsJson: string[]; exception: string | null };
+type School = { inep: string; sme: string; schoolName: string | null; status: "success" | "failed"; consultedAt: string; programsJson: string[]; exception: string | null; basicAccountStatus?: "informada" | "nao-informada" | null; firstInstallmentPaid?: boolean | null; secondInstallmentExpected?: boolean | null; attentionRequired?: boolean | null };
 type Finding = { id: number; severity: "info" | "warning" | "critical"; code: string; message: string; inep: string | null; previousValue: string | null; currentValue: string | null };
 type Observation = { id: number; fieldPath: string; logicalKey: string; source: string; sourceUrl: string; consultedAt: string; rawValue: string | null; normalizedValueJson: { value?: string | number | null } | null; parserVersion: string; extractionRule: string; selector: string; evidenceSnippet: string | null; state: string | null; sourceHashSha256: string | null; rawHtmlKey: string | null; normalizedJsonKey: string | null; validationResultsJson: Array<{ code: string; level: string; message: string }> };
 type Artifact = { id: number; kind: string; storageKey: string; sha256: string; contentType: string; createdAt?: string };
@@ -24,6 +24,12 @@ function displayDate(value: string | null | undefined) {
 
 function displayMoney(value: number) {
   return value ? value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—";
+}
+
+const AUDIT_SUBSETS: AuditSchoolSubset[] = ["all", "missing-basic-account", "first-installment-paid", "second-installment-expected", "attention-required"];
+function initialAuditSubset(): AuditSchoolSubset {
+  const value = new URLSearchParams(window.location.search).get("subset") as AuditSchoolSubset | null;
+  return value && AUDIT_SUBSETS.includes(value) ? value : "all";
 }
 
 async function operationalFetch(url: string, options?: RequestInit, attempts = 2): Promise<Response> {
@@ -142,7 +148,9 @@ export default function Audit() {
   const [sourceImportRuns, setSourceImportRuns] = useState<SourceImportRun[]>([]);
   const [cguSummary, setCguSummary] = useState<CguSummary | null>(null);
   const [cguImporting, setCguImporting] = useState(false);
+  const requestedRunId = useMemo(() => new URLSearchParams(window.location.search).get("run"), []);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [schoolSubset, setSchoolSubset] = useState<AuditSchoolSubset>(initialAuditSubset);
   const [schools, setSchools] = useState<School[]>([]);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [runArtifacts, setRunArtifacts] = useState<Artifact[]>([]);
@@ -175,7 +183,11 @@ export default function Audit() {
       setSigefCoverage(coveragePayload.coverage);
       setSourceImportRuns(sourceImportsPayload.runs);
       setCguSummary(sourceImportsPayload.cguSummary);
-      setSelectedRunId(current => current && payload.runs.some(run => run.id === current) ? current : primaryAuditRunId(payload.runs));
+      setSelectedRunId(current => current && payload.runs.some(run => run.id === current)
+        ? current
+        : requestedRunId && payload.runs.some(run => run.id === requestedRunId)
+          ? requestedRunId
+          : primaryAuditRunId(payload.runs));
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Falha ao carregar auditoria."); }
     finally { setLoading(false); }
   };
@@ -239,7 +251,14 @@ export default function Audit() {
 
   const selectedRun = runs.find(run => run.id === selectedRunId) ?? null;
   const selectedRunIsPrimary = selectedRun ? isPrimaryPddeInfoAuditRun(selectedRun) : false;
-  const filteredSchools = useMemo(() => filterAuditSchools(schools, programFilter, schoolFilter), [schools, programFilter, schoolFilter]);
+  const subsetSchools = useMemo(() => filterAuditSchoolsBySubset(schools, schoolSubset), [schools, schoolSubset]);
+  const filteredSchools = useMemo(() => filterAuditSchools(subsetSchools, programFilter, schoolFilter), [subsetSchools, programFilter, schoolFilter]);
+  const clearSchoolSubset = () => {
+    setSchoolSubset("all");
+    const url = new URL(window.location.href);
+    url.searchParams.delete("subset");
+    window.history.replaceState({}, "", url);
+  };
   const filteredObservations = useMemo(() => dossier ? filterAuditObservations(dossier.observations, fieldFilter) : [], [dossier, fieldFilter]);
   const financialDossier = useMemo(() => dossier ? buildFinancialSchoolDossier(dossier.observations) : null, [dossier]);
   const sigefMovements = useMemo(() => dossier ? buildSigefMovementDossier(dossier.observations) : [], [dossier]);
@@ -259,6 +278,7 @@ export default function Audit() {
 
       <section className="audit-reference-control" aria-label="Referência da auditoria">
         <div className="audit-reference-primary"><span>REFERÊNCIA EXIBIDA</span><strong>{selectedRunIsPrimary ? "PDDEInfo · execução aprovada" : "Evidência complementar"}</strong><small>{selectedRunIsPrimary ? "Os 163 registros aprovados do PDDEInfo permanecem como leitura principal da auditoria." : "Esta execução parcial é complementar. Selecione a referência PDDEInfo aprovada para consultar a lista completa de escolas."}</small></div>
+        {schoolSubset !== "all" && <div className="audit-active-filter" role="status"><span>LISTA FILTRADA</span><strong>{auditSchoolSubsetLabel(schoolSubset)}</strong><small>{filteredSchools.length} unidade(s) no resultado atual</small><button type="button" onClick={clearSchoolSubset}>Mostrar todas</button></div>}
         <SigefCoverageIndicator coverage={sigefCoverage} />
         <label className="audit-reference-select" htmlFor="audit-run-select">Execução disponível<select id="audit-run-select" value={selectedRunId ?? ""} onChange={event => setSelectedRunId(event.target.value || null)}>{runs.map(run => <option key={run.id} value={run.id}>{auditRunOptionLabel(run)}</option>)}</select></label>
       </section>
@@ -282,7 +302,7 @@ export default function Audit() {
       </section>
 
       <section className="audit-workspace">
-        <main className="audit-panel audit-schools"><div className="audit-panel-heading"><FileSearch size={17} /><h2>Unidades da execução</h2><span>{selectedRunId ? `${filteredSchools.length}/${schools.length} unidades` : "selecione uma execução"}</span></div>{schools.length ? <><p className="audit-panel-instruction">Selecione uma unidade para abrir imediatamente o resumo financeiro abaixo.</p><div className="audit-filter-grid"><input className="audit-filter" value={schoolFilter} onChange={event => setSchoolFilter(event.target.value)} placeholder="Buscar nome, INEP ou SME" aria-label="Buscar escola por nome, INEP ou SME" /><input className="audit-filter" value={programFilter} onChange={event => setProgramFilter(event.target.value)} placeholder="Filtrar por programa" aria-label="Filtrar escolas por programa" /></div><div className="audit-table-scroll"><table className="audit-data-table audit-school-table"><thead><tr><th>Unidade escolar</th><th>INEP / SME</th><th>Situação da consulta</th><th>Programas identificados</th></tr></thead><tbody>{filteredSchools.map(school => <tr key={`${school.inep}-${school.sme}`} className={selectedInep === school.inep ? "audit-row-selected" : ""} onClick={() => void openDossier(school.inep)}><td><button className="audit-school-button"><strong>{school.schoolName ?? "Nome da unidade não registrado"}</strong><span>Selecionar resumo financeiro</span></button></td><td><strong>{school.inep}</strong><small>SME {school.sme}</small></td><td><span className={badgeClass(school.status)}>{operationalConsultationStatus(school.status)}</span><small>{displayDate(school.consultedAt)}</small></td><td>{school.programsJson?.join(" · ") || "Nenhum programa identificado"}</td></tr>)}</tbody></table></div></> : <p className="audit-empty">Selecione uma execução com consultas persistidas.</p>}</main>
+        <main className="audit-panel audit-schools"><div className="audit-panel-heading"><FileSearch size={17} /><h2>Unidades da execução</h2><span>{selectedRunId ? `${filteredSchools.length}/${subsetSchools.length} unidades no filtro` : "selecione uma execução"}</span></div>{schools.length ? <><p className="audit-panel-instruction">Selecione uma unidade para abrir imediatamente o resumo financeiro abaixo. O filtro atual mostra apenas o conjunto correspondente ao indicador escolhido.</p><div className="audit-filter-grid"><input className="audit-filter" value={schoolFilter} onChange={event => setSchoolFilter(event.target.value)} placeholder="Buscar nome, INEP ou SME" aria-label="Buscar escola por nome, INEP ou SME" /><input className="audit-filter" value={programFilter} onChange={event => setProgramFilter(event.target.value)} placeholder="Filtrar por programa" aria-label="Filtrar escolas por programa" /></div><div className="audit-table-scroll"><table className="audit-data-table audit-school-table"><thead><tr><th>Unidade escolar</th><th>INEP / SME</th><th>Situação da consulta</th><th>Situação financeira</th><th>Programas identificados</th></tr></thead><tbody>{filteredSchools.map(school => <tr key={`${school.inep}-${school.sme}`} className={selectedInep === school.inep ? "audit-row-selected" : ""} onClick={() => void openDossier(school.inep)}><td><button className="audit-school-button" type="button"><strong>{school.schoolName ?? "Nome da unidade não registrado"}</strong><span>Selecionar resumo financeiro</span></button></td><td><strong>{school.inep}</strong><small>SME {school.sme}</small></td><td><span className={badgeClass(school.status)}>{operationalConsultationStatus(school.status)}</span><small>{displayDate(school.consultedAt)}</small></td><td className="audit-financial-status-cell">{school.basicAccountStatus === "nao-informada" && <span className="audit-financial-chip audit-financial-chip-warning">Conta PDDE não informada</span>}{school.basicAccountStatus === "informada" && <span className="audit-financial-chip audit-financial-chip-ok">Conta PDDE informada</span>}{school.firstInstallmentPaid && <span className="audit-financial-chip audit-financial-chip-ok">1ª parcela registrada</span>}{school.secondInstallmentExpected && <span className="audit-financial-chip audit-financial-chip-neutral">2ª parcela prevista</span>}{school.attentionRequired && school.basicAccountStatus !== "nao-informada" && <span className="audit-financial-chip audit-financial-chip-warning">Revisar</span>}{school.basicAccountStatus === null && !school.firstInstallmentPaid && !school.secondInstallmentExpected && !school.attentionRequired && <span className="audit-financial-chip audit-financial-chip-neutral">Sem resumo</span>}</td><td>{school.programsJson?.join(" · ") || "Nenhum programa identificado"}</td></tr>)}</tbody></table></div></> : <p className="audit-empty">Selecione uma execução com consultas persistidas.</p>}</main>
 
         <aside className="audit-panel audit-findings"><div className="audit-panel-heading"><ShieldCheck size={17} /><h2>Pontos de atenção</h2></div>{findings.length ? <div className="audit-finding-list">{findings.map(finding => <article key={finding.id} className="audit-finding"><span className={badgeClass(finding.severity)}>{finding.severity === "critical" ? "prioritário" : finding.severity === "warning" ? "atenção" : "informativo"}</span><p>{finding.message}</p>{(finding.previousValue !== null || finding.currentValue !== null) && <small>Anterior: {finding.previousValue ?? "—"} · Atual: {finding.currentValue ?? "—"}</small>}<small>{finding.inep ? `INEP ${finding.inep}` : "Execução geral"}</small></article>)}</div> : <p className="audit-empty">Nenhum ponto de atenção foi identificado nesta execução.</p>}</aside>
       </section>
