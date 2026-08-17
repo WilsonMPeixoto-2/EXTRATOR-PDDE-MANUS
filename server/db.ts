@@ -333,19 +333,31 @@ export function buildHomeFinanceSnapshot(run: { id: string; completedAt: Date | 
   };
 }
 
+export function dedupeSchoolConsultations<T extends { inep: string; consultedAt: Date | null }>(rows: T[]): T[] {
+  const byInep = new Map<string, T>();
+  for (const row of rows) {
+    const current = byInep.get(row.inep);
+    if (!current || (row.consultedAt?.getTime() ?? 0) >= (current.consultedAt?.getTime() ?? 0)) byInep.set(row.inep, row);
+  }
+  return Array.from(byInep.values()).toSorted((left, right) => left.inep.localeCompare(right.inep));
+}
+
 export async function getHomeFinanceSummary() {
   const db = await getAuditDbOrThrow();
-  const runs = await db.select({ id: extractionRuns.id, completedAt: extractionRuns.completedAt, validationJson: extractionRuns.validationJson })
+  const runs = await db.select({ id: extractionRuns.id, completedAt: extractionRuns.completedAt, validationJson: extractionRuns.validationJson, masterCount: extractionRuns.masterCount, processedCount: extractionRuns.processedCount, parserVersion: extractionRuns.parserVersion })
     .from(extractionRuns)
     .where(eq(extractionRuns.status, "approved"))
     .orderBy(desc(extractionRuns.completedAt), desc(extractionRuns.createdAt))
-    .limit(6);
+    .limit(12);
+  const primaryRuns = runs.filter(run => Number(run.masterCount) === 163 && Number(run.processedCount) >= Number(run.masterCount) && !run.parserVersion.startsWith("SIGEF_"));
+  const selectedRuns = (primaryRuns.length ? primaryRuns : runs).slice(0, 6);
   const snapshots: HomeFinanceSnapshot[] = [];
-  for (const run of runs) {
-    const [schools, observations] = await Promise.all([
-      db.select({ inep: schoolConsultations.inep, status: schoolConsultations.status }).from(schoolConsultations).where(eq(schoolConsultations.runId, run.id)),
+  for (const run of selectedRuns) {
+    const [schoolRows, observations] = await Promise.all([
+      db.select({ inep: schoolConsultations.inep, status: schoolConsultations.status, consultedAt: schoolConsultations.consultedAt }).from(schoolConsultations).where(eq(schoolConsultations.runId, run.id)),
       db.select({ inep: fieldObservations.inep, fieldPath: fieldObservations.fieldPath, logicalKey: fieldObservations.logicalKey, rawValue: fieldObservations.rawValue, normalizedValueJson: fieldObservations.normalizedValueJson }).from(fieldObservations).where(eq(fieldObservations.runId, run.id)),
     ]);
+    const schools = dedupeSchoolConsultations(schoolRows);
     snapshots.push(buildHomeFinanceSnapshot(run, schools, observations));
   }
   const latest = snapshots[0] ?? null;
@@ -393,7 +405,7 @@ type SchoolFinancialSummary = {
 
 export async function listRunSchools(runId: string) {
   const db = await getAuditDbOrThrow();
-  const [schools, schoolNames, observations] = await Promise.all([
+  const [schoolRows, schoolNames, observations] = await Promise.all([
     db.select().from(schoolConsultations).where(eq(schoolConsultations.runId, runId)).orderBy(schoolConsultations.inep),
     db.select({ inep: fieldObservations.inep, rawValue: fieldObservations.rawValue, normalizedValueJson: fieldObservations.normalizedValueJson })
       .from(fieldObservations)
@@ -402,6 +414,7 @@ export async function listRunSchools(runId: string) {
       .from(fieldObservations)
       .where(eq(fieldObservations.runId, runId)),
   ]);
+  const schools = dedupeSchoolConsultations(schoolRows);
   const nameByInep = new Map(schoolNames.map(item => {
     const normalized = item.normalizedValueJson as { value?: unknown } | null;
     const schoolName = item.rawValue ?? (typeof normalized?.value === "string" ? normalized.value : null);

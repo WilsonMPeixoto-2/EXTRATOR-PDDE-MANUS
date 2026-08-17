@@ -10,6 +10,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { accountStatusLabel, filterHomeSchools, type HomeSchool, type HomeSchoolFilter } from "./homeSchools";
+import { isHomeJsonResponse } from "./homeData";
 
 type Validation = {
   passed: boolean;
@@ -138,17 +139,25 @@ export default function Home() {
   const reloadHomeResults = useCallback(async () => {
     if (!isAuthenticated) return;
     setHomeSchoolsState("loading");
-    const [summary, schools] = await Promise.allSettled([
+    const parseJson = async <T,>(response: Response): Promise<T | null> => {
+      if (!isHomeJsonResponse(response.ok, response.headers.get("content-type"))) return null;
+      try {
+        return await response.json() as T;
+      } catch {
+        return null;
+      }
+    };
+    const [summaryResponse, schoolsResponse] = await Promise.all([
       fetch("/api/pdde/home/finance-summary"),
       fetch("/api/pdde/home/schools"),
     ]);
-    if (summary.status === "fulfilled" && summary.value.ok) {
-      setFinanceSummary(await summary.value.json() as HomeFinanceSummary);
-    } else {
-      setFinanceSummary(null);
-    }
-    if (schools.status === "fulfilled" && schools.value.ok) {
-      const payload = await schools.value.json() as { schools?: HomeSchool[] };
+    const [summary, schools] = await Promise.all([
+      parseJson<HomeFinanceSummary>(summaryResponse),
+      parseJson<{ schools?: HomeSchool[] }>(schoolsResponse),
+    ]);
+    setFinanceSummary(summary);
+    if (schools) {
+      const payload = schools;
       setHomeSchools(payload.schools ?? []);
       setHomeSchoolsState("ready");
     } else {
@@ -363,6 +372,16 @@ export default function Home() {
           <div className="hero-seal">
             <div className="seal-copy"><span>CONSULTA ATUAL</span><strong>Dados das 163 escolas</strong><dl><div><dt>Unidades</dt><dd>163 selecionadas</dd></div><div><dt>Fonte</dt><dd>PDDEInfo / 2026</dd></div><div><dt>Detalhes</dt><dd>Disponíveis por escola</dd></div></dl></div>
           </div>
+        </section>
+
+        <section className="extraction-monitor" aria-live="polite" aria-label="Acompanhamento da extração">
+          <header className="extraction-monitor-heading">
+            <div><span>ACOMPANHAMENTO DA EXTRAÇÃO</span><h2>{running ? "Consulta das escolas em andamento" : validation?.passed ? "Última extração concluída" : "Aguardando nova extração"}</h2><p>{running ? "Acompanhe os lotes, os registros concluídos e os eventos desta consulta em tempo real." : validation?.passed ? "A consulta mais recente permanece disponível para consulta por escola." : "Inicie a extração quando precisar atualizar os dados das escolas."}</p></div>
+            <Badge className={running ? "extraction-monitor-badge extraction-monitor-badge-running" : validation?.passed ? "extraction-monitor-badge extraction-monitor-badge-complete" : "extraction-monitor-badge"}>{running ? "EM ANDAMENTO" : validation?.passed ? "CONCLUÍDA" : "PRONTA"}</Badge>
+          </header>
+          <div className="extraction-progress-line"><div><strong>{completed}/163</strong><span>escolas processadas</span></div><Progress value={progress} /><b>{progress}%</b></div>
+          <div className="extraction-batches" aria-label={`${Math.ceil(completed / 10)} de 17 lotes concluídos`}>{Array.from({ length: 17 }, (_, index) => { const done = completed >= Math.min((index + 1) * 10, 163); const current = running && !done && index === Math.floor(completed / 10); return <span key={index} className={done ? "extraction-batch-done" : current ? "extraction-batch-current" : ""}>{String(index + 1).padStart(2, "0")}</span>; })}</div>
+          <div className="extraction-monitor-bottom"><div className="extraction-live-stats"><span><UsersRound size={15} />{audits.length} registros acompanhados nesta sessão</span><span><CircleAlert size={15} />{audits.filter(audit => audit.status === "FAILED").length} consultas com falha</span></div><div className="extraction-event-log">{events.slice(0, 4).map((event, index) => <div key={`${event.timestamp}-${event.message}-${index}`} className={`extraction-event extraction-event-${event.kind}`}><time>{event.timestamp}</time><p>{event.message}</p></div>)}</div></div>
         </section>
 
         <section className="metrics-row" id="execucao">

@@ -12,3 +12,8 @@
 - [x] Validar a nova hierarquia em dados reais, desktop e mobile antes de publicar a correção.
 - [x] Remover da Home o jargão residual de bastidor e implementação que não ajuda a operação do usuário.
 - [x] Enriquecer a lista principal de escolas com conta encontrada e sinais financeiros de parcelas relevantes.
+- [x] Restaurar o painel de andamento da extração, incluindo contadores, lotes, eventos e estado de conclusão na Home.
+- [x] Garantir que o acompanhamento da extração, a lista de escolas e o dossiê individual coexistam sem ocultar funções existentes.
+- [x] Verificar e registrar o estado operacional atual do Manus após a indisponibilidade percebida.
+- [x] Executar uma verificação prática curta da plataforma além da página de status e registrar a evidência observada.
+- [x] Registrar em documento de operação a hora, a fonte, o resultado e a limitação da verificação de disponibilidade.

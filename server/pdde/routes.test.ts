@@ -181,7 +181,7 @@ describe("rotas operacionais protegidas do PDDE", () => {
 
   it("recupera a última execução aprovada com o link persistido do Excel", async () => {
     authenticateRequest.mockResolvedValue(user);
-    mockedListPersistedAuditRuns.mockResolvedValue([{ id: "run-aprovada", status: "approved", masterCount: 163, processedCount: 163 }] as any);
+    mockedListPersistedAuditRuns.mockResolvedValue([{ id: "run-aprovada", status: "approved", masterCount: "163", processedCount: "163" }] as any);
     mockedGetPersistedRunAuditOverview.mockResolvedValue({
       run: { id: "run-aprovada", status: "approved", processedCount: 163, validationJson: { passed: true, errors: [] } },
       artifacts: [],
@@ -191,6 +191,16 @@ describe("rotas operacionais protegidas do PDDE", () => {
     const response = await request(appForTest(), "/api/pdde/latest-approved");
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ id: "run-aprovada", status: "approved", records: 163, validation: { passed: true }, downloadUrl: "/manus-storage/exports/run-aprovada.xlsx", persisted: true });
+  });
+
+  it("recupera a lista principal ao receber contadores textuais da execução aprovada", async () => {
+    authenticateRequest.mockResolvedValue(user);
+    mockedListPersistedAuditRuns.mockResolvedValue([{ id: "run-aprovada", status: "approved", masterCount: "163", processedCount: "163" }] as any);
+    mockedListRunSchools.mockResolvedValue([{ inep: "33069247", schoolName: "EM EMA NEGRAO DE LIMA", status: "success" }] as any);
+
+    const response = await request(appForTest(), "/api/pdde/home/schools");
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ runId: "run-aprovada", schools: [expect.objectContaining({ inep: "33069247" })] });
   });
 
   it("não publica uma execução parcial como referência corrente", async () => {

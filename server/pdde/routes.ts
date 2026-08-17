@@ -110,7 +110,7 @@ export function registerPddeRoutes(app: Express) {
   app.get("/api/pdde/latest-approved", async (request, response) => {
     if (!await authorize(request, response, "run-status")) return;
     const latestApproved = (await listPersistedAuditRuns(100)).find(run =>
-      run.status === "approved" && run.masterCount === 163 && run.processedCount === 163,
+      run.status === "approved" && Number(run.masterCount) === 163 && Number(run.processedCount) === 163,
     );
     if (!latestApproved) return response.status(404).json({ message: "Nenhuma execução aprovada foi encontrada." });
     const payload = restoredRunPayload(await getPersistedRunAuditOverview(latestApproved.id));
@@ -126,7 +126,7 @@ export function registerPddeRoutes(app: Express) {
   app.get("/api/pdde/home/schools", async (request, response) => {
     if (!await authorize(request, response, "run-status")) return;
     const latestApproved = (await listPersistedAuditRuns(100)).find(run =>
-      run.status === "approved" && run.masterCount === 163 && run.processedCount === 163,
+      run.status === "approved" && Number(run.masterCount) === 163 && Number(run.processedCount) === 163,
     );
     if (!latestApproved) return response.status(404).json({ message: "Nenhuma execução aprovada foi encontrada." });
     response.json({ runId: latestApproved.id, schools: await listRunSchools(latestApproved.id) });

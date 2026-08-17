@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildHomeFinanceSnapshot } from "../db";
+import { buildHomeFinanceSnapshot, dedupeSchoolConsultations } from "../db";
 
 describe("resumo financeiro da Home", () => {
   it("reconhece o rótulo PDDE, mas não confunde PDDE QUALIDADE com a conta do PDDE", () => {
@@ -24,5 +24,17 @@ describe("resumo financeiro da Home", () => {
     expect(snapshot.totalPaid).toBe(100);
     expect(snapshot.firstInstallmentPaid).toBe(1);
   });
-});
 
+  it("mantém apenas a consulta mais recente de cada INEP na referência da Home", () => {
+    const rows = dedupeSchoolConsultations([
+      { inep: "100", consultedAt: new Date("2026-08-14T10:00:00Z"), status: "failed" },
+      { inep: "100", consultedAt: new Date("2026-08-14T10:01:00Z"), status: "success" },
+      { inep: "200", consultedAt: new Date("2026-08-14T10:00:00Z"), status: "success" },
+    ]);
+
+    expect(rows).toEqual([
+      { inep: "100", consultedAt: new Date("2026-08-14T10:01:00Z"), status: "success" },
+      { inep: "200", consultedAt: new Date("2026-08-14T10:00:00Z"), status: "success" },
+    ]);
+  });
+});
