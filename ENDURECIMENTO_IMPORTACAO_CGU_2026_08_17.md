@@ -22,6 +22,8 @@ Como a chave oficial da API do Portal da Transparência depende de validação d
 
 O arquivo público de julho de 2026 retornou `application/x-zip-compressed`, com **2.480.385 bytes comprimidos**, uma única entrada `202607_Transferencias.csv` e **82.971.777 bytes descompactados**. Os limites de 32 MiB e 256 MiB preservam margem operacional sobre essa amostra oficial sem aceitar arquivos arbitrariamente grandes.
 
+O novo fluxo também foi executado contra esse artefato real após a implementação: validou a assinatura e a estrutura, processou **100.995 registros CSV** em fluxo e calculou o hash SHA-256 `280b7274512973a2a99e2b5c92604efd3d1c9d60c06dc552acda888d6ddb2797`. O arquivo temporário usado na validação foi removido ao término; nenhuma linha do piloto foi persistida, pois o teste não recebeu a associação da execução PDDEInfo.
+
 ## Validação
 
 A suíte específica ganhou cenários de rejeição de tipo HTTP, tamanho comprimido excessivo, assinatura inválida, entrada ZIP fora do padrão e tamanho descompactado excessivo. A aplicação foi validada com **123 testes aprovados**, tipagem estática e build de produção aprovados.
