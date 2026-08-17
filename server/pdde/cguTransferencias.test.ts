@@ -1,7 +1,18 @@
 import { Readable } from "node:stream";
 import { describe, expect, it } from "vitest";
 import { deduplicateCguTransferLines, type CguTransferLineInput } from "../db";
-import { buildCguIdempotencyKey, createCguCsvParser, currentAndPreviousReferencePeriods, selectCguTransferRow } from "./cguTransferencias";
+import {
+  assertCguZipSignature,
+  buildCguArtifactStoragePath,
+  buildCguIdempotencyKey,
+  CGU_ARCHIVE_MAX_COMPRESSED_BYTES,
+  CGU_ARCHIVE_MAX_UNCOMPRESSED_BYTES,
+  createCguCsvParser,
+  currentAndPreviousReferencePeriods,
+  selectCguTransferRow,
+  validateCguArchiveResponse,
+  validateCguZipEntry,
+} from "./cguTransferencias";
 
 const headers = new Map([
   ["ANO MES", 0], ["CODIGO FAVORECIDO", 1], ["NOME FAVORECIDO", 2], ["CODIGO ORGAO SIAFI", 3], ["ACAO", 4], ["VALOR TRANSFERIDO", 5],
@@ -25,6 +36,19 @@ describe("importação complementar CGU", () => {
     expect(buildCguIdempotencyKey("2026-07", hash)).toBe(buildCguIdempotencyKey("2026-07", hash));
     expect(buildCguIdempotencyKey("2026-07", hash)).not.toBe(buildCguIdempotencyKey("2026-06", hash));
     expect(currentAndPreviousReferencePeriods(new Date("2026-08-15T12:00:00.000Z"))).toEqual(["2026-08", "2026-07"]);
+  });
+
+  it("rejeita resposta, assinatura ou estrutura ZIP fora dos limites definidos", () => {
+    expect(() => validateCguArchiveResponse("text/html", "12")).toThrow(/tipo de arquivo/i);
+    expect(() => validateCguArchiveResponse("application/zip", String(CGU_ARCHIVE_MAX_COMPRESSED_BYTES + 1))).toThrow(/limite comprimido/i);
+    expect(() => assertCguZipSignature(Buffer.from("nao-e-zip"))).toThrow(/assinatura ZIP/i);
+    expect(() => validateCguZipEntry({ path: "outro.csv", type: "File", vars: { uncompressedSize: 10 } })).toThrow(/entrada não permitida/i);
+    expect(() => validateCguZipEntry({ path: "202607_Transferencias.csv", type: "File", vars: { uncompressedSize: CGU_ARCHIVE_MAX_UNCOMPRESSED_BYTES + 1 } })).toThrow(/tamanho descompactado/i);
+  });
+
+  it("constrói caminho lógico de evidência por período e hash, sem identificador de escola", () => {
+    const hash = "b".repeat(64);
+    expect(buildCguArtifactStoragePath("2026-07", hash)).toBe(`pdde/cgu-transferencias/2026-07/${hash}.zip`);
   });
 
   it("associa somente CNPJ presente na lista-mestre comprovada e preserva valor em centavos", () => {
