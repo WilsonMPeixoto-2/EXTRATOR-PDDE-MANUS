@@ -42,6 +42,20 @@ async function authorize(request: ExpressRequest, response: ExpressResponse, res
   return user;
 }
 
+async function authorizeRunStream(request: ExpressRequest, response: ExpressResponse) {
+  const user = await sdk.authenticateRequest(request).catch(() => null);
+  const decision = decidePddeAccess(user?.id ?? null, "run");
+  if (decision.allowed) return user;
+  response.status(200);
+  response.setHeader("Content-Type", "text/event-stream");
+  response.setHeader("Cache-Control", "no-cache, no-transform");
+  response.setHeader("Connection", "keep-alive");
+  response.flushHeaders();
+  writeEvent(response, { type: "fatal", message: decision.message });
+  response.end();
+  return null;
+}
+
 export function registerPddeRoutes(app: Express) {
   app.get("/api/pdde/master-list", async (request, response) => {
     if (!await authorize(request, response, "master-list")) return;
@@ -54,7 +68,7 @@ export function registerPddeRoutes(app: Express) {
   });
 
   app.get("/api/pdde/run", async (request, response) => {
-    const user = await authorize(request, response, "run");
+    const user = await authorizeRunStream(request, response);
     if (!user) return;
     response.status(200);
     response.setHeader("Content-Type", "text/event-stream");

@@ -91,12 +91,20 @@ describe("rotas operacionais protegidas do PDDE", () => {
 
   afterEach(() => clearRunReservationForTest(user.id));
 
-  it("retorna 401 para lista, fontes, início e status quando não há autenticação", async () => {
+  it("retorna 401 para lista, fontes e status quando não há autenticação", async () => {
     authenticateRequest.mockResolvedValue(null);
-    for (const path of ["/api/pdde/master-list", "/api/pdde/sources", "/api/pdde/run", "/api/pdde/run/inexistente", "/api/pdde/audit/runs", "/api/pdde/audit/sigef-coverage", "/api/pdde/audit/run/existente", "/api/pdde/audit/run/existente/schools", "/api/pdde/audit/run/existente/school/33069247", "/api/pdde/audit/run/existente/findings", "/api/pdde/audit/run/existente/artifact/1"]) {
+    for (const path of ["/api/pdde/master-list", "/api/pdde/sources", "/api/pdde/run/inexistente", "/api/pdde/audit/runs", "/api/pdde/audit/sigef-coverage", "/api/pdde/audit/run/existente", "/api/pdde/audit/run/existente/schools", "/api/pdde/audit/run/existente/school/33069247", "/api/pdde/audit/run/existente/findings", "/api/pdde/audit/run/existente/artifact/1"]) {
       const response = await request(appForTest(), path);
       expect(response.status).toBe(401);
     }
+  });
+
+  it("comunica pelo próprio stream quando não pode iniciar por falta de sessão", async () => {
+    authenticateRequest.mockResolvedValue(null);
+    const response = await request(appForTest(), "/api/pdde/run");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
+    await expect(response.text()).resolves.toContain('"type":"fatal"');
   });
 
   it("retorna 429 para fontes repetidas e para novo início durante a janela de proteção", async () => {
@@ -109,8 +117,8 @@ describe("rotas operacionais protegidas do PDDE", () => {
     clearRunReservationForTest(user.id);
     reserveRunStart(user.id);
     const runResponse = await request(appForTest(), "/api/pdde/run");
-    expect(runResponse.status).toBe(429);
-    expect(runResponse.headers.get("retry-after")).not.toBeNull();
+    expect(runResponse.status).toBe(200);
+    await expect(runResponse.text()).resolves.toContain('"type":"fatal"');
   });
 
   it("retorna 429 também para lista-mestre e status repetidos", async () => {

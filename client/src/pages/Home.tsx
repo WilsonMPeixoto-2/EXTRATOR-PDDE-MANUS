@@ -310,7 +310,16 @@ export default function Home() {
     source.onerror = () => {
       source.close();
       const runId = window.localStorage.getItem(ACTIVE_RUN_STORAGE_KEY);
-      if (runId) void restoreRun(runId).catch(() => setFatalError("A conexão de acompanhamento foi interrompida. A execução persistida será recuperada ao atualizar a página."));
+      if (runId) {
+        void restoreRun(runId).catch(() => {
+          setRunning(false);
+          setFatalError("A conexão de acompanhamento foi interrompida antes de ser possível recuperar a execução. Atualize a página para tentar novamente.");
+        });
+        return;
+      }
+      setRunning(false);
+      setFatalError("Não foi possível iniciar a consulta. Verifique sua sessão institucional e tente novamente.");
+      appendEvent({ timestamp: "CONEXÃO", message: "A consulta não foi iniciada. Verifique a sessão institucional ou tente novamente em alguns instantes.", kind: "error" });
     };
   };
 
@@ -358,7 +367,7 @@ export default function Home() {
           <h1>Consultar as 163 escolas</h1>
           <p className="hero-copy">Use esta ação quando precisar atualizar os resultados. Ao terminar, a lista de escolas acima será renovada.</p>
             <div className="hero-actions">
-              <Button className="run-button" onClick={startExtraction} disabled={running || !master.valid || authLoading || !isAuthenticated}>
+              <Button className="run-button" onClick={startExtraction} disabled={running || authLoading || !isAuthenticated}>
                 {running ? <RefreshCw className="animate-spin" size={18} /> : <Play size={18} fill="currentColor" />} {running ? "Extração em curso" : "Iniciar extração"}
               </Button>
               {downloadUrl && validation?.passed ? (

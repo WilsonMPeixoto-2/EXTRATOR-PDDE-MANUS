@@ -17,3 +17,7 @@
 - [x] Verificar e registrar o estado operacional atual do Manus após a indisponibilidade percebida.
 - [x] Executar uma verificação prática curta da plataforma além da página de status e registrar a evidência observada.
 - [x] Registrar em documento de operação a hora, a fonte, o resultado e a limitação da verificação de disponibilidade.
+- [x] Corrigir o botão “Iniciar extração” para iniciar de fato a consulta e apresentar feedback de progresso sem afetar a Home existente.
+- [x] Comparar o fluxo de extração da versão atual com o último checkpoint funcional e restaurar a base estável se a causa não puder ser corrigida isoladamente.
+- [x] Exibir imediatamente no botão e no acompanhamento o início da consulta ou a causa objetiva de autenticação, limite temporário ou conexão interrompida.
+- [ ] Verificar no ambiente publicado que o stream do início da consulta retorna evento legível para sessão ausente e permite a execução autenticada.
